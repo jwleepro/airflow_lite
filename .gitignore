@@ -48,6 +48,7 @@ logs/
 .env.*
 !.env.example
 *.local
+config/pipelines.yaml
 
 # Jupyter
 .ipynb_checkpoints/
