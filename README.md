@@ -211,3 +211,4 @@ pytest --cov=src/airflow_lite --cov-report=term-missing
 
 - [`docs/requirements.md`](docs/requirements.md) — 기능/비기능 요구사항 정의
 - [`docs/architecture.md`](docs/architecture.md) — 상세 설계 결정 및 아키텍처
+- [`docs/integration-test.md`](docs/integration-test.md) — 패키징 배포 후 런타임 통합 테스트 검수 명세서
