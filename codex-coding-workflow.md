@@ -293,6 +293,34 @@ AI가 실제로 시스템을 사용해 보게 만든다.
 - 리스크 요약
 - 차단 사유 명시
 
+### 4.3 2026년 기준 현실 도구 예시
+
+이 문서는 벤더 중립 추상화를 유지하지만, 실제 팀 도입 시에는 아래처럼 널리 쓰이는 도구 조합으로 구현하는 경우가 많다.
+
+아래 목록은 `2026-03` 기준 공개 자료가 있는 경우는 그 자료를 따르고, 없는 경우는 공식 문서와 생태계 채택 신호를 바탕으로 고른 `대표 예시`다.
+즉, 엄밀한 전 세계 점유율 순위표가 아니라 "실무에서 자주 보이는 상위권 후보"로 읽는 편이 맞다.
+
+| 운영 항목 | 대표 도구 예시 (2026) | 이 문서에서 대응되는 추상 계층 | 메모 |
+|---|---|---|---|
+| 코딩 agent 실행 | `GitHub Copilot coding agent`, `Claude Code`, `Cursor Agent` | `agent-runner`, Stage 4 | 구현, 수정, PR 생성까지 직접 수행하는 실행 계층 |
+| 팀 규칙 / 헌법 / 온보딩 | `CLAUDE.md`, `Cursor Rules`, `GitHub Copilot custom instructions` | `project-profile`, `spec`, Stage 0-3 | AI가 문제를 임의 재정의하지 못하게 만드는 상위 규칙 계층 |
+| 반복 명령 / 작업 템플릿 | `Claude Code slash commands`, `GitHub Copilot prompt files`, `Cursor Custom Modes` | `spec-compiler`, `context-bundler`, Stage 0-3 | 자주 쓰는 작업을 재사용 가능한 명령/프롬프트로 고정 |
+| 외부 도구 연결 | `MCP`, `GitHub MCP Server`, `Playwright MCP` | `context-bundler`, `agent-runner`, `scenario-runner` | 저장소, 브라우저, 외부 시스템을 AI가 직접 다루게 하는 연결 계층 |
+| 이슈 / 백로그 관리 | `Jira`, `GitHub Issues + Projects`, `Linear` | `spec-compiler`, `task-slicer` | 요구사항을 task로 구조화하고 우선순위를 관리하는 계층 |
+| 품질 가드레일 / Hook | `Claude Code Hooks`, `pre-commit`, `Husky` | `check-runner`, `release-gate`, Stage 5-8 | 실수 방지, 규칙 강제, 커밋 전 자동 검사에 자주 사용 |
+| PR / 코드리뷰 / CI | `GitHub Actions`, `CodeRabbit`, `SonarQube` | `check-runner`, `release-gate` | 자동 검증, PR 리뷰, 병합 전 차단 규칙에 주로 사용 |
+| 브라우저 / E2E / 시나리오 검증 | `Playwright`, `Cypress`, `Selenium` | `scenario-runner` | unit test 밖의 실제 사용자 흐름 검증에 적합 |
+| 인프라 / IaC / 배포 | `Terraform`, `OpenTofu`, `Pulumi` | `project-profile`, Stage 7-8 | 인프라 변경을 코드와 검증 파이프라인 안으로 넣는 계층 |
+| 운영 관측 / 장애 추적 | `Grafana + Prometheus`, `Sentry`, `Langfuse` | `nonfunctional-runner`, Stage 7-9 | 서비스 운영 지표, 오류, AI 호출 품질을 추적하는 계층 |
+| 멀티 agent / 오케스트레이션 | `LangChain`, `LangGraph`, `Ollama` | 멀티 agent 운영 규칙, handoff, Stage 2-6 | 여러 agent를 묶거나 로컬/사내 실행 환경을 구성할 때 자주 보임 |
+
+#### 도구 표를 읽는 방법
+
+- 이 문서의 `profile-compiler`, `task-slicer`, `context-bundler` 같은 이름은 "반드시 그 제품을 써라"가 아니라 "그 역할을 수행하는 계층이 필요하다"는 뜻이다.
+- 예를 들어 규칙 계층은 `CLAUDE.md` 하나로 끝나는 것이 아니라, `CLAUDE.md` + `Hooks` + `prompt files` + 저장소 규칙 문서 조합으로 운영되는 경우가 많다.
+- GitHub 중심 조직이면 `GitHub Copilot`, `GitHub Actions`, `GitHub Issues`, `CodeRabbit` 조합이 자연스럽고, Claude 중심 조직이면 `Claude Code`, `MCP`, `Playwright MCP`, `CLAUDE.md` 조합이 자연스럽다.
+- 따라서 실제 도입에서는 "도구명"보다 "어떤 추상 계층을 어떤 조합으로 채우는가"를 먼저 결정하는 편이 안전하다.
+
 ---
 
 ## 5. 단계별 절차형 워크플로
