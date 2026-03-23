@@ -137,5 +137,5 @@ class PipelineScheduler:
 
 ## 참고 (선택)
 
-- 스케줄러 설계: `docs/architecture.md` 섹션 6
+- 스케줄러 설계: `docs/system_design/architecture.md` 섹션 6
 - APScheduler 공식 문서: https://apscheduler.readthedocs.io/

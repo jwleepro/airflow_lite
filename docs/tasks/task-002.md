@@ -190,5 +190,5 @@ class StepRunRepository:
 
 ## 참고 (선택)
 
-- DDL 원본: `docs/architecture.md` 섹션 4
-- 전체 아키텍처: `docs/architecture.md`
+- DDL 원본: `docs/system_design/architecture.md` 섹션 4
+- 전체 아키텍처: `docs/system_design/architecture.md`

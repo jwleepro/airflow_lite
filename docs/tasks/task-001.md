@@ -274,6 +274,6 @@ def setup_logging(log_dir: str, level: int = logging.INFO) -> None:
 
 ## 참고 (선택)
 
-- 전체 프로젝트 구조: `docs/architecture.md` 섹션 2
-- 설정 YAML 예시: `docs/architecture.md` 섹션 5
-- 요구사항 원문: `docs/requirements.md`
+- 전체 프로젝트 구조: `docs/system_design/architecture.md` 섹션 2
+- 설정 YAML 예시: `docs/system_design/architecture.md` 섹션 5
+- 요구사항 원문: `docs/system_design/requirements.md`

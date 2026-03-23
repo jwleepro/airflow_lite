@@ -262,6 +262,6 @@ class ParquetWriter:
 
 ## 참고 (선택)
 
-- Strategy 패턴 설계: `docs/architecture.md` 섹션 3.1
-- 청크 스트리밍 설계: `docs/architecture.md` 섹션 3.4
-- 파티셔닝 구조: `docs/architecture.md` 섹션 3.5
+- Strategy 패턴 설계: `docs/system_design/architecture.md` 섹션 3.1
+- 청크 스트리밍 설계: `docs/system_design/architecture.md` 섹션 3.4
+- 파티셔닝 구조: `docs/system_design/architecture.md` 섹션 3.5

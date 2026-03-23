@@ -144,5 +144,5 @@ class BackfillManager:
 
 ## 참고 (선택)
 
-- 백필 설계: `docs/architecture.md` 섹션 3.5
+- 백필 설계: `docs/system_design/architecture.md` 섹션 3.5
 - 파티셔닝 구조: `{base_path}/{TABLE_NAME}/YYYY={MM}/`

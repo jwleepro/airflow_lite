@@ -220,6 +220,6 @@ python -m airflow_lite service stop
 
 ## 참고 (선택)
 
-- Windows 서비스 설계: `docs/architecture.md` 섹션 9
-- 단일 프로세스 구조: `docs/architecture.md` 설계 원칙 P1
+- Windows 서비스 설계: `docs/system_design/architecture.md` 섹션 9
+- 단일 프로세스 구조: `docs/system_design/architecture.md` 설계 원칙 P1
 - pywin32 서비스 문서: https://github.com/mhammond/pywin32

@@ -216,5 +216,5 @@ class AlertManager:
 
 ## 참고 (선택)
 
-- 알림 설계: `docs/architecture.md` 섹션 8
+- 알림 설계: `docs/system_design/architecture.md` 섹션 8
 - 트리거 조건: RetryConfig의 `on_failure_callback` 경유

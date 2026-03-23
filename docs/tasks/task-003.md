@@ -217,6 +217,6 @@ RETRYABLE_EXCEPTIONS = (RetryableOracleError, ConnectionError, TimeoutError)
 
 ## 참고 (선택)
 
-- 상태 전이 다이어그램: `docs/architecture.md` 섹션 3.2
-- PipelineRunner 인터페이스: `docs/architecture.md` 섹션 3.3
-- 재시도 에러 목록: `docs/architecture.md` 섹션 3.6
+- 상태 전이 다이어그램: `docs/system_design/architecture.md` 섹션 3.2
+- PipelineRunner 인터페이스: `docs/system_design/architecture.md` 섹션 3.3
+- 재시도 에러 목록: `docs/system_design/architecture.md` 섹션 3.6

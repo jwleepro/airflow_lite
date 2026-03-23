@@ -194,6 +194,6 @@ class PaginatedResponse(BaseModel):
 
 ## 참고 (선택)
 
-- API 설계: `docs/architecture.md` 섹션 7
-- Request/Response 스키마: `docs/architecture.md` 섹션 7
-- AG Grid 호환 응답 포맷: `docs/architecture.md` 섹션 10
+- API 설계: `docs/system_design/architecture.md` 섹션 7
+- Request/Response 스키마: `docs/system_design/architecture.md` 섹션 7
+- AG Grid 호환 응답 포맷: `docs/system_design/architecture.md` 섹션 10
