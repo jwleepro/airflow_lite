@@ -184,7 +184,7 @@ PENDING → SKIPPED (선행 단계 실패 시)
 /data/parquet/{TABLE_NAME}/YYYY={MM}/{TABLE_NAME}_{YYYY}_{MM}.parquet
 ```
 
-자세한 설계는 [`docs/architecture.md`](docs/architecture.md)를 참조하세요.
+자세한 설계는 [`docs/specs/architecture.md`](docs/specs/architecture.md)를 참조하세요.
 
 ---
 
@@ -209,6 +209,6 @@ pytest --cov=src/airflow_lite --cov-report=term-missing
 
 ## 요구사항 문서
 
-- [`docs/requirements.md`](docs/requirements.md) — 기능/비기능 요구사항 정의
-- [`docs/architecture.md`](docs/architecture.md) — 상세 설계 결정 및 아키텍처
-- [`docs/integration-test.md`](docs/integration-test.md) — 패키징 배포 후 런타임 통합 테스트 검수 명세서
+- [`docs/specs/requirements.md`](docs/specs/requirements.md) — 기능/비기능 요구사항 정의
+- [`docs/specs/architecture.md`](docs/specs/architecture.md) — 상세 설계 결정 및 아키텍처
+- [`docs/specs/integration-test.md`](docs/specs/integration-test.md) — 패키징 배포 후 런타임 통합 테스트 검수 명세서
