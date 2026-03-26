@@ -250,7 +250,8 @@ def make_e2e_runner(oracle_client, parquet_writer, pipeline_repos):
             return StageResult(records_processed=total)
 
         def verify_stage(context) -> StageResult:
-            strategy.verify(context)
+            if not strategy.verify(context):
+                raise RuntimeError("verification failed")
             return StageResult()
 
         stages = [

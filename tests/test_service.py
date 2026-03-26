@@ -5,6 +5,7 @@ pywin32가 미설치된 환경에서도 동작하도록 win32 모듈을 sys.modu
 stub으로 주입한 뒤 테스트한다. pywin32가 설치된 환경에서는 실제 모듈을 사용한다.
 """
 import sys
+from datetime import date
 import pytest
 from unittest.mock import MagicMock, patch
 
@@ -196,6 +197,34 @@ class TestSvcDoRun:
         _, call_kwargs = run_ctx["threading"].Thread.call_args
         assert call_kwargs.get("daemon") is True
 
+    def test_passes_backfill_map_to_app(self, svc):
+        pipeline = MagicMock(name="pipeline")
+        pipeline.name = "test_pipeline"
+        mock_settings = _make_settings(pipelines=[pipeline])
+        create_app_mock = MagicMock()
+
+        with patch("airflow_lite.config.settings.Settings") as MockSettings, \
+             patch("airflow_lite.logging_config.setup.setup_logging"), \
+             patch("airflow_lite.storage.database.Database"), \
+             patch("airflow_lite.storage.repository.PipelineRunRepository"), \
+             patch("airflow_lite.storage.repository.StepRunRepository"), \
+             patch("airflow_lite.scheduler.scheduler.PipelineScheduler"), \
+             patch("airflow_lite.api.app.create_app", create_app_mock), \
+             patch.object(svc, "_create_runner_factory", return_value=MagicMock()), \
+             patch("airflow_lite.service.win_service.uvicorn"), \
+             patch("airflow_lite.service.win_service.threading"), \
+             patch("airflow_lite.service.win_service.servicemanager"), \
+             patch.object(win32event, "WaitForSingleObject"):
+
+            MockSettings.load.return_value = mock_settings
+            svc.SvcDoRun()
+
+        _, kwargs = create_app_mock.call_args
+        assert "backfill_map" in kwargs
+        assert list(kwargs["backfill_map"].keys()) == ["test_pipeline"]
+        assert callable(kwargs["backfill_map"]["test_pipeline"])
+        assert callable(kwargs["runner_map"]["test_pipeline"])
+
     def test_waits_for_stop_event_with_infinite_timeout(self, svc):
         """WaitForSingleObject(stop_event, INFINITE) 로 종료 이벤트를 대기해야 한다."""
         mock_settings = _make_settings()
@@ -380,6 +409,24 @@ class TestCreateRunnerFactory:
         factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
         runner = factory("full_pipe")
         assert runner.pipeline.name == "full_pipe"
+
+    def test_factory_marks_run_failed_when_verify_returns_false(self, svc, real_settings, repos):
+        run_repo, step_repo = repos
+        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        runner = factory("full_pipe")
+
+        runner.pipeline.strategy.extract = MagicMock(return_value=iter([]))
+        runner.pipeline.strategy.transform = MagicMock()
+        runner.pipeline.strategy.load = MagicMock()
+        runner.pipeline.strategy.verify = MagicMock(return_value=False)
+
+        result = runner.run(date(2026, 1, 1))
+        steps = step_repo.find_by_pipeline_run(result.id)
+        statuses = {step.step_name: step.status for step in steps}
+
+        assert result.status == "failed"
+        assert statuses["extract_transform_load"] == "success"
+        assert statuses["verify"] == "failed"
 
 
 # ── CLI __main__.py 검증 ──────────────────────────────────────────────────────

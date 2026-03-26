@@ -169,6 +169,24 @@ class PipelineRunRepository:
             conn.close()
         return _row_to_pipeline_run(row) if row else None
 
+    def find_latest_success_by_execution_date(
+        self, pipeline_name: str, execution_date: date
+    ) -> PipelineRun | None:
+        conn = self.database.get_connection()
+        try:
+            row = conn.execute(
+                """
+                SELECT * FROM pipeline_runs
+                WHERE pipeline_name = ? AND execution_date = ? AND status = 'success'
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (pipeline_name, execution_date.isoformat()),
+            ).fetchone()
+        finally:
+            conn.close()
+        return _row_to_pipeline_run(row) if row else None
+
 
 class StepRunRepository:
     """step_runs 테이블 CRUD. pipeline_run_id 기반 조회 지원."""
@@ -208,14 +226,14 @@ class StepRunRepository:
     def update_status(self, step_id: str, status: str, **kwargs) -> None:
         """status 업데이트. kwargs로 finished_at, records_processed,
         error_message, retry_count 등 선택적 필드 업데이트."""
-        allowed = {"finished_at", "records_processed", "error_message", "retry_count"}
+        allowed = {"started_at", "finished_at", "records_processed", "error_message", "retry_count"}
         sets = ["status = ?"]
         params: list = [status]
 
         for key, value in kwargs.items():
             if key not in allowed:
                 raise ValueError(f"허용되지 않은 필드: {key}")
-            if key == "finished_at" and isinstance(value, datetime):
+            if key in {"started_at", "finished_at"} and isinstance(value, datetime):
                 value = value.isoformat()
             sets.append(f"{key} = ?")
             params.append(value)

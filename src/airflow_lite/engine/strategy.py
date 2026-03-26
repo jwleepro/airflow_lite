@@ -8,6 +8,11 @@ import pyarrow as pa
 from airflow_lite.engine.stage import StageContext, StageResult
 
 
+def _build_select_columns(context: StageContext) -> str:
+    columns = getattr(context.table_config, "columns", None)
+    return ", ".join(columns) if columns else "*"
+
+
 class MigrationStrategy(ABC):
     """마이그레이션 전략 추상 클래스"""
 
@@ -47,7 +52,23 @@ class FullMigrationStrategy(MigrationStrategy):
         self.chunked_reader.connection = self.oracle_client.get_connection()
         self.chunked_reader.chunk_size = context.chunk_size
         self._is_first_chunk = True
-        return self.chunked_reader.read_chunks(query)
+        self.parquet_writer.finalize_partition(
+            context.table_config.table,
+            context.execution_date.year,
+            context.execution_date.month,
+        )
+
+        def _iter_chunks() -> Iterator[pd.DataFrame]:
+            try:
+                yield from self.chunked_reader.read_chunks(query)
+            finally:
+                self.parquet_writer.finalize_partition(
+                    context.table_config.table,
+                    context.execution_date.year,
+                    context.execution_date.month,
+                )
+
+        return _iter_chunks()
 
     def _build_full_query(self, context: StageContext) -> str:
         """월별 파티션 쿼리 생성.
@@ -65,8 +86,9 @@ class FullMigrationStrategy(MigrationStrategy):
         else:
             next_year, next_month = year, month + 1
 
+        selected_columns = _build_select_columns(context)
         return (
-            f"SELECT * FROM {table} "
+            f"SELECT {selected_columns} FROM {table} "
             f"WHERE {partition_col} >= DATE '{year:04d}-{month:02d}-01' "
             f"AND {partition_col} < DATE '{next_year:04d}-{next_month:02d}-01'"
         )
@@ -87,7 +109,14 @@ class FullMigrationStrategy(MigrationStrategy):
         else:
             append = True
 
-        self.parquet_writer.write_chunk(table, table_name, year, month, append=append)
+        self.parquet_writer.write_chunk(
+            table,
+            table_name,
+            year,
+            month,
+            append=append,
+            append_mode="single_file",
+        )
         return len(table)
 
     def verify(self, context: StageContext) -> bool:
@@ -152,8 +181,9 @@ class IncrementalMigrationStrategy(MigrationStrategy):
             else:
                 next_date = date(year, month, day + 1)
 
+        selected_columns = _build_select_columns(context)
         return (
-            f"SELECT * FROM {table} "
+            f"SELECT {selected_columns} FROM {table} "
             f"WHERE {incremental_key} >= DATE '{exec_date.strftime('%Y-%m-%d')}' "
             f"AND {incremental_key} < DATE '{next_date.strftime('%Y-%m-%d')}'"
         )

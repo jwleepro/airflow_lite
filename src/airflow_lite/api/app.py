@@ -1,3 +1,4 @@
+import re
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
@@ -6,6 +7,23 @@ from fastapi.middleware.cors import CORSMiddleware
 if TYPE_CHECKING:
     from airflow_lite.config.settings import Settings
     from airflow_lite.storage.repository import PipelineRunRepository, StepRunRepository
+
+
+def _split_cors_origins(origins: list[str]) -> tuple[list[str], str | None]:
+    exact_origins: list[str] = []
+    wildcard_patterns: list[str] = []
+
+    for origin in origins:
+        if "*" in origin:
+            wildcard_patterns.append(re.escape(origin).replace(r"\*", r"[^/]+"))
+        else:
+            exact_origins.append(origin)
+
+    if not wildcard_patterns:
+        return exact_origins, None
+
+    regex = f"^(?:{'|'.join(wildcard_patterns)})$"
+    return exact_origins, regex
 
 
 def create_app(
@@ -34,9 +52,11 @@ def create_app(
     app.state.step_repo = step_repo
 
     # CORS 미들웨어 설정 — 사내망 전용
+    allowed_origins, allowed_origin_regex = _split_cors_origins(settings.api.allowed_origins)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.api.allowed_origins,
+        allow_origins=allowed_origins,
+        allow_origin_regex=allowed_origin_regex,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

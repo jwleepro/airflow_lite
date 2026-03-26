@@ -79,3 +79,53 @@ class TestSettingsLoad:
         with pytest.raises(EnvironmentError) as exc_info:
             Settings.load(str(sample_yaml))
         assert "ORACLE_HOST" in str(exc_info.value)
+
+    def test_load_coerces_numeric_env_values(self, tmp_path, monkeypatch):
+        config_path = tmp_path / "pipelines.yaml"
+        config_path.write_text(
+            """\
+oracle:
+  host: ${ORACLE_HOST}
+  port: ${ORACLE_PORT}
+  service_name: ${ORACLE_SERVICE}
+  user: ${ORACLE_USER}
+  password: ${ORACLE_PASSWORD}
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+defaults:
+  chunk_size: ${DEFAULT_CHUNK_SIZE}
+
+api:
+  port: ${API_PORT}
+
+pipelines:
+  - name: "test_pipeline"
+    table: "TEST_TABLE"
+    partition_column: "DATE_COL"
+    strategy: "full"
+    schedule: "0 2 * * *"
+    chunk_size: ${PIPELINE_CHUNK_SIZE}
+""",
+            encoding="utf-8",
+        )
+
+        monkeypatch.setenv("ORACLE_HOST", "localhost")
+        monkeypatch.setenv("ORACLE_PORT", "1521")
+        monkeypatch.setenv("ORACLE_SERVICE", "ORCL")
+        monkeypatch.setenv("ORACLE_USER", "scott")
+        monkeypatch.setenv("ORACLE_PASSWORD", "tiger")
+        monkeypatch.setenv("DEFAULT_CHUNK_SIZE", "20000")
+        monkeypatch.setenv("API_PORT", "8100")
+        monkeypatch.setenv("PIPELINE_CHUNK_SIZE", "40000")
+
+        settings = Settings.load(str(config_path))
+
+        assert settings.oracle.port == 1521
+        assert isinstance(settings.oracle.port, int)
+        assert settings.defaults.chunk_size == 20000
+        assert settings.api.port == 8100
+        assert settings.pipelines[0].chunk_size == 40000

@@ -10,6 +10,10 @@ import uvicorn
 logger = logging.getLogger("airflow_lite.service")
 
 
+class VerificationFailedError(RuntimeError):
+    """소스-타겟 검증 실패."""
+
+
 class AirflowLiteService(win32serviceutil.ServiceFramework):
     _svc_name_ = "AirflowLiteService"
     _svc_display_name_ = "Airflow Lite Pipeline Service"
@@ -64,12 +68,26 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
             self.scheduler.start()
 
             # 5. uvicorn을 별도 스레드에서 실행
-            runner_map = {p.name: runner_factory(p.name) for p in settings.pipelines}
+            runner_map = {
+                p.name: (lambda pipeline_name=p.name: runner_factory(pipeline_name))
+                for p in settings.pipelines
+            }
+            from airflow_lite.engine.backfill import BackfillManager
+            backfill_map = {
+                p.name: (
+                    lambda pipeline_name=p.name: BackfillManager(
+                        pipeline_runner=runner_factory(pipeline_name),
+                        parquet_base_path=settings.storage.parquet_base_path,
+                    )
+                )
+                for p in settings.pipelines
+            }
 
             from airflow_lite.api.app import create_app
             app = create_app(
                 settings,
                 runner_map=runner_map,
+                backfill_map=backfill_map,
                 run_repo=run_repo,
                 step_repo=step_repo,
             )
@@ -167,7 +185,10 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
                 return StageResult(records_processed=total)
 
             def verify_stage(context) -> StageResult:
-                strategy.verify(context)
+                if not strategy.verify(context):
+                    raise VerificationFailedError(
+                        f"검증 실패: {pipeline_name} / {context.execution_date.isoformat()}"
+                    )
                 return StageResult()
 
             stages = [

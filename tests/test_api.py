@@ -125,6 +125,25 @@ def test_create_app_cors_middleware_configured():
     assert "CORSMiddleware" in middleware_types
 
 
+def test_create_app_default_cors_allows_internal_wildcard_origin():
+    settings = MagicMock()
+    settings.pipelines = []
+    settings.api = ApiConfig()
+    app = create_app(settings)
+    client = TestClient(app)
+
+    resp = client.options(
+        "/api/v1/pipelines",
+        headers={
+            "Origin": "http://10.0.0.15",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+
+    assert resp.status_code == 200
+    assert resp.headers["access-control-allow-origin"] == "http://10.0.0.15"
+
+
 # ── GET /api/v1/pipelines ─────────────────────────────────────────────────────
 
 def test_list_pipelines_returns_all(client):
@@ -180,6 +199,25 @@ def test_trigger_pipeline_not_found(client):
     assert "unknown_pipeline" in resp.json()["detail"]
 
 
+def test_trigger_pipeline_accepts_runner_factory(mock_runner, mock_run_repo, mock_step_repo):
+    settings = _make_settings()
+    app = create_app(
+        settings=settings,
+        runner_map={"test_pipeline": lambda: mock_runner},
+        run_repo=mock_run_repo,
+        step_repo=mock_step_repo,
+    )
+    client = TestClient(app)
+
+    resp = client.post(
+        "/api/v1/pipelines/test_pipeline/trigger",
+        json={"execution_date": "2026-01-01"},
+    )
+
+    assert resp.status_code == 200
+    mock_runner.run.assert_called_once()
+
+
 # ── POST /api/v1/pipelines/{name}/backfill ───────────────────────────────────
 
 def test_backfill_success(client, mock_backfill_manager):
@@ -204,6 +242,25 @@ def test_backfill_not_found(client):
         json={"start_date": "2026-01-01", "end_date": "2026-01-31"},
     )
     assert resp.status_code == 404
+
+
+def test_backfill_accepts_manager_factory(mock_backfill_manager, mock_run_repo, mock_step_repo):
+    settings = _make_settings()
+    app = create_app(
+        settings=settings,
+        backfill_map={"test_pipeline": lambda: mock_backfill_manager},
+        run_repo=mock_run_repo,
+        step_repo=mock_step_repo,
+    )
+    client = TestClient(app)
+
+    resp = client.post(
+        "/api/v1/pipelines/test_pipeline/backfill",
+        json={"start_date": "2026-01-01", "end_date": "2026-02-28"},
+    )
+
+    assert resp.status_code == 200
+    mock_backfill_manager.run_backfill.assert_called_once()
 
 
 # ── GET /api/v1/pipelines/{name}/runs ────────────────────────────────────────

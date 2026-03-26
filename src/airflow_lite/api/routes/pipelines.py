@@ -13,6 +13,14 @@ from airflow_lite.api.schemas import (
 router = APIRouter(tags=["pipelines"])
 
 
+def _resolve_runner(entry):
+    if hasattr(entry, "run"):
+        return entry
+    if callable(entry):
+        return entry()
+    raise TypeError("runner_map 항목은 runner 또는 runner factory여야 합니다.")
+
+
 def _build_run_response(run, step_runs) -> PipelineRunResponse:
     return PipelineRunResponse(
         id=run.id,
@@ -45,7 +53,8 @@ def trigger_pipeline(name: str, body: TriggerRequest, req: Request):
         raise HTTPException(status_code=404, detail=f"파이프라인 '{name}'을 찾을 수 없습니다.")
 
     execution_date = body.execution_date or date.today()
-    run = runner_map[name].run(execution_date=execution_date, trigger_type="manual")
+    runner = _resolve_runner(runner_map[name])
+    run = runner.run(execution_date=execution_date, trigger_type="manual")
 
     step_repo = req.app.state.step_repo
     steps = step_repo.find_by_pipeline_run(run.id) if step_repo else []

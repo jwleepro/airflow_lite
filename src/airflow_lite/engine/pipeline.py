@@ -61,8 +61,10 @@ class PipelineRunner:
         4. 단계 실패 시 후속 단계를 SKIPPED 처리 (실패 격리, P3)
         5. 모든 단계 완료 후 PipelineRun 상태 갱신
         """
-        existing = self.run_repo.find_by_execution_date(self.pipeline.name, execution_date)
-        if existing and existing.status == "success":
+        existing = self.run_repo.find_latest_success_by_execution_date(
+            self.pipeline.name, execution_date
+        )
+        if existing:
             return existing
 
         pipeline_run = PipelineRun(
@@ -101,6 +103,11 @@ class PipelineRunner:
                 continue
 
             self.state_machine.transition(step_run, StageState.RUNNING)
+            self.step_repo.update_status(
+                step_run.id,
+                StageState.RUNNING.value,
+                started_at=datetime.now(),
+            )
 
             try:
                 result = self._execute_stage_with_retry(stage, context, step_run)

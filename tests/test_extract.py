@@ -44,12 +44,14 @@ def _make_context(
     execution_date=date(2026, 3, 1),
     chunk_size=100,
     incremental_key=None,
+    columns=None,
 ) -> StageContext:
     table_config = MagicMock()
     table_config.table = table
     table_config.partition_column = partition_column
     table_config.strategy = strategy
     table_config.incremental_key = incremental_key
+    table_config.columns = columns
     return StageContext(
         pipeline_name="test_pipeline",
         execution_date=execution_date,
@@ -307,10 +309,40 @@ class TestParquetWriter:
         table2 = pa.table({"ID": [10, 11], "VAL": ["a", "b"]})
 
         writer.write_chunk(table1, "T", 2026, 3, append=False)
-        writer.write_chunk(table2, "T", 2026, 3, append=True)
+        chunk_output = writer.write_chunk(table2, "T", 2026, 3, append=True)
 
         result = writer.count_rows("T", 2026, 3)
         assert result == 7  # 5 + 2
+        assert chunk_output.name == "T_2026_03.part00001.parquet"
+
+    def test_write_chunk_single_file_append_keeps_base_file(self, tmp_path):
+        import pyarrow.parquet as pq
+
+        writer = ParquetWriter(str(tmp_path))
+        table1 = self._make_table(5)
+        table2 = pa.table({"ID": [10, 11], "VAL": ["a", "b"]})
+
+        output = writer.write_chunk(
+            table1, "T", 2026, 3, append=False, append_mode="single_file"
+        )
+        writer.write_chunk(
+            table2, "T", 2026, 3, append=True, append_mode="single_file"
+        )
+        writer.finalize_partition("T", 2026, 3)
+
+        assert pq.read_metadata(str(output)).num_rows == 7
+        assert not (output.parent / "T_2026_03.part00001.parquet").exists()
+
+    def test_write_chunk_append_does_not_rewrite_first_file(self, tmp_path):
+        writer = ParquetWriter(str(tmp_path))
+        table1 = self._make_table(5)
+        table2 = pa.table({"ID": [10, 11], "VAL": ["a", "b"]})
+
+        output = writer.write_chunk(table1, "T", 2026, 3, append=False)
+        mtime_before = output.stat().st_mtime
+        writer.write_chunk(table2, "T", 2026, 3, append=True)
+
+        assert output.stat().st_mtime == mtime_before
 
     def test_write_chunk_overwrite_when_not_append(self, tmp_path):
         writer = ParquetWriter(str(tmp_path))
@@ -350,6 +382,19 @@ class TestParquetWriter:
         bak_file = output_file.with_suffix(".bak")
         assert bak_file.exists()
         assert not output_file.exists()
+
+    def test_backup_existing_renames_chunk_files(self, tmp_path):
+        writer = ParquetWriter(str(tmp_path))
+        writer.write_chunk(self._make_table(5), "T", 2026, 3)
+        writer.write_chunk(pa.table({"ID": [10], "VAL": ["a"]}), "T", 2026, 3, append=True)
+
+        result = writer.backup_existing("T", 2026, 3)
+
+        assert result is True
+        output_dir, output_file = writer._get_paths("T", 2026, 3)
+        assert not any(output_dir.glob("*.parquet"))
+        assert (output_file.with_suffix(".bak")).exists()
+        assert (output_dir / "T_2026_03.part00001.bak").exists()
 
     def test_backup_existing_returns_false_when_no_file(self, tmp_path):
         writer = ParquetWriter(str(tmp_path))
@@ -392,6 +437,12 @@ class TestFullMigrationStrategy:
         assert "DATE '2026-12-01'" in query
         assert "DATE '2027-01-01'" in query
 
+    def test_build_full_query_uses_configured_columns(self):
+        strategy = self._make_strategy(Path("."))
+        ctx = _make_context(columns=["ID", "VAL", "DATE_COL"])
+        query = strategy._build_full_query(ctx)
+        assert query.startswith("SELECT ID, VAL, DATE_COL FROM TEST_TABLE")
+
     def test_extract_sets_connection_and_chunk_size(self, tmp_path):
         mock_conn = MagicMock()
         oracle_client = MagicMock()
@@ -422,7 +473,7 @@ class TestFullMigrationStrategy:
         assert count == 3
         parquet_writer.backup_existing.assert_called_once()
         parquet_writer.write_chunk.assert_called_once_with(
-            table, "TEST_TABLE", 2026, 3, append=False
+            table, "TEST_TABLE", 2026, 3, append=False, append_mode="single_file"
         )
 
     def test_load_subsequent_chunks_append_true(self, tmp_path):
@@ -443,6 +494,8 @@ class TestFullMigrationStrategy:
         calls = parquet_writer.write_chunk.call_args_list
         assert calls[0][1]["append"] is False
         assert calls[1][1]["append"] is True
+        assert calls[0][1]["append_mode"] == "single_file"
+        assert calls[1][1]["append_mode"] == "single_file"
 
     def test_transform_returns_pyarrow_table(self, tmp_path):
         strategy = self._make_strategy(tmp_path)
@@ -475,6 +528,21 @@ class TestIncrementalMigrationStrategy:
         assert "UPDATED_AT" in query
         assert "2026-03-15" in query
         assert "2026-03-16" in query
+
+    def test_build_incremental_query_uses_configured_columns(self):
+        oracle_client = MagicMock()
+        chunked_reader = MagicMock()
+        parquet_writer = MagicMock()
+        strategy = IncrementalMigrationStrategy(
+            oracle_client, chunked_reader, parquet_writer
+        )
+        ctx = _make_context(
+            incremental_key="UPDATED_AT",
+            execution_date=date(2026, 3, 15),
+            columns=["ID", "UPDATED_AT"],
+        )
+        query = strategy._build_incremental_query(ctx)
+        assert query.startswith("SELECT ID, UPDATED_AT FROM TEST_TABLE")
 
     def test_load_always_appends(self):
         oracle_client = MagicMock()

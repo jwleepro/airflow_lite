@@ -89,6 +89,13 @@ class ApiConfig:
     port: int = 8000
 
 
+def _coerce_int(value: int | str, field_name: str) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"정수 필드 '{field_name}'의 값이 올바르지 않습니다: {value!r}") from exc
+
+
 class Settings:
     """YAML 설정 로더. 환경변수 ${VAR} 참조를 자동 치환한다."""
 
@@ -107,21 +114,47 @@ class Settings:
 
         data = _walk_and_substitute(raw)
 
-        oracle = OracleConfig(**data["oracle"])
+        oracle_data = dict(data["oracle"])
+        oracle_data["port"] = _coerce_int(oracle_data["port"], "oracle.port")
+        oracle = OracleConfig(**oracle_data)
         storage = StorageConfig(**data["storage"])
 
         defaults_data = data.get("defaults", {})
-        retry = RetryDefaults(**defaults_data.get("retry", {}))
+        retry_data = dict(defaults_data.get("retry", {}))
+        if "max_attempts" in retry_data:
+            retry_data["max_attempts"] = _coerce_int(retry_data["max_attempts"], "defaults.retry.max_attempts")
+        if "min_wait_seconds" in retry_data:
+            retry_data["min_wait_seconds"] = _coerce_int(
+                retry_data["min_wait_seconds"], "defaults.retry.min_wait_seconds"
+            )
+        if "max_wait_seconds" in retry_data:
+            retry_data["max_wait_seconds"] = _coerce_int(
+                retry_data["max_wait_seconds"], "defaults.retry.max_wait_seconds"
+            )
+        retry = RetryDefaults(**retry_data)
         parquet = ParquetDefaults(**defaults_data.get("parquet", {}))
         defaults = DefaultConfig(
-            chunk_size=defaults_data.get("chunk_size", 10000),
+            chunk_size=_coerce_int(defaults_data.get("chunk_size", 10000), "defaults.chunk_size"),
             retry=retry,
             parquet=parquet,
         )
 
-        pipelines = [PipelineConfig(**p) for p in data.get("pipelines", [])]
+        pipelines = []
+        for index, pipeline_data in enumerate(data.get("pipelines", []), start=1):
+            pipeline_values = dict(pipeline_data)
+            if pipeline_values.get("chunk_size") is not None:
+                pipeline_values["chunk_size"] = _coerce_int(
+                    pipeline_values["chunk_size"], f"pipelines[{index}].chunk_size"
+                )
+            pipelines.append(PipelineConfig(**pipeline_values))
 
         api_data = data.get("api", {})
-        api = ApiConfig(**api_data) if api_data else ApiConfig()
+        if api_data:
+            api_values = dict(api_data)
+            if "port" in api_values:
+                api_values["port"] = _coerce_int(api_values["port"], "api.port")
+            api = ApiConfig(**api_values)
+        else:
+            api = ApiConfig()
 
         return cls(oracle=oracle, storage=storage, defaults=defaults, pipelines=pipelines, api=api)

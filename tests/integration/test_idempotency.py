@@ -85,9 +85,7 @@ class TestIdempotency:
             schedule="0 2 * * *",
         )
         good_runner = make_e2e_runner(good_config)
-        # UNIQUE(pipeline_name, execution_date, trigger_type) 제약으로 인해
-        # 실패 재시도는 다른 trigger_type으로 실행해야 함
-        result2 = good_runner.run(date(2026, 1, 1), trigger_type="manual")
+        result2 = good_runner.run(date(2026, 1, 1), trigger_type="scheduled")
 
         # 실패 후 재실행이므로 새 PipelineRun이 생성되어야 함
         assert result2.status == "success"

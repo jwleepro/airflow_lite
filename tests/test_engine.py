@@ -176,6 +176,7 @@ def test_run_all_stages_success(make_runner, step_repo):
 
     steps = step_repo.find_by_pipeline_run(pipeline_run.id)
     assert all(s.status == "success" for s in steps)
+    assert all(s.started_at is not None for s in steps)
     assert {s.step_name for s in steps} == {"extract", "transform", "load"}
 
 
@@ -189,6 +190,15 @@ def test_run_records_processed_persisted(make_runner, step_repo):
 
     steps = step_repo.find_by_pipeline_run(pipeline_run.id)
     assert steps[0].records_processed == 500
+
+
+def test_run_sets_step_started_at(make_runner, step_repo):
+    stages = [_make_stage("extract", lambda ctx: StageResult(records_processed=1))]
+    runner = make_runner(stages)
+    pipeline_run = runner.run(date(2024, 4, 3))
+
+    steps = step_repo.find_by_pipeline_run(pipeline_run.id)
+    assert steps[0].started_at is not None
 
 
 # ── 단계 실패 시 후속 단계 SKIPPED 처리 ────────────────────────────────────────
