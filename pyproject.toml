@@ -32,3 +32,19 @@ packages = ["src/airflow_lite"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "integration: tests requiring live Oracle DB (skip with '-m not integration')",
+    "slow: tests taking more than 30 seconds",
+]
+addopts = "--strict-markers"
+
+[tool.coverage.run]
+source = ["src/airflow_lite"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+]

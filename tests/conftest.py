@@ -1,7 +1,4 @@
 import pytest
-import os
-import tempfile
-from pathlib import Path
 
 from airflow_lite.storage.database import Database
 from airflow_lite.storage.repository import PipelineRunRepository, StepRunRepository
@@ -70,3 +67,20 @@ def pipeline_repo(db):
 @pytest.fixture
 def step_repo(db):
     return StepRunRepository(db)
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--run-integration",
+        action="store_true",
+        default=False,
+        help="Oracle DB가 필요한 통합 테스트를 실행한다",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    if not config.getoption("--run-integration", default=False):
+        skip = pytest.mark.skip(reason="--run-integration 옵션 필요 (Oracle DB 필요)")
+        for item in items:
+            if "integration" in item.keywords:
+                item.add_marker(skip)
