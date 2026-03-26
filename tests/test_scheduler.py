@@ -225,6 +225,32 @@ def test_misfire_grace_time_is_3600(scheduler):
 
 # ── graceful shutdown: 실행 중 작업 완료 대기 ────────────────────────────────
 
+def test_run_pipeline_logs_error_on_factory_failure(scheduler, runner_factory, caplog):
+    """runner_factory 실패 시 예외가 전파되지 않고 에러가 로깅된다."""
+    import logging
+    runner_factory.side_effect = KeyError("unknown_pipeline")
+    with caplog.at_level(logging.ERROR, logger="airflow_lite.scheduler"):
+        scheduler._run_pipeline("unknown_pipeline")  # 예외 미전파 확인
+    assert any("스케줄 실행 실패" in r.message for r in caplog.records)
+
+
+def test_run_pipeline_logs_error_on_runner_failure(scheduler, runner_factory, caplog):
+    """runner.run() 실패 시 예외가 전파되지 않고 에러가 로깅된다."""
+    import logging
+    mock_runner = MagicMock()
+    mock_runner.run.side_effect = RuntimeError("DB 연결 오류")
+    runner_factory.return_value = mock_runner
+    with caplog.at_level(logging.ERROR, logger="airflow_lite.scheduler"):
+        scheduler._run_pipeline("pipeline_a")  # 예외 미전파 확인
+    assert any("스케줄 실행 실패" in r.message for r in caplog.records)
+
+
+def test_run_pipeline_does_not_reraise(scheduler, runner_factory):
+    """예외가 발생해도 _run_pipeline은 예외를 전파하지 않는다."""
+    runner_factory.side_effect = Exception("심각한 오류")
+    scheduler._run_pipeline("pipeline_a")  # SystemExit/Exception 없이 완료되어야 함
+
+
 def test_graceful_shutdown_waits_for_running_job(tmp_path, runner_factory):
     """shutdown(wait=True) 호출 시 실행 중인 작업이 완료될 때까지 대기한다.
 

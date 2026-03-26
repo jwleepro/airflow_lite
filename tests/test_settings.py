@@ -3,6 +3,10 @@ import os
 from airflow_lite.config.settings import (
     _substitute_env_vars,
     _walk_and_substitute,
+    AlertingConfig,
+    AlertingTriggersConfig,
+    EmailChannelConfig,
+    WebhookChannelConfig,
     Settings,
 )
 
@@ -129,3 +133,130 @@ pipelines:
         assert settings.defaults.chunk_size == 20000
         assert settings.api.port == 8100
         assert settings.pipelines[0].chunk_size == 40000
+
+
+class TestAlertingConfig:
+    """Settings.load()의 alerting 섹션 파싱 검증."""
+
+    def _make_yaml(self, tmp_path, oracle_content, alerting_content=""):
+        content = f"""\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines: []
+{alerting_content}
+"""
+        yaml_file = tmp_path / "pipelines.yaml"
+        yaml_file.write_text(content, encoding="utf-8")
+        return yaml_file
+
+    def test_load_email_channel(self, tmp_path):
+        yaml_file = self._make_yaml(tmp_path, "", """\
+alerting:
+  channels:
+    - type: "email"
+      smtp_host: "mail.internal"
+      smtp_port: 25
+      recipients:
+        - "ops@company.com"
+  triggers:
+    on_failure: true
+    on_success: false
+""")
+        settings = Settings.load(str(yaml_file))
+        assert len(settings.alerting.channels) == 1
+        ch = settings.alerting.channels[0]
+        assert isinstance(ch, EmailChannelConfig)
+        assert ch.smtp_host == "mail.internal"
+        assert ch.smtp_port == 25
+        assert ch.recipients == ["ops@company.com"]
+
+    def test_load_webhook_channel(self, tmp_path):
+        yaml_file = self._make_yaml(tmp_path, "", """\
+alerting:
+  channels:
+    - type: "webhook"
+      url: "https://messenger.internal/webhook/abc"
+""")
+        settings = Settings.load(str(yaml_file))
+        assert len(settings.alerting.channels) == 1
+        ch = settings.alerting.channels[0]
+        assert isinstance(ch, WebhookChannelConfig)
+        assert ch.url == "https://messenger.internal/webhook/abc"
+
+    def test_load_multiple_channels(self, tmp_path):
+        yaml_file = self._make_yaml(tmp_path, "", """\
+alerting:
+  channels:
+    - type: "email"
+      smtp_host: "mail.internal"
+      recipients: ["ops@company.com"]
+    - type: "webhook"
+      url: "https://messenger.internal/webhook/abc"
+""")
+        settings = Settings.load(str(yaml_file))
+        assert len(settings.alerting.channels) == 2
+        assert isinstance(settings.alerting.channels[0], EmailChannelConfig)
+        assert isinstance(settings.alerting.channels[1], WebhookChannelConfig)
+
+    def test_load_triggers_on_failure_true(self, tmp_path):
+        yaml_file = self._make_yaml(tmp_path, "", """\
+alerting:
+  channels: []
+  triggers:
+    on_failure: true
+    on_success: false
+""")
+        settings = Settings.load(str(yaml_file))
+        assert settings.alerting.triggers.on_failure is True
+        assert settings.alerting.triggers.on_success is False
+
+    def test_load_triggers_defaults_when_omitted(self, tmp_path):
+        yaml_file = self._make_yaml(tmp_path, "", """\
+alerting:
+  channels: []
+""")
+        settings = Settings.load(str(yaml_file))
+        assert settings.alerting.triggers.on_failure is True
+        assert settings.alerting.triggers.on_success is False
+
+    def test_load_no_alerting_section_uses_defaults(self, tmp_path):
+        yaml_file = self._make_yaml(tmp_path, "")
+        settings = Settings.load(str(yaml_file))
+        assert isinstance(settings.alerting, AlertingConfig)
+        assert settings.alerting.channels == []
+        assert settings.alerting.triggers.on_failure is True
+
+    def test_load_unknown_channel_type_raises(self, tmp_path):
+        yaml_file = self._make_yaml(tmp_path, "", """\
+alerting:
+  channels:
+    - type: "sms"
+      phone: "+82-10-1234-5678"
+""")
+        with pytest.raises(ValueError, match="알 수 없는 알림 채널 타입"):
+            Settings.load(str(yaml_file))
+
+    def test_load_smtp_port_coercion(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SMTP_PORT", "587")
+        yaml_file = self._make_yaml(tmp_path, "", """\
+alerting:
+  channels:
+    - type: "email"
+      smtp_host: "mail.internal"
+      smtp_port: ${SMTP_PORT}
+      recipients: ["ops@company.com"]
+""")
+        settings = Settings.load(str(yaml_file))
+        ch = settings.alerting.channels[0]
+        assert ch.smtp_port == 587
+        assert isinstance(ch.smtp_port, int)

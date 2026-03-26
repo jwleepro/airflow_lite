@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request
 
-from airflow_lite.api.schemas import BackfillRequest, PipelineRunResponse, StepRunResponse
+from airflow_lite.api.routes.pipelines import build_run_response
+from airflow_lite.api.schemas import BackfillRequest, PipelineRunResponse
 
 router = APIRouter(tags=["backfill"])
 
@@ -31,27 +32,5 @@ def request_backfill(name: str, body: BackfillRequest, req: Request):
     result = []
     for run in runs:
         steps = step_repo.find_by_pipeline_run(run.id) if step_repo else []
-        result.append(
-            PipelineRunResponse(
-                id=run.id,
-                pipeline_name=run.pipeline_name,
-                execution_date=run.execution_date,
-                status=run.status,
-                started_at=run.started_at,
-                finished_at=run.finished_at,
-                trigger_type=run.trigger_type,
-                steps=[
-                    StepRunResponse(
-                        step_name=s.step_name,
-                        status=s.status,
-                        started_at=s.started_at,
-                        finished_at=s.finished_at,
-                        records_processed=s.records_processed,
-                        error_message=s.error_message,
-                        retry_count=s.retry_count,
-                    )
-                    for s in steps
-                ],
-            )
-        )
+        result.append(build_run_response(run, steps))
     return result

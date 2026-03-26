@@ -89,6 +89,34 @@ class ApiConfig:
     port: int = 8000
 
 
+@dataclass
+class EmailChannelConfig:
+    type: str
+    smtp_host: str
+    smtp_port: int = 25
+    sender: str = "airflow-lite@company.com"
+    recipients: list = field(default_factory=list)
+
+
+@dataclass
+class WebhookChannelConfig:
+    type: str
+    url: str
+    timeout: float = 10.0
+
+
+@dataclass
+class AlertingTriggersConfig:
+    on_failure: bool = True
+    on_success: bool = False
+
+
+@dataclass
+class AlertingConfig:
+    channels: list = field(default_factory=list)
+    triggers: AlertingTriggersConfig = field(default_factory=AlertingTriggersConfig)
+
+
 def _coerce_int(value: int | str, field_name: str) -> int:
     try:
         return int(value)
@@ -99,12 +127,13 @@ def _coerce_int(value: int | str, field_name: str) -> int:
 class Settings:
     """YAML 설정 로더. 환경변수 ${VAR} 참조를 자동 치환한다."""
 
-    def __init__(self, oracle, storage, defaults, pipelines, api=None):
+    def __init__(self, oracle, storage, defaults, pipelines, api=None, alerting=None):
         self.oracle = oracle
         self.storage = storage
         self.defaults = defaults
         self.pipelines = pipelines
         self.api = api or ApiConfig()
+        self.alerting = alerting or AlertingConfig()
 
     @classmethod
     def load(cls, config_path: str) -> "Settings":
@@ -157,4 +186,24 @@ class Settings:
         else:
             api = ApiConfig()
 
-        return cls(oracle=oracle, storage=storage, defaults=defaults, pipelines=pipelines, api=api)
+        alerting_data = data.get("alerting", {})
+        if alerting_data:
+            channels = []
+            for ch_data in alerting_data.get("channels", []):
+                ch = dict(ch_data)
+                ch_type = ch.get("type")
+                if ch_type == "email":
+                    if "smtp_port" in ch:
+                        ch["smtp_port"] = _coerce_int(ch["smtp_port"], "alerting.channels[].smtp_port")
+                    channels.append(EmailChannelConfig(**ch))
+                elif ch_type == "webhook":
+                    channels.append(WebhookChannelConfig(**ch))
+                else:
+                    raise ValueError(f"알 수 없는 알림 채널 타입: {ch_type!r}")
+            triggers_data = alerting_data.get("triggers", {})
+            triggers = AlertingTriggersConfig(**triggers_data)
+            alerting = AlertingConfig(channels=channels, triggers=triggers)
+        else:
+            alerting = AlertingConfig()
+
+        return cls(oracle=oracle, storage=storage, defaults=defaults, pipelines=pipelines, api=api, alerting=alerting)

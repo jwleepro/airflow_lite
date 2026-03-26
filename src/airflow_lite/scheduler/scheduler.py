@@ -64,9 +64,13 @@ class PipelineScheduler:
         """스케줄러에 의해 호출되는 파이프라인 실행 함수.
 
         execution_date는 오늘 날짜, trigger_type은 'scheduled'.
+        예외는 로깅 후 삼키며, APScheduler 잡 제거를 방지한다.
         """
-        runner = self.runner_factory(pipeline_name)
-        runner.run(execution_date=date.today(), trigger_type="scheduled")
+        try:
+            runner = self.runner_factory(pipeline_name)
+            runner.run(execution_date=date.today(), trigger_type="scheduled")
+        except Exception:
+            logger.exception("스케줄 실행 실패: %s", pipeline_name)
 
     def start(self) -> None:
         """스케줄러 시작."""

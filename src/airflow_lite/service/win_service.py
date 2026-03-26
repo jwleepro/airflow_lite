@@ -145,6 +145,10 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
         공유 인프라(OracleClient, ParquetWriter, StageStateMachine)는 한 번 생성하고,
         PipelineRunner는 호출마다 새 인스턴스를 반환한다.
         """
+        from datetime import datetime
+
+        from airflow_lite.alerting import AlertManager, AlertMessage, EmailAlertChannel, WebhookAlertChannel
+        from airflow_lite.config.settings import EmailChannelConfig, WebhookChannelConfig
         from airflow_lite.engine.pipeline import PipelineDefinition, PipelineRunner
         from airflow_lite.engine.stage import RetryConfig, StageDefinition, StageResult
         from airflow_lite.engine.state_machine import StageStateMachine
@@ -161,6 +165,29 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
         state_machine = StageStateMachine(step_repo)
         pipeline_config_map = {p.name: p for p in settings.pipelines}
 
+        # AlertManager 생성 (설정 기반)
+        alert_channels = []
+        for ch_config in settings.alerting.channels:
+            if isinstance(ch_config, EmailChannelConfig):
+                alert_channels.append(EmailAlertChannel(
+                    smtp_host=ch_config.smtp_host,
+                    smtp_port=ch_config.smtp_port,
+                    sender=ch_config.sender,
+                    recipients=ch_config.recipients,
+                ))
+            elif isinstance(ch_config, WebhookChannelConfig):
+                alert_channels.append(WebhookAlertChannel(
+                    url=ch_config.url,
+                    timeout=ch_config.timeout,
+                ))
+        alert_manager = AlertManager(
+            channels=alert_channels,
+            triggers={
+                "on_failure": settings.alerting.triggers.on_failure,
+                "on_success": settings.alerting.triggers.on_success,
+            },
+        )
+
         def factory(pipeline_name: str) -> PipelineRunner:
             pipeline_config = pipeline_config_map[pipeline_name]
             chunk_size = pipeline_config.chunk_size or settings.defaults.chunk_size
@@ -171,10 +198,22 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
             else:
                 strategy = IncrementalMigrationStrategy(oracle_client, chunked_reader, parquet_writer)
 
+            def on_failure_callback(context, exc):
+                """재시도 소진 후 최종 실패 시 AlertManager를 통해 알림 발송."""
+                alert = AlertMessage(
+                    pipeline_name=context.pipeline_name,
+                    execution_date=context.execution_date,
+                    status="failed",
+                    error_message=str(exc),
+                    timestamp=datetime.now(),
+                )
+                alert_manager.notify(alert)
+
             retry_config = RetryConfig(
                 max_attempts=settings.defaults.retry.max_attempts,
                 min_wait_seconds=settings.defaults.retry.min_wait_seconds,
                 max_wait_seconds=settings.defaults.retry.max_wait_seconds,
+                on_failure_callback=on_failure_callback,
             )
 
             def etl_stage(context) -> StageResult:

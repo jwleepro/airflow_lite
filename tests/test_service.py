@@ -410,6 +410,43 @@ class TestCreateRunnerFactory:
         runner = factory("full_pipe")
         assert runner.pipeline.name == "full_pipe"
 
+    def test_factory_sets_on_failure_callback(self, svc, real_settings, repos):
+        """RetryConfig.on_failure_callback이 None이 아니어야 한다."""
+        run_repo, step_repo = repos
+        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        runner = factory("full_pipe")
+        etl_stage = runner.pipeline.stages[0]
+        assert etl_stage.retry_config.on_failure_callback is not None
+        assert callable(etl_stage.retry_config.on_failure_callback)
+
+    def test_factory_on_failure_callback_calls_alert_manager(self, svc, real_settings, repos):
+        """on_failure_callback 호출 시 AlertManager.notify()가 실행된다."""
+        from datetime import date as date_cls
+        from airflow_lite.engine.stage import StageContext
+
+        run_repo, step_repo = repos
+        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        runner = factory("full_pipe")
+        callback = runner.pipeline.stages[0].retry_config.on_failure_callback
+
+        context = StageContext(
+            pipeline_name="full_pipe",
+            execution_date=date_cls(2026, 1, 1),
+            table_config=real_settings.pipelines[0],
+            run_id="test-run-id",
+            chunk_size=10000,
+        )
+        exc = RuntimeError("테스트 오류")
+
+        with patch("airflow_lite.alerting.base.AlertManager.notify") as mock_notify:
+            callback(context, exc)
+
+        mock_notify.assert_called_once()
+        alert_arg = mock_notify.call_args[0][0]
+        assert alert_arg.pipeline_name == "full_pipe"
+        assert alert_arg.status == "failed"
+        assert "테스트 오류" in alert_arg.error_message
+
     def test_factory_marks_run_failed_when_verify_returns_false(self, svc, real_settings, repos):
         run_repo, step_repo = repos
         factory = svc._create_runner_factory(real_settings, run_repo, step_repo)

@@ -21,7 +21,7 @@ def _resolve_runner(entry):
     raise TypeError("runner_map 항목은 runner 또는 runner factory여야 합니다.")
 
 
-def _build_run_response(run, step_runs) -> PipelineRunResponse:
+def build_run_response(run, step_runs) -> PipelineRunResponse:
     return PipelineRunResponse(
         id=run.id,
         pipeline_name=run.pipeline_name,
@@ -58,7 +58,7 @@ def trigger_pipeline(name: str, body: TriggerRequest, req: Request):
 
     step_repo = req.app.state.step_repo
     steps = step_repo.find_by_pipeline_run(run.id) if step_repo else []
-    return _build_run_response(run, steps)
+    return build_run_response(run, steps)
 
 
 @router.get("/pipelines", response_model=list[PipelineInfo])
@@ -102,7 +102,7 @@ def list_runs(name: str, req: Request, page: int = 1, page_size: int = 50):
     run_responses = []
     for run in items:
         steps = step_repo.find_by_pipeline_run(run.id) if step_repo else []
-        run_responses.append(_build_run_response(run, steps))
+        run_responses.append(build_run_response(run, steps))
 
     return PaginatedResponse(items=run_responses, total=total, page=page, page_size=page_size)
 
@@ -120,4 +120,4 @@ def get_run_detail(name: str, run_id: str, req: Request):
 
     step_repo = req.app.state.step_repo
     steps = step_repo.find_by_pipeline_run(run.id) if step_repo else []
-    return _build_run_response(run, steps)
+    return build_run_response(run, steps)
