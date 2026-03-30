@@ -16,15 +16,22 @@ class Database:
     def initialize(self) -> None:
         """schema.sql을 실행하여 테이블 생성."""
         schema_path = Path(__file__).parent / "schema.sql"
-        with open(schema_path, "r", encoding="utf-8") as f:
-            schema_sql = f.read()
+        schema_sql = schema_path.read_text(encoding="utf-8")
         conn = self.get_connection()
         try:
-            conn.executescript(schema_sql)
+            self._execute_script_atomically(conn, schema_sql)
             self._migrate_pipeline_runs_unique_constraint(conn)
-            conn.commit()
+            self._drop_pipeline_runs_success_unique_index(conn)
         finally:
             conn.close()
+
+    def _execute_script_atomically(self, conn: sqlite3.Connection, script: str) -> None:
+        wrapped = f"BEGIN;\n{script.strip()}\nCOMMIT;"
+        try:
+            conn.executescript(wrapped)
+        except Exception:
+            conn.rollback()
+            raise
 
     def _migrate_pipeline_runs_unique_constraint(self, conn: sqlite3.Connection) -> None:
         row = conn.execute(
@@ -40,7 +47,8 @@ class Database:
 
         conn.execute("PRAGMA foreign_keys = OFF")
         try:
-            conn.executescript(
+            self._execute_script_atomically(
+                conn,
                 """
                 ALTER TABLE step_runs RENAME TO step_runs_old;
                 ALTER TABLE pipeline_runs RENAME TO pipeline_runs_old;
@@ -94,12 +102,14 @@ class Database:
                     ON pipeline_runs(execution_date);
                 CREATE INDEX IF NOT EXISTS idx_pipeline_runs_status
                     ON pipeline_runs(status);
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_pipeline_runs_success_unique
-                    ON pipeline_runs(pipeline_name, execution_date, trigger_type)
-                    WHERE status = 'success';
                 CREATE INDEX IF NOT EXISTS idx_step_runs_pipeline_run
                     ON step_runs(pipeline_run_id);
-                """
+                """,
             )
         finally:
             conn.execute("PRAGMA foreign_keys = ON")
+
+    def _drop_pipeline_runs_success_unique_index(self, conn: sqlite3.Connection) -> None:
+        self._execute_script_atomically(
+            conn, "DROP INDEX IF EXISTS idx_pipeline_runs_success_unique;"
+        )

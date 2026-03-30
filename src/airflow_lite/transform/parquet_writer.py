@@ -44,6 +44,18 @@ class ParquetWriter:
             if path.suffix == ".parquet" and not path.name.endswith(".bak")
         )
 
+    def _list_backup_files(self, table_name: str, year: int, month: int) -> list[Path]:
+        output_dir, output_file = self._get_paths(table_name, year, month)
+        if not output_dir.exists():
+            return []
+
+        base_stem = output_file.stem
+        return sorted(
+            path
+            for path in output_dir.glob(f"{base_stem}*.bak")
+            if path.suffix == ".bak"
+        )
+
     def finalize_partition(self, table_name: str, year: int, month: int) -> None:
         key = self._partition_key(table_name, year, month)
         writer = self._active_writers.pop(key, None)
@@ -118,6 +130,38 @@ class ParquetWriter:
             parquet_file.rename(bak_file)
             logger.info("기존 파일 백업: %s -> %s", parquet_file, bak_file)
         return True
+
+    def remove_partition_files(self, table_name: str, year: int, month: int) -> int:
+        """현재 파티션의 parquet 파일을 모두 삭제한다."""
+        self.finalize_partition(table_name, year, month)
+        removed = 0
+        for parquet_file in self._list_parquet_files(table_name, year, month):
+            parquet_file.unlink()
+            removed += 1
+            logger.info("파티션 파일 삭제: %s", parquet_file)
+        return removed
+
+    def remove_backups(self, table_name: str, year: int, month: int) -> int:
+        """성공 후 남아 있는 .bak 파일을 정리한다."""
+        removed = 0
+        for bak_file in self._list_backup_files(table_name, year, month):
+            bak_file.unlink()
+            removed += 1
+            logger.info("백업 파일 삭제: %s", bak_file)
+        return removed
+
+    def restore_backups(self, table_name: str, year: int, month: int) -> int:
+        """실패 시 현재 출력물을 제거하고 .bak 파일을 원래 parquet 이름으로 복원한다."""
+        self.finalize_partition(table_name, year, month)
+        self.remove_partition_files(table_name, year, month)
+
+        restored = 0
+        for bak_file in self._list_backup_files(table_name, year, month):
+            parquet_file = bak_file.with_suffix(".parquet")
+            bak_file.rename(parquet_file)
+            restored += 1
+            logger.info("백업 파일 복원: %s -> %s", bak_file, parquet_file)
+        return restored
 
     def count_rows(self, table_name: str, year: int, month: int) -> int:
         """Parquet 파일의 행 수 반환. 파일이 없으면 0."""

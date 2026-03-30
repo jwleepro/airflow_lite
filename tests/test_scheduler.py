@@ -144,6 +144,26 @@ def test_register_pipelines_empty(tmp_path, runner_factory):
     assert sched.scheduler.get_jobs() == []
 
 
+def test_register_pipelines_supports_interval_schedule(tmp_path, runner_factory):
+    pipelines = [
+        PipelineConfig(
+            name="interval_pipeline",
+            table="TABLE_C",
+            partition_column="DATE_COL",
+            strategy="full",
+            schedule="interval:15m",
+        )
+    ]
+    settings = _make_settings(str(tmp_path / "interval.db"), pipelines)
+    sched = PipelineScheduler(settings=settings, runner_factory=runner_factory)
+
+    sched.register_pipelines()
+
+    job = sched.scheduler.get_job("interval_pipeline")
+    assert job is not None
+    assert job.trigger.__class__.__name__ == "IntervalTrigger"
+
+
 # ── start() / shutdown() 생명주기 ─────────────────────────────────────────────
 
 def test_start_makes_scheduler_running(scheduler):

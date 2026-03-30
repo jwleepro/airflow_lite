@@ -1,7 +1,7 @@
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from tenacity import (
     RetryError,
@@ -46,26 +46,34 @@ class PipelineRunner:
         run_repo: PipelineRunRepository,
         step_repo: StepRunRepository,
         state_machine: StageStateMachine,
+        on_run_success: Callable[[StageContext], None] | None = None,
     ):
         self.pipeline = pipeline
         self.run_repo = run_repo
         self.step_repo = step_repo
         self.state_machine = state_machine
+        self.on_run_success = on_run_success
 
-    def run(self, execution_date: date, trigger_type: str = "scheduled") -> PipelineRun:
+    def run(
+        self,
+        execution_date: date,
+        trigger_type: str = "scheduled",
+        force_rerun: bool = False,
+    ) -> PipelineRun:
         """파이프라인 실행 메인 루프.
 
-        1. 동일 execution_date 성공 실행이 있으면 그대로 반환 (멱등성, P2)
+        1. force_rerun=False 이고 동일 execution_date 성공 실행이 있으면 그대로 반환
         2. PipelineRun 레코드 생성
         3. 각 StageDefinition을 순차 실행
         4. 단계 실패 시 후속 단계를 SKIPPED 처리 (실패 격리, P3)
         5. 모든 단계 완료 후 PipelineRun 상태 갱신
         """
-        existing = self.run_repo.find_latest_success_by_execution_date(
-            self.pipeline.name, execution_date
-        )
-        if existing:
-            return existing
+        if not force_rerun:
+            existing = self.run_repo.find_latest_success_by_execution_date(
+                self.pipeline.name, execution_date
+            )
+            if existing:
+                return existing
 
         pipeline_run = PipelineRun(
             pipeline_name=self.pipeline.name,
@@ -123,11 +131,13 @@ class PipelineRunner:
                 original_exc = exc.last_attempt.exception() if isinstance(exc, RetryError) else exc
                 failed = True
                 self.state_machine.transition(step_run, StageState.FAILED)
+                retry_count = self._resolve_retry_count(exc)
                 self.step_repo.update_status(
                     step_run.id,
                     StageState.FAILED.value,
                     finished_at=datetime.now(),
                     error_message=str(original_exc),
+                    retry_count=retry_count,
                 )
                 if stage.retry_config.on_failure_callback:
                     stage.retry_config.on_failure_callback(context, original_exc)
@@ -137,7 +147,23 @@ class PipelineRunner:
             pipeline_run.id, final_status, finished_at=datetime.now()
         )
         pipeline_run.status = final_status
+
+        if self.pipeline.strategy is not None:
+            try:
+                self.pipeline.strategy.finalize_run(context, succeeded=not failed)
+            except Exception:
+                logger.exception("파이프라인 후처리 실패: %s / %s", self.pipeline.name, execution_date)
+
+        if not failed and self.on_run_success:
+            self.on_run_success(context)
+
         return pipeline_run
+
+    @staticmethod
+    def _resolve_retry_count(exc: Exception) -> int:
+        if isinstance(exc, RetryError):
+            return max(exc.last_attempt.attempt_number - 1, 0)
+        return 0
 
     def _execute_stage_with_retry(
         self, stage: StageDefinition, context: StageContext, step_run: StepRun

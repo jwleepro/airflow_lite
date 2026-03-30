@@ -21,6 +21,7 @@ class BackfillManager:
         pipeline_name: str,
         start_date: date,
         end_date: date,
+        force_rerun: bool = True,
     ) -> list:
         """날짜 범위를 월 단위로 분할하여 순차 실행.
 
@@ -28,6 +29,9 @@ class BackfillManager:
         2. 각 월에 대해 PipelineRunner.run(execution_date=해당월)
         3. 결과를 리스트로 반환
         """
+        if end_date < start_date:
+            raise ValueError("end_date는 start_date보다 같거나 이후여야 합니다.")
+
         months = self._split_into_months(start_date, end_date)
         results = []
 
@@ -36,6 +40,7 @@ class BackfillManager:
             run = self.pipeline_runner.run(
                 execution_date=month_date,
                 trigger_type="backfill",
+                force_rerun=force_rerun,
             )
             results.append(run)
 

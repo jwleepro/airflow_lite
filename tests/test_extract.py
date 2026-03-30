@@ -401,6 +401,43 @@ class TestParquetWriter:
         result = writer.backup_existing("T", 2026, 3)
         assert result is False
 
+    def test_remove_backups_deletes_all_backup_files(self, tmp_path):
+        writer = ParquetWriter(str(tmp_path))
+        writer.write_chunk(self._make_table(5), "T", 2026, 3)
+        writer.write_chunk(pa.table({"ID": [10], "VAL": ["a"]}), "T", 2026, 3, append=True)
+        writer.backup_existing("T", 2026, 3)
+
+        removed = writer.remove_backups("T", 2026, 3)
+
+        output_dir, _ = writer._get_paths("T", 2026, 3)
+        assert removed == 2
+        assert not any(output_dir.glob("*.bak"))
+
+    def test_restore_backups_removes_new_outputs_and_restores_originals(self, tmp_path):
+        writer = ParquetWriter(str(tmp_path))
+        writer.write_chunk(self._make_table(5), "T", 2026, 3)
+        writer.backup_existing("T", 2026, 3)
+        writer.write_chunk(self._make_table(2), "T", 2026, 3)
+
+        restored = writer.restore_backups("T", 2026, 3)
+
+        output_dir, output_file = writer._get_paths("T", 2026, 3)
+        assert restored == 1
+        assert output_file.exists()
+        assert writer.count_rows("T", 2026, 3) == 5
+        assert not any(output_dir.glob("*.bak"))
+
+    def test_remove_partition_files_deletes_current_outputs(self, tmp_path):
+        writer = ParquetWriter(str(tmp_path))
+        writer.write_chunk(self._make_table(5), "T", 2026, 3)
+        writer.write_chunk(pa.table({"ID": [10], "VAL": ["a"]}), "T", 2026, 3, append=True)
+
+        removed = writer.remove_partition_files("T", 2026, 3)
+
+        output_dir, _ = writer._get_paths("T", 2026, 3)
+        assert removed == 2
+        assert not any(output_dir.glob("*.parquet"))
+
     def test_snappy_compression_default(self, tmp_path):
         import pyarrow.parquet as pq
         writer = ParquetWriter(str(tmp_path))
@@ -497,6 +534,49 @@ class TestFullMigrationStrategy:
         assert calls[0][1]["append_mode"] == "single_file"
         assert calls[1][1]["append_mode"] == "single_file"
 
+    def test_finalize_run_success_removes_backups(self, tmp_path):
+        oracle_client = MagicMock()
+        chunked_reader = MagicMock()
+        parquet_writer = MagicMock()
+        parquet_writer.backup_existing.return_value = True
+
+        strategy = FullMigrationStrategy(oracle_client, chunked_reader, parquet_writer)
+        ctx = _make_context()
+        strategy.load(pa.table({"ID": [1]}), ctx)
+
+        strategy.finalize_run(ctx, succeeded=True)
+
+        parquet_writer.remove_backups.assert_called_once_with("TEST_TABLE", 2026, 3)
+        parquet_writer.restore_backups.assert_not_called()
+
+    def test_finalize_run_failure_restores_backups(self, tmp_path):
+        oracle_client = MagicMock()
+        chunked_reader = MagicMock()
+        parquet_writer = MagicMock()
+        parquet_writer.backup_existing.return_value = True
+
+        strategy = FullMigrationStrategy(oracle_client, chunked_reader, parquet_writer)
+        ctx = _make_context()
+        strategy.load(pa.table({"ID": [1]}), ctx)
+
+        strategy.finalize_run(ctx, succeeded=False)
+
+        parquet_writer.restore_backups.assert_called_once_with("TEST_TABLE", 2026, 3)
+
+    def test_finalize_run_failure_without_backup_cleans_partial_outputs(self, tmp_path):
+        oracle_client = MagicMock()
+        chunked_reader = MagicMock()
+        parquet_writer = MagicMock()
+        parquet_writer.backup_existing.return_value = False
+
+        strategy = FullMigrationStrategy(oracle_client, chunked_reader, parquet_writer)
+        ctx = _make_context()
+        strategy.load(pa.table({"ID": [1]}), ctx)
+
+        strategy.finalize_run(ctx, succeeded=False)
+
+        parquet_writer.remove_partition_files.assert_called_once_with("TEST_TABLE", 2026, 3)
+
     def test_transform_returns_pyarrow_table(self, tmp_path):
         strategy = self._make_strategy(tmp_path)
         ctx = _make_context()
@@ -561,28 +641,73 @@ class TestIncrementalMigrationStrategy:
         for call in parquet_writer.write_chunk.call_args_list:
             assert call[1]["append"] is True
 
-    def test_verify_loaded_count_le_parquet_count(self):
+    def test_extract_tracks_source_row_count(self):
         oracle_client = MagicMock()
         chunked_reader = MagicMock()
         parquet_writer = MagicMock()
-        parquet_writer.count_rows.return_value = 10
+        chunked_reader.read_chunks.return_value = iter(
+            [
+                pd.DataFrame({"ID": [1, 2]}),
+                pd.DataFrame({"ID": [3]}),
+            ]
+        )
 
         strategy = IncrementalMigrationStrategy(
             oracle_client, chunked_reader, parquet_writer
         )
+        ctx = _make_context(incremental_key="UPDATED_AT")
+
+        chunks = list(strategy.extract(ctx))
+
+        assert len(chunks) == 2
+        assert strategy._extract_count == 3
+        assert strategy._loaded_count == 0
+
+    def test_verify_succeeds_when_loaded_matches_extracted(self):
+        oracle_client = MagicMock()
+        chunked_reader = MagicMock()
+        parquet_writer = MagicMock()
+
+        strategy = IncrementalMigrationStrategy(
+            oracle_client, chunked_reader, parquet_writer
+        )
+        strategy._extract_count = 10
         strategy._loaded_count = 10
         ctx = _make_context()
         assert strategy.verify(ctx) is True
 
-    def test_verify_fails_when_count_mismatch(self):
+    def test_verify_fails_when_loaded_differs_from_extracted(self):
         oracle_client = MagicMock()
         chunked_reader = MagicMock()
         parquet_writer = MagicMock()
-        parquet_writer.count_rows.return_value = 5
 
         strategy = IncrementalMigrationStrategy(
             oracle_client, chunked_reader, parquet_writer
         )
+        strategy._extract_count = 10
         strategy._loaded_count = 10
         ctx = _make_context()
+        assert strategy.verify(ctx) is True
+
+        strategy._loaded_count = 9
         assert strategy.verify(ctx) is False
+
+    def test_finalize_run_failure_removes_incremental_outputs(self):
+        oracle_client = MagicMock()
+        chunked_reader = MagicMock()
+        parquet_writer = MagicMock()
+        parquet_writer.write_chunk.side_effect = [
+            Path("D:/tmp/base.parquet"),
+            Path("D:/tmp/part00001.parquet"),
+        ]
+        strategy = IncrementalMigrationStrategy(
+            oracle_client, chunked_reader, parquet_writer
+        )
+        ctx = _make_context()
+
+        with patch("pathlib.Path.exists", return_value=True), patch("pathlib.Path.unlink") as mock_unlink:
+            strategy.load(pa.table({"ID": [1]}), ctx)
+            strategy.load(pa.table({"ID": [2]}), ctx)
+            strategy.finalize_run(ctx, succeeded=False)
+
+        assert mock_unlink.call_count == 2

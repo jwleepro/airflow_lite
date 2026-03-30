@@ -73,10 +73,10 @@ class TestBackfillE2E:
             )
             assert expected.exists(), f"{expected} 파일이 존재해야 함"
 
-    def test_backfill_idempotent(
+    def test_backfill_rerun_creates_new_success(
         self, make_e2e_runner, full_pipeline_config, pipeline_repos, tmp_path
     ):
-        """BF-05: 동일 날짜 범위 재백필 시 기존 성공 결과를 반환한다 (새 실행 없음)."""
+        """BF-05: 동일 날짜 범위 재백필 시 새 성공 실행이 생성된다."""
         run_repo, _ = pipeline_repos
         manager = self._make_manager(make_e2e_runner, full_pipeline_config, tmp_path)
 
@@ -90,5 +90,5 @@ class TestBackfillE2E:
         )
         second_id = second_results[0].id
 
-        # 같은 execution_date의 성공 실행이면 동일 ID 반환
-        assert first_id == second_id
+        assert first_id != second_id
+        assert len(run_repo.find_by_pipeline(full_pipeline_config.name)) == 2

@@ -188,6 +188,17 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
             },
         )
 
+        def _notify(status: str, context, exc: Exception | None = None) -> None:
+            alert_manager.notify(
+                AlertMessage(
+                    pipeline_name=context.pipeline_name,
+                    execution_date=context.execution_date,
+                    status=status,
+                    error_message=str(exc) if exc else None,
+                    timestamp=datetime.now(),
+                )
+            )
+
         def factory(pipeline_name: str) -> PipelineRunner:
             pipeline_config = pipeline_config_map[pipeline_name]
             chunk_size = pipeline_config.chunk_size or settings.defaults.chunk_size
@@ -200,14 +211,10 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
 
             def on_failure_callback(context, exc):
                 """재시도 소진 후 최종 실패 시 AlertManager를 통해 알림 발송."""
-                alert = AlertMessage(
-                    pipeline_name=context.pipeline_name,
-                    execution_date=context.execution_date,
-                    status="failed",
-                    error_message=str(exc),
-                    timestamp=datetime.now(),
-                )
-                alert_manager.notify(alert)
+                _notify("failed", context, exc)
+
+            def on_success_callback(context):
+                _notify("success", context)
 
             retry_config = RetryConfig(
                 max_attempts=settings.defaults.retry.max_attempts,
@@ -239,7 +246,10 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
                 StageDefinition(
                     name="verify",
                     callable=verify_stage,
-                    retry_config=RetryConfig(max_attempts=1),
+                    retry_config=RetryConfig(
+                        max_attempts=1,
+                        on_failure_callback=on_failure_callback,
+                    ),
                 ),
             ]
 
@@ -254,6 +264,7 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
                 run_repo=run_repo,
                 step_repo=step_repo,
                 state_machine=state_machine,
+                on_run_success=on_success_callback,
             )
 
         return factory

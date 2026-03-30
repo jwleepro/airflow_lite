@@ -179,7 +179,7 @@ def test_trigger_pipeline_success(client, mock_runner):
     assert data["status"] == "success"
     assert len(data["steps"]) == 1
     mock_runner.run.assert_called_once_with(
-        execution_date=date(2026, 1, 1), trigger_type="manual"
+        execution_date=date(2026, 1, 1), trigger_type="manual", force_rerun=False
     )
 
 
@@ -188,6 +188,7 @@ def test_trigger_pipeline_no_date_uses_today(client, mock_runner):
     assert resp.status_code == 200
     call_kwargs = mock_runner.run.call_args.kwargs
     assert call_kwargs["execution_date"] == date.today()
+    assert call_kwargs["force_rerun"] is False
 
 
 def test_trigger_pipeline_not_found(client):
@@ -218,6 +219,27 @@ def test_trigger_pipeline_accepts_runner_factory(mock_runner, mock_run_repo, moc
     mock_runner.run.assert_called_once()
 
 
+def test_trigger_pipeline_can_enable_force(mock_run_repo, mock_step_repo):
+    settings = _make_settings()
+    mock_runner = MagicMock()
+    mock_runner.run.return_value = _make_pipeline_run()
+    app = create_app(
+        settings=settings,
+        runner_map={"test_pipeline": mock_runner},
+        run_repo=mock_run_repo,
+        step_repo=mock_step_repo,
+    )
+    client = TestClient(app)
+
+    resp = client.post(
+        "/api/v1/pipelines/test_pipeline/trigger",
+        json={"execution_date": "2026-01-01", "force": True},
+    )
+
+    assert resp.status_code == 200
+    assert mock_runner.run.call_args.kwargs["force_rerun"] is True
+
+
 # ── POST /api/v1/pipelines/{name}/backfill ───────────────────────────────────
 
 def test_backfill_success(client, mock_backfill_manager):
@@ -233,6 +255,7 @@ def test_backfill_success(client, mock_backfill_manager):
         pipeline_name="test_pipeline",
         start_date=date(2026, 1, 1),
         end_date=date(2026, 2, 28),
+        force_rerun=True,
     )
 
 
@@ -261,6 +284,29 @@ def test_backfill_accepts_manager_factory(mock_backfill_manager, mock_run_repo, 
 
     assert resp.status_code == 200
     mock_backfill_manager.run_backfill.assert_called_once()
+
+
+def test_backfill_can_disable_force(mock_run_repo, mock_step_repo):
+    settings = _make_settings()
+    mock_manager = MagicMock()
+    mock_manager.run_backfill.return_value = [
+        _make_pipeline_run(run_id="run-001", execution_date=date(2026, 1, 1), trigger_type="backfill")
+    ]
+    app = create_app(
+        settings=settings,
+        backfill_map={"test_pipeline": mock_manager},
+        run_repo=mock_run_repo,
+        step_repo=mock_step_repo,
+    )
+    client = TestClient(app)
+
+    resp = client.post(
+        "/api/v1/pipelines/test_pipeline/backfill",
+        json={"start_date": "2026-01-01", "end_date": "2026-01-31", "force": False},
+    )
+
+    assert resp.status_code == 200
+    assert mock_manager.run_backfill.call_args.kwargs["force_rerun"] is False
 
 
 # ── GET /api/v1/pipelines/{name}/runs ────────────────────────────────────────

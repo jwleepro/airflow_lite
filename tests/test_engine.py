@@ -23,7 +23,7 @@ def state_machine(step_repo):
 @pytest.fixture
 def make_runner(pipeline_repo, step_repo, state_machine):
     """PipelineRunner 팩토리 픽스처."""
-    def _factory(stages, pipeline_name="test_pipeline"):
+    def _factory(stages, pipeline_name="test_pipeline", on_run_success=None):
         pipeline = PipelineDefinition(
             name=pipeline_name,
             stages=stages,
@@ -35,6 +35,7 @@ def make_runner(pipeline_repo, step_repo, state_machine):
             run_repo=pipeline_repo,
             step_repo=step_repo,
             state_machine=state_machine,
+            on_run_success=on_run_success,
         )
     return _factory
 
@@ -312,6 +313,7 @@ def test_retry_exhausted_marks_stage_failed(make_runner, step_repo):
     statuses = {s.step_name: s.status for s in steps}
     assert statuses["extract"]   == "failed"
     assert statuses["transform"] == "skipped"
+    assert next(s for s in steps if s.step_name == "extract").retry_count == 2
 
 
 def test_non_retryable_exception_fails_immediately(make_runner, step_repo):
@@ -333,6 +335,9 @@ def test_non_retryable_exception_fails_immediately(make_runner, step_repo):
 
     assert pipeline_run.status == "failed"
     assert len(attempts) == 1  # 재시도 없이 즉시 실패
+
+    steps = step_repo.find_by_pipeline_run(pipeline_run.id)
+    assert steps[0].retry_count == 0
 
 
 # ── on_failure_callback 호출 ──────────────────────────────────────────────────
@@ -423,6 +428,25 @@ def test_on_failure_callback_receives_original_exception(make_runner):
     assert isinstance(received_exceptions[0], RetryableOracleError)
 
 
+def test_on_run_success_callback_called_on_pipeline_success(make_runner):
+    callback_calls = []
+
+    def ok_fn(ctx):
+        return StageResult(records_processed=1)
+
+    def success_callback(ctx):
+        callback_calls.append(ctx)
+
+    runner = make_runner(
+        [_make_stage("extract", ok_fn)],
+        on_run_success=success_callback,
+    )
+    runner.run(date(2024, 7, 4))
+
+    assert len(callback_calls) == 1
+    assert callback_calls[0].pipeline_name == "test_pipeline"
+
+
 # ── 멱등성 (idempotency) ──────────────────────────────────────────────────────
 
 def test_run_idempotent_returns_existing_success(make_runner):
@@ -443,3 +467,19 @@ def test_run_idempotent_returns_existing_success(make_runner):
     run2 = r.run(date(2024, 8, 1))
     assert run2.id == run1.id
     assert len(calls) == 1  # fn이 다시 호출되지 않음
+
+
+def test_run_force_rerun_creates_new_success(make_runner):
+    calls = []
+
+    def fn(ctx):
+        calls.append(1)
+        return StageResult(records_processed=1)
+
+    runner = make_runner([_make_stage("extract", fn)])
+
+    run1 = runner.run(date(2024, 8, 2))
+    run2 = runner.run(date(2024, 8, 2), force_rerun=True)
+
+    assert run1.id != run2.id
+    assert len(calls) == 2

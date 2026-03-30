@@ -54,7 +54,11 @@ def trigger_pipeline(name: str, body: TriggerRequest, req: Request):
 
     execution_date = body.execution_date or date.today()
     runner = _resolve_runner(runner_map[name])
-    run = runner.run(execution_date=execution_date, trigger_type="manual")
+    run = runner.run(
+        execution_date=execution_date,
+        trigger_type="manual",
+        force_rerun=body.force,
+    )
 
     step_repo = req.app.state.step_repo
     steps = step_repo.find_by_pipeline_run(run.id) if step_repo else []

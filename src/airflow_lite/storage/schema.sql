@@ -1,6 +1,3 @@
-PRAGMA journal_mode = WAL;
-PRAGMA foreign_keys = ON;
-
 CREATE TABLE IF NOT EXISTS pipeline_runs (
     id              TEXT PRIMARY KEY,     -- UUID
     pipeline_name   TEXT NOT NULL,
@@ -32,8 +29,5 @@ CREATE INDEX IF NOT EXISTS idx_pipeline_runs_exec_date
     ON pipeline_runs(execution_date);
 CREATE INDEX IF NOT EXISTS idx_pipeline_runs_status
     ON pipeline_runs(status);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_pipeline_runs_success_unique
-    ON pipeline_runs(pipeline_name, execution_date, trigger_type)
-    WHERE status = 'success';
 CREATE INDEX IF NOT EXISTS idx_step_runs_pipeline_run
     ON step_runs(pipeline_run_id);

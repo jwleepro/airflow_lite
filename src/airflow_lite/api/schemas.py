@@ -4,11 +4,13 @@ from datetime import date, datetime
 
 class TriggerRequest(BaseModel):
     execution_date: date | None = None  # 미지정 시 오늘
+    force: bool = False
 
 
 class BackfillRequest(BaseModel):
     start_date: date
     end_date: date
+    force: bool = True
 
 
 class StepRunResponse(BaseModel):

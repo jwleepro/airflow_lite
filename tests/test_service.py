@@ -465,6 +465,38 @@ class TestCreateRunnerFactory:
         assert statuses["extract_transform_load"] == "success"
         assert statuses["verify"] == "failed"
 
+    def test_factory_sets_on_run_success_callback(self, svc, real_settings, repos):
+        run_repo, step_repo = repos
+        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        runner = factory("full_pipe")
+
+        assert runner.on_run_success is not None
+        assert callable(runner.on_run_success)
+
+    def test_factory_on_run_success_calls_alert_manager(self, svc, real_settings, repos):
+        from datetime import date as date_cls
+        from airflow_lite.engine.stage import StageContext
+
+        run_repo, step_repo = repos
+        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        runner = factory("full_pipe")
+
+        context = StageContext(
+            pipeline_name="full_pipe",
+            execution_date=date_cls(2026, 1, 1),
+            table_config=real_settings.pipelines[0],
+            run_id="test-run-id",
+            chunk_size=10000,
+        )
+
+        with patch("airflow_lite.alerting.base.AlertManager.notify") as mock_notify:
+            runner.on_run_success(context)
+
+        mock_notify.assert_called_once()
+        alert_arg = mock_notify.call_args[0][0]
+        assert alert_arg.pipeline_name == "full_pipe"
+        assert alert_arg.status == "success"
+
 
 # ── CLI __main__.py 검증 ──────────────────────────────────────────────────────
 

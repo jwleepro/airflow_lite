@@ -1,6 +1,7 @@
 import pytest
 import sqlite3
 from datetime import date, datetime
+from unittest.mock import patch
 
 from airflow_lite.storage.models import PipelineRun, StepRun
 
@@ -32,6 +33,35 @@ def test_foreign_keys_enabled(db):
     fk = conn.execute("PRAGMA foreign_keys").fetchone()[0]
     conn.close()
     assert fk == 1
+
+
+def test_initialize_rolls_back_invalid_schema_script(tmp_path):
+    from airflow_lite.storage.database import Database
+
+    db_path = tmp_path / "broken.db"
+    database = Database(str(db_path))
+    broken_schema = """
+    CREATE TABLE broken_table (
+        id INTEGER PRIMARY KEY
+    );
+    CREATE TABLE broken_table (
+        id INTEGER PRIMARY KEY
+    );
+    """
+
+    with patch("pathlib.Path.read_text", return_value=broken_schema):
+        with pytest.raises(sqlite3.OperationalError):
+            database.initialize()
+
+    conn = sqlite3.connect(db_path)
+    try:
+        tables = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='broken_table'"
+        ).fetchall()
+    finally:
+        conn.close()
+
+    assert tables == []
 
 
 # ── PipelineRunRepository ─────────────────────────────────────────────────────
@@ -113,12 +143,14 @@ def test_pipeline_run_unique_constraint(pipeline_repo):
     assert len(results) == 2
 
 
-def test_pipeline_run_success_unique_index(pipeline_repo):
+def test_pipeline_run_success_duplicates_allowed(pipeline_repo):
     run1 = _make_run(status="success")
     run2 = _make_run(status="success")
     pipeline_repo.create(run1)
-    with pytest.raises(Exception):
-        pipeline_repo.create(run2)
+    pipeline_repo.create(run2)
+
+    results = pipeline_repo.find_by_pipeline("etl_sales")
+    assert len(results) == 2
 
 
 def test_pipeline_run_find_latest_success_by_execution_date(pipeline_repo):
@@ -236,8 +268,10 @@ def test_initialize_migrates_old_pipeline_run_constraint(tmp_path):
 
     repo.create(_make_run(status="failed"))
     repo.create(_make_run(status="failed"))
+    repo.create(_make_run(status="success"))
+    repo.create(_make_run(status="success"))
 
-    assert len(repo.find_by_pipeline("etl_sales")) == 2
+    assert len(repo.find_by_pipeline("etl_sales")) == 4
 
 
 def test_step_run_update_status_with_error(pipeline_repo, step_repo):

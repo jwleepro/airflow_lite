@@ -1,11 +1,14 @@
 from datetime import date
+import re
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 import logging
 
 logger = logging.getLogger("airflow_lite.scheduler")
+INTERVAL_PATTERN = re.compile(r"^interval:(\d+)([smhd]?)$", re.IGNORECASE)
 
 
 class PipelineScheduler:
@@ -43,11 +46,11 @@ class PipelineScheduler:
     def register_pipelines(self) -> None:
         """설정의 모든 파이프라인을 스케줄러에 등록.
 
-        각 파이프라인의 schedule (cron 표현식)을 CronTrigger로 변환하여 등록.
+        각 파이프라인의 schedule을 CronTrigger 또는 IntervalTrigger로 변환하여 등록.
         replace_existing=True로 재등록 시 안전하게 덮어쓰기.
         """
         for pipeline_config in self.settings.pipelines:
-            trigger = CronTrigger.from_crontab(pipeline_config.schedule)
+            trigger = self._build_trigger(pipeline_config.schedule)
             self.scheduler.add_job(
                 func=self._run_pipeline,
                 trigger=trigger,
@@ -59,6 +62,28 @@ class PipelineScheduler:
                 f"파이프라인 등록: {pipeline_config.name} "
                 f"(schedule: {pipeline_config.schedule})"
             )
+
+    def _build_trigger(self, schedule: str):
+        """schedule 문자열을 APScheduler trigger로 변환한다.
+
+        지원 형식:
+        - Cron: '0 2 * * *'
+        - Interval: 'interval:30m', 'interval:6h', 'interval:15'
+          기본 단위는 초.
+        """
+        match = INTERVAL_PATTERN.fullmatch(schedule.strip())
+        if match:
+            value = int(match.group(1))
+            unit = (match.group(2) or "s").lower()
+            unit_map = {
+                "s": "seconds",
+                "m": "minutes",
+                "h": "hours",
+                "d": "days",
+            }
+            return IntervalTrigger(**{unit_map[unit]: value})
+
+        return CronTrigger.from_crontab(schedule)
 
     def _run_pipeline(self, pipeline_name: str) -> None:
         """스케줄러에 의해 호출되는 파이프라인 실행 함수.

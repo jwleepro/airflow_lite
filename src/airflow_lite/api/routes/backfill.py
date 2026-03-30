@@ -26,6 +26,7 @@ def request_backfill(name: str, body: BackfillRequest, req: Request):
         pipeline_name=name,
         start_date=body.start_date,
         end_date=body.end_date,
+        force_rerun=body.force,
     )
 
     step_repo = req.app.state.step_repo
