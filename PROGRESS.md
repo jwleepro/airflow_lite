@@ -9,6 +9,7 @@
 
 ## Recently Completed
 
+- `2026-03-31` Opened draft PR `#1` for the default draft PR workflow update on branch `codex/default-draft-pr-workflow`.
 - `2026-03-31` Updated `AGENT.md` so completed work now defaults to creating a draft PR through the GitHub publish workflow unless the user or environment blocks it.
 - `2026-03-31` Added `.codex/config.toml` with repository-local agent roles and explicit skill registration.
 - `2026-03-31` Added `.codex/commands/` command set for bootstrap, planning, progress tracking, handoff, team split, and reference reading.
@@ -23,8 +24,7 @@
 
 ## In Progress
 
-- `2026-03-31` Publishing the default draft PR workflow update on branch `codex/default-draft-pr-workflow`.
-  Scope: `AGENT.md`, `PROGRESS.md`
+- No active task is currently marked in progress.
 
 ## Pending Next Work
 
@@ -39,6 +39,7 @@
 
 ## Validation Notes
 
+- `2026-03-31` Pushed branch `codex/default-draft-pr-workflow` and created draft PR `#1`: `https://github.com/jwleepro/airflow_lite/pull/1`
 - `2026-03-31` Re-read `AGENT.md`, `PLAN.md`, and `PROGRESS.md` before documenting the new default PR creation workflow.
 - `2026-03-31` `python .codex\skills\reference-reader\scripts\read_reference.py --list` succeeded.
 - `2026-03-31` `pytest tests\test_reference_reader.py -q` succeeded with `2 passed`.
