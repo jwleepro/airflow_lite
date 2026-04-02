@@ -1,0 +1,4 @@
+interface:
+  display_name: "Parquet Layout"
+  short_description: "Raw-zone partitioning and replay strategy"
+  default_prompt: "Use $parquet-layout-design to define a Parquet raw layout that supports efficient DuckDB builds, backfills, and recovery."

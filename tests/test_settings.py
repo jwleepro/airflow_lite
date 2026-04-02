@@ -1,11 +1,13 @@
 import pytest
 import os
+from unittest.mock import mock_open, patch
 from airflow_lite.config.settings import (
     _substitute_env_vars,
     _walk_and_substitute,
     AlertingConfig,
     AlertingTriggersConfig,
     EmailChannelConfig,
+    MartConfig,
     WebhookChannelConfig,
     Settings,
 )
@@ -260,3 +262,37 @@ alerting:
         ch = settings.alerting.channels[0]
         assert ch.smtp_port == 587
         assert isinstance(ch.smtp_port, int)
+
+
+class TestMartConfig:
+    def test_load_mart_config(self):
+        config_text = """\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines: []
+
+mart:
+  enabled: true
+  root_path: "/tmp/mart"
+  refresh_on_success: true
+  pipeline_datasets:
+    production_log: "mes_ops"
+"""
+
+        with patch("builtins.open", mock_open(read_data=config_text)):
+            settings = Settings.load("pipelines.yaml")
+
+        assert isinstance(settings.mart, MartConfig)
+        assert settings.mart.enabled is True
+        assert settings.mart.root_path == "/tmp/mart"
+        assert settings.mart.pipeline_datasets["production_log"] == "mes_ops"

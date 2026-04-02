@@ -171,6 +171,7 @@ class IncrementalMigrationStrategy(MigrationStrategy):
         self.parquet_writer = parquet_writer
         self._extract_count = 0
         self._loaded_count = 0
+        self._initial_partition_rows = 0
         self._written_files: list[str] = []
 
     def extract(self, context: StageContext) -> Iterator[pd.DataFrame]:
@@ -179,6 +180,11 @@ class IncrementalMigrationStrategy(MigrationStrategy):
         self.chunked_reader.chunk_size = context.chunk_size
         self._extract_count = 0
         self._loaded_count = 0
+        self._initial_partition_rows = self.parquet_writer.count_rows(
+            context.table_config.table,
+            context.execution_date.year,
+            context.execution_date.month,
+        )
         self._written_files = []
 
         def _iter_chunks() -> Iterator[pd.DataFrame]:
@@ -233,8 +239,17 @@ class IncrementalMigrationStrategy(MigrationStrategy):
         return count
 
     def verify(self, context: StageContext) -> bool:
-        """추출 건수 vs 적재 건수 비교"""
-        return self._loaded_count == self._extract_count
+        """추출 건수와 실제 파티션 증가분이 모두 기대값과 일치하는지 확인한다."""
+        year = context.execution_date.year
+        month = context.execution_date.month
+        table_name = context.table_config.table
+        current_partition_rows = self.parquet_writer.count_rows(table_name, year, month)
+        expected_partition_rows = self._initial_partition_rows + self._loaded_count
+
+        return (
+            self._loaded_count == self._extract_count
+            and current_partition_rows == expected_partition_rows
+        )
 
     def finalize_run(self, context: StageContext, succeeded: bool) -> None:
         if not succeeded:
@@ -244,4 +259,7 @@ class IncrementalMigrationStrategy(MigrationStrategy):
                 path = Path(output_path)
                 if path.exists():
                     path.unlink()
+        self._extract_count = 0
+        self._loaded_count = 0
+        self._initial_partition_rows = 0
         self._written_files = []

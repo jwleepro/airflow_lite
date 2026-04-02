@@ -21,7 +21,7 @@ Use this reference when an agent needs to:
 
 ### Repository CI Baseline
 
-At the time of the initial policy design, the repository had no general-purpose CI workflow for pull requests. The visible `.github/workflows/` files were Gemini automation workflows, not baseline test or lint gates.
+At the time of the initial policy design, the repository had no general-purpose CI workflow for pull requests. The visible repository automation workflows were not baseline test or lint gates.
 
 The practical minimum CI candidates identified for this repository were:
 

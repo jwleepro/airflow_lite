@@ -117,6 +117,15 @@ class AlertingConfig:
     triggers: AlertingTriggersConfig = field(default_factory=AlertingTriggersConfig)
 
 
+@dataclass
+class MartConfig:
+    enabled: bool = False
+    root_path: str = "data/mart"
+    database_filename: str = "analytics.duckdb"
+    refresh_on_success: bool = True
+    pipeline_datasets: dict[str, str] = field(default_factory=dict)
+
+
 def _coerce_int(value: int | str, field_name: str) -> int:
     try:
         return int(value)
@@ -127,13 +136,14 @@ def _coerce_int(value: int | str, field_name: str) -> int:
 class Settings:
     """YAML 설정 로더. 환경변수 ${VAR} 참조를 자동 치환한다."""
 
-    def __init__(self, oracle, storage, defaults, pipelines, api=None, alerting=None):
+    def __init__(self, oracle, storage, defaults, pipelines, api=None, alerting=None, mart=None):
         self.oracle = oracle
         self.storage = storage
         self.defaults = defaults
         self.pipelines = pipelines
         self.api = api or ApiConfig()
         self.alerting = alerting or AlertingConfig()
+        self.mart = mart or MartConfig()
 
     @classmethod
     def load(cls, config_path: str) -> "Settings":
@@ -206,4 +216,15 @@ class Settings:
         else:
             alerting = AlertingConfig()
 
-        return cls(oracle=oracle, storage=storage, defaults=defaults, pipelines=pipelines, api=api, alerting=alerting)
+        mart_data = data.get("mart", {})
+        mart = MartConfig(**mart_data) if mart_data else MartConfig()
+
+        return cls(
+            oracle=oracle,
+            storage=storage,
+            defaults=defaults,
+            pipelines=pipelines,
+            api=api,
+            alerting=alerting,
+            mart=mart,
+        )

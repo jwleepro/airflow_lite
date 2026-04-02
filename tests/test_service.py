@@ -71,6 +71,11 @@ def _make_settings(pipelines=None):
     s.defaults.chunk_size = 10000
     s.api.host = "127.0.0.1"
     s.api.port = 8000
+    s.mart.enabled = False
+    s.mart.refresh_on_success = False
+    s.mart.root_path = "/tmp/mart"
+    s.mart.database_filename = "analytics.duckdb"
+    s.mart.pipeline_datasets = {}
     s.pipelines = pipelines if pipelines is not None else []
     return s
 
@@ -496,6 +501,39 @@ class TestCreateRunnerFactory:
         alert_arg = mock_notify.call_args[0][0]
         assert alert_arg.pipeline_name == "full_pipe"
         assert alert_arg.status == "success"
+
+    def test_factory_on_run_success_plans_mart_refresh_when_enabled(self, svc, real_settings, repos):
+        from datetime import date as date_cls
+        from airflow_lite.engine.stage import StageContext
+        from airflow_lite.mart import MartRefreshMode
+
+        run_repo, step_repo = repos
+        real_settings.mart.enabled = True
+        real_settings.mart.refresh_on_success = True
+        real_settings.mart.pipeline_datasets = {"full_pipe": "ops_dataset"}
+
+        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        runner = factory("full_pipe")
+        context = StageContext(
+            pipeline_name="full_pipe",
+            execution_date=date_cls(2026, 1, 1),
+            table_config=real_settings.pipelines[0],
+            run_id="test-run-id",
+            chunk_size=10000,
+        )
+
+        mock_plan = MagicMock()
+        mock_plan.request.dataset_name = "ops_dataset"
+        mock_plan.request.mode = MartRefreshMode.FULL
+        mock_plan.request.source_paths = ("source.parquet",)
+        mock_plan.build_plan.paths.staging_db_path = "staging.duckdb"
+        mock_plan.build_plan.paths.snapshot_db_path = "snapshot.duckdb"
+
+        with patch("airflow_lite.alerting.base.AlertManager.notify"), \
+             patch("airflow_lite.mart.orchestration.MartRefreshCoordinator.plan_refresh", return_value=mock_plan) as mock_refresh:
+            runner.on_run_success(context)
+
+        mock_refresh.assert_called_once_with(context)
 
 
 # ── CLI __main__.py 검증 ──────────────────────────────────────────────────────

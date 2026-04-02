@@ -1,0 +1,4 @@
+interface:
+  display_name: "DuckDB Mart"
+  short_description: "Read-optimized mart and snapshot design"
+  default_prompt: "Use $duckdb-mart-design to build or refine DuckDB facts, dimensions, summaries, refresh flow, and snapshot promotion."

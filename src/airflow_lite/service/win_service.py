@@ -1,5 +1,6 @@
 import threading
 import logging
+from pathlib import Path
 
 import win32serviceutil
 import win32service
@@ -155,6 +156,12 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
         from airflow_lite.engine.strategy import FullMigrationStrategy, IncrementalMigrationStrategy
         from airflow_lite.extract.chunked_reader import ChunkedReader
         from airflow_lite.extract.oracle_client import OracleClient
+        from airflow_lite.mart import (
+            DuckDBMartBuilder,
+            MartRefreshCoordinator,
+            MartRefreshPlanner,
+            MartSnapshotLayout,
+        )
         from airflow_lite.transform.parquet_writer import ParquetWriter
 
         oracle_client = OracleClient(settings.oracle)
@@ -187,6 +194,17 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
                 "on_success": settings.alerting.triggers.on_success,
             },
         )
+        mart_refresh_coordinator = None
+        if settings.mart.enabled and settings.mart.refresh_on_success:
+            mart_layout = MartSnapshotLayout(
+                root_dir=Path(settings.mart.root_path),
+                database_filename=settings.mart.database_filename,
+            )
+            mart_refresh_coordinator = MartRefreshCoordinator(
+                planner=MartRefreshPlanner(DuckDBMartBuilder(mart_layout)),
+                parquet_root=Path(settings.storage.parquet_base_path),
+                pipeline_datasets=settings.mart.pipeline_datasets,
+            )
 
         def _notify(status: str, context, exc: Exception | None = None) -> None:
             alert_manager.notify(
@@ -215,6 +233,30 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
 
             def on_success_callback(context):
                 _notify("success", context)
+                if mart_refresh_coordinator is None:
+                    return
+
+                try:
+                    plan = mart_refresh_coordinator.plan_refresh(context)
+                except Exception:
+                    logger.exception(
+                        "Mart refresh planning failed: %s / %s",
+                        context.pipeline_name,
+                        context.execution_date,
+                    )
+                    return
+
+                if plan is None:
+                    return
+
+                logger.info(
+                    "Mart refresh planned: dataset=%s mode=%s staging=%s snapshot=%s sources=%s",
+                    plan.request.dataset_name,
+                    plan.request.mode.value,
+                    plan.build_plan.paths.staging_db_path,
+                    plan.build_plan.paths.snapshot_db_path,
+                    len(plan.request.source_paths),
+                )
 
             retry_config = RetryConfig(
                 max_attempts=settings.defaults.retry.max_attempts,

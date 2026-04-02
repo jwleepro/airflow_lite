@@ -2,7 +2,7 @@
 
 ## Current State Summary
 
-- Repository now has a canonical `AGENT.md` operating guide aligned with `.codex` conventions, separate from `CLAUDE.md`.
+- Repository now has a canonical `AGENT.md` operating guide aligned with `.codex` conventions.
 - Repository now has a local `.codex` layout for agent and skill driven work.
 - Repository now has reusable Codex references under `reference/codex/`.
 - Shared execution-state documents now exist at the repository root.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Oracle Batch ETL"
+  short_description: "Oracle 11g extraction and raw Parquet loading"
+  default_prompt: "Use $oracle-batch-etl to design or implement Oracle 11g batch extraction with incremental windows and reliable Parquet raw ingestion."

@@ -5,6 +5,15 @@ from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 
 from airflow_lite.api.app import create_app
+from airflow_lite.api.analytics_contracts import (
+    ChartGranularity,
+    ChartQueryResponse,
+    ChartSeries,
+    ChartPoint,
+    SummaryMetricCard,
+    SummaryPrecision,
+    SummaryQueryResponse,
+)
 from airflow_lite.config.settings import ApiConfig, PipelineConfig, Settings
 from airflow_lite.storage.models import PipelineRun, StepRun
 
@@ -255,7 +264,7 @@ def test_backfill_success(client, mock_backfill_manager):
         pipeline_name="test_pipeline",
         start_date=date(2026, 1, 1),
         end_date=date(2026, 2, 28),
-        force_rerun=True,
+        force_rerun=False,
     )
 
 
@@ -423,3 +432,52 @@ def test_integration_with_real_db(db, pipeline_repo, step_repo):
     resp = c.get("/api/v1/pipelines/test_pipeline/runs/integ-run-001")
     assert resp.status_code == 200
     assert resp.json()["status"] == "success"
+
+
+def test_summary_contract_serializes_metric_cards():
+    response = SummaryQueryResponse(
+        dataset="mes_ops",
+        generated_at=datetime(2026, 3, 31, 9, 0, 0),
+        filters_applied={"plant": ["P1"]},
+        metrics=[
+            SummaryMetricCard(
+                key="throughput",
+                label="Throughput",
+                value=1280,
+                precision=SummaryPrecision.INTEGER,
+                unit="ea",
+            )
+        ],
+    )
+
+    data = response.model_dump(mode="json")
+
+    assert data["dataset"] == "mes_ops"
+    assert data["metrics"][0]["key"] == "throughput"
+    assert data["metrics"][0]["unit"] == "ea"
+
+
+def test_chart_contract_serializes_series_points():
+    response = ChartQueryResponse(
+        dataset="mes_ops",
+        chart_id="daily_throughput",
+        title="Daily Throughput",
+        granularity=ChartGranularity.DAY,
+        filters_applied={"line": ["L1"]},
+        series=[
+            ChartSeries(
+                key="actual",
+                label="Actual",
+                points=[
+                    ChartPoint(bucket="2026-03-01", value=100),
+                    ChartPoint(bucket="2026-03-02", value=110),
+                ],
+            )
+        ],
+    )
+
+    data = response.model_dump(mode="json")
+
+    assert data["chart_id"] == "daily_throughput"
+    assert data["granularity"] == "day"
+    assert data["series"][0]["points"][1]["value"] == 110

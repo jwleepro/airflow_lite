@@ -90,6 +90,7 @@ class PipelineRunner:
             table_config=self.pipeline.table_config,
             run_id=pipeline_run.id,
             chunk_size=self.pipeline.chunk_size,
+            trigger_type=trigger_type,
         )
 
         failed = False

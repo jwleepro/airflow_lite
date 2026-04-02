@@ -85,13 +85,13 @@ Oracle 11g -> [ingest] -> Parquet raw -> [mart] -> DuckDB -> [serve] -> FastAPI 
 
 ### 시작 순서
 
-모든 agent와 command는 아래 순서를 기본으로 따른다.
+모든 agent는 아래 순서를 기본으로 따른다.
 
 1. `AGENT.md`
 2. `PLAN.md`
 3. `PROGRESS.md`
 
-`.codex/`, local agent/command/skill, `reference/codex/`를 건드릴 때만 `reference/codex/index.json`과 관련 문서를 추가로 읽는다.
+`.codex/`, local agent/skill, `reference/codex/`를 건드릴 때만 `reference/codex/index.json`과 관련 문서를 추가로 읽는다.
 
 ### Agent 선택 기준
 
@@ -103,18 +103,9 @@ Oracle 11g -> [ingest] -> Parquet raw -> [mart] -> DuckDB -> [serve] -> FastAPI 
 - `query-api-agent`: summary/chart/detail/export API 계약과 FastAPI 조회 엔드포인트
 - `export-agent`: xlsx/csv.zip/parquet 다운로드 정책과 생성 흐름
 - `ops-agent`: Windows 서비스, 스케줄러, 배포, 로그, 백업/복구
+- `github-automation-agent`: GitHub Actions CI, PR gate, label, ready-for-review 자동화
 - `review-agent`: 변경 리뷰, 리스크 점검
 - `test-agent`: 단위/통합/스모크 검증
-
-### Command 선택 기준
-
-- `/bootstrap-task`: 새 스레드 시작 시 현재 milestone, blocker, write scope 파악
-- `/plan-next`: 다음 우선 작업과 적합한 agent 선택
-- `/progress-start`: 실제 수정 시작 전에 `PROGRESS.md`에 owner와 scope 기록
-- `/progress-update`: 장시간 작업 중 변경점과 검증 상태 기록
-- `/progress-handoff`: 작업 종료 또는 agent handoff 시 다음 owner와 exact next step 기록
-- `/spawn-team`: 서로 겹치지 않는 2~3개 작업으로 나눌 수 있을 때만 병렬 분할
-- `/reference-read`: `.codex/`와 Codex workflow 문서 수정 전에 필요한 reference만 최소로 읽기
 
 ### Skill 선택 기준
 
@@ -123,17 +114,19 @@ Oracle 11g -> [ingest] -> Parquet raw -> [mart] -> DuckDB -> [serve] -> FastAPI 
 - `repo-indexing`: 익숙하지 않은 코드 영역의 구조와 영향 범위 파악
 - `task-slicing`: 일이 크거나 여러 agent로 쪼개야 할 때
 - `reference-reader`: `.codex/` 또는 `reference/codex/` 수정 전 관련 reference 선별
+- `pr-ready-automation`: draft PR 자동 승격 조건, required check, label, GitHub Actions 정책 정의
 - `github:yeet`: 로컬 변경을 의도적으로 커밋, 푸시하고 draft PR까지 열어야 할 때 사용
 - `duckdb-mart-design`, `api-contract-design`, `export-policy`, `windows-ops`, `oracle-batch-etl` 등 도메인 skill: 해당 영역 설계나 구현에 직접 들어갈 때
 
 ### 추천 사용 흐름
 
-1. 새 작업 시작: `project-bootstrap` -> `/bootstrap-task`
-2. 다음 작업 선택이 애매함: `planner-agent` 또는 `/plan-next`
-3. 수정 착수: `progress-discipline` -> `/progress-start`
-4. `.codex/` 수정: `reference-reader` -> `/reference-read` -> 필요 시 `codex-meta-agent`
-5. 구현 후 검증: `review-agent`, `test-agent`, 필요 시 `/progress-update` 또는 `/progress-handoff`
-6. 작업 종료: 관련 검증이 끝나면 `github:yeet` 또는 동등한 GitHub 흐름으로 draft PR 생성
+1. 새 작업 시작: `project-bootstrap`
+2. 다음 작업 선택이 애매함: `planner-agent`
+3. 수정 착수: `progress-discipline`
+4. `.codex/` 수정: `reference-reader` -> 필요 시 `codex-meta-agent`
+5. PR 자동화 설계/구현: `pr-ready-automation` -> `github-automation-agent`
+6. 구현 후 검증: `review-agent`, `test-agent`
+7. 작업 종료: 관련 검증이 끝나면 `github:yeet` 또는 동등한 GitHub 흐름으로 draft PR 생성
 
 ### 작업 종료 및 PR 생성
 
