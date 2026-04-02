@@ -48,6 +48,8 @@ This milestone covers:
   Done condition: repository-local agent and skill exist for defining and checking automatic draft-to-ready promotion rules, and the operating guide references them.
 - `T-017` Resolve actionable review blockers for draft PR `#1`.
   Done condition: the three actionable review comments on PR `#1` are either implemented in code/tests or explicitly answered by repository evidence, and validation is recorded in `PROGRESS.md`.
+- `T-018` Implement GitHub Actions PR checks and automatic draft-to-ready promotion.
+  Done condition: the repository has a runnable PR workflow with stable `smoke` and `unit-core` checks plus an automatic draft-to-ready gate tied to explicit labels and documented operating rules.
 - `T-011` Add Parquet -> DuckDB refresh step design.
   Done condition: refresh orchestration flow is documented and the existing pipeline has a narrow mart planning hook.
 - `T-012` Design summary and chart API contracts.

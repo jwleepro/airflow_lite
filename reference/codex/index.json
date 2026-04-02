@@ -55,7 +55,7 @@
       "id": "pr-ready-automation-policy",
       "title": "PR Ready Automation Policy",
       "path": "reference/codex/pr-ready-automation-policy.md",
-      "summary": "Records the repository's working policy for automatic draft-to-ready PR promotion, including minimum CI candidates, current tooling constraints, recommended implementation order, and the local Codex assets used to implement the gate.",
+      "summary": "Records the repository's working policy for automatic draft-to-ready PR promotion, including the implemented `PR Checks` workflow, stable check names, current tooling constraints, recommended implementation order, and the local Codex assets used to implement the gate.",
       "keywords": ["github", "pull request", "ready for review", "draft", "ci", "checks", "labels", "automation", "workflow", "gh", "tooling"],
       "use_when": [
         "designing automatic draft-to-ready promotion",

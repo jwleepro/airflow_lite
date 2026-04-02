@@ -9,6 +9,7 @@
 
 ## Recently Completed
 
+- `2026-04-02` Completed `T-018` by adding `.github/workflows/pr-checks.yml` with stable `smoke`, `unit-core`, and `draft-pr-ready-gate` jobs, and by documenting the implemented ready-gate policy in the GitHub workflow guide and Codex references.
 - `2026-04-02` Completed `T-017` for draft PR `#1` by documenting the SQLite transaction rationale in code, adding a `trigger_type` propagation test, and confirming the existing mart wiring and review-fix changes that answer the three actionable review comments.
 - `2026-04-02` Recorded the investigated GitHub PR readiness workflow constraints and implementation order in `reference/codex/pr-ready-automation-policy.md` so future agents can reuse the findings without repeating the tooling check.
 - `2026-04-02` Removed unsupported repository-local `.codex/commands/` files and cleaned command references from `AGENT.md`, planning logs, and `reference/codex/`.
@@ -44,6 +45,8 @@
 
 ## Validation Notes
 
+- `2026-04-02` `python -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('.github/workflows/pr-checks.yml').read_text(encoding='utf-8')); print('YAML_OK')"` succeeded for the new PR workflow.
+- `2026-04-02` Manual validation confirmed the repository now has `.github/workflows/pr-checks.yml` with stable `smoke`, `unit-core`, and `draft-pr-ready-gate` job names, and the ready gate is intentionally implemented in the same workflow instead of `workflow_run` chaining due GitHub default-branch activation constraints.
 - `2026-04-02` `python -m compileall src/airflow_lite/storage/database.py tests/test_engine.py` succeeded after adding the SQLite transaction rationale comment and the `trigger_type` propagation regression test.
 - `2026-04-02` Inline Python validation under a workspace-local temp directory confirmed `PipelineRunner.run(trigger_type="backfill")` propagates `trigger_type` into both stage execution and the `on_run_success` callback, and `_execute_script_atomically()` still rolls back earlier statements when a later statement fails.
 - `2026-04-02` `pytest tests/test_engine.py tests/test_storage.py tests/test_service.py tests/test_settings.py tests/test_extract.py tests/test_backfill.py -q -p no:cacheprovider` could not complete in this environment because pytest temp-directory setup/cleanup still hit Windows permission errors even with explicit `--basetemp`.

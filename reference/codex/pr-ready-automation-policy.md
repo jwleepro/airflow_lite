@@ -68,6 +68,25 @@ The follow-up investigation for PR `#1` on branch `codex/default-draft-pr-workfl
 
 Practical implication: automatic promotion should be implemented as a GitHub-side workflow, not as a local-only Codex action.
 
+### Implemented Workflow Shape
+
+The repository now implements the ready gate inside the `PR Checks` GitHub Actions workflow at `.github/workflows/pr-checks.yml`.
+
+That workflow contains three stable jobs:
+
+1. `smoke`
+   - runs `python -m compileall src/airflow_lite`
+2. `unit-core`
+   - runs the repository's non-integration pytest set
+3. `draft-pr-ready-gate`
+   - runs only for draft PRs
+   - requires both `smoke` and `unit-core` to succeed in the same workflow run
+   - requires the `ready:auto` label
+   - rejects PRs carrying `blocked` or `wip`
+   - uses GitHub GraphQL `markPullRequestReadyForReview` to promote the PR
+
+This implementation deliberately keeps the ready gate in the same workflow instead of chaining a second workflow from `workflow_run`. GitHub documents that `workflow_run` only becomes active when the workflow file already exists on the default branch, so a same-PR rollout would not be reliable if the repository tried to split the gate into a separate workflow immediately.
+
 ### Recommended Automation Sequence
 
 Use this order when implementing or extending draft-to-ready automation:
@@ -97,7 +116,7 @@ If PR review comments must be converted into concrete implementation tasks first
 
 ## Implementation Guidance
 
-When implementing the actual GitHub workflow:
+When implementing or revising the GitHub workflow:
 
 1. keep the ready policy deterministic
 2. prefer labels and check names over parsing free-form comments
@@ -105,6 +124,7 @@ When implementing the actual GitHub workflow:
 4. avoid auto-promotion loops triggered by repeated workflow events
 5. document the final policy in both repository docs and local Codex references
 6. prefer GitHub-hosted state transitions over local CLI-only steps when the goal is unattended automation
+7. if the repository later splits checks and promotion into separate workflows, re-check the default-branch limitations on `workflow_run` before relying on chained execution
 
 ## Scope Boundary
 
