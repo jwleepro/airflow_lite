@@ -9,6 +9,7 @@
 
 ## Recently Completed
 
+- `2026-04-02` Updated draft PR `#1` on branch `codex/default-draft-pr-workflow` with commit `41a44bd` to include the repository-local `.codex` workflow, mart skeleton files, moved `spec/` documents, and related tests.
 - `2026-04-02` Completed `T-018` by adding `.github/workflows/pr-checks.yml` with stable `smoke`, `unit-core`, and `draft-pr-ready-gate` jobs, and by documenting the implemented ready-gate policy in the GitHub workflow guide and Codex references.
 - `2026-04-02` Completed `T-017` for draft PR `#1` by documenting the SQLite transaction rationale in code, adding a `trigger_type` propagation test, and confirming the existing mart wiring and review-fix changes that answer the three actionable review comments.
 - `2026-04-02` Recorded the investigated GitHub PR readiness workflow constraints and implementation order in `reference/codex/pr-ready-automation-policy.md` so future agents can reuse the findings without repeating the tooling check.
@@ -45,6 +46,8 @@
 
 ## Validation Notes
 
+- `2026-04-02` Pushed commit `41a44bd` to branch `codex/default-draft-pr-workflow`; draft PR `#1` remains open at `https://github.com/jwleepro/airflow_lite/pull/1`.
+- `2026-04-02` `pytest tests/test_api.py tests/test_backfill.py tests/test_extract.py tests/test_service.py tests/test_settings.py tests/test_storage.py tests/test_mart.py tests/test_reference_reader.py -q -p no:cacheprovider` ran to collection and execution but failed in this environment because pytest could not access `C:\Users\170731\AppData\Local\Temp\pytest-of-170731` for `tmp_path` setup.
 - `2026-04-02` `python -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('.github/workflows/pr-checks.yml').read_text(encoding='utf-8')); print('YAML_OK')"` succeeded for the new PR workflow.
 - `2026-04-02` Manual validation confirmed the repository now has `.github/workflows/pr-checks.yml` with stable `smoke`, `unit-core`, and `draft-pr-ready-gate` job names, and the ready gate is intentionally implemented in the same workflow instead of `workflow_run` chaining due GitHub default-branch activation constraints.
 - `2026-04-02` `python -m compileall src/airflow_lite/storage/database.py tests/test_engine.py` succeeded after adding the SQLite transaction rationale comment and the `trigger_type` propagation regression test.
