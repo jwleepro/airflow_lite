@@ -26,12 +26,40 @@ class Database:
             conn.close()
 
     def _execute_script_atomically(self, conn: sqlite3.Connection, script: str) -> None:
-        wrapped = f"BEGIN;\n{script.strip()}\nCOMMIT;"
+        # `executescript()` manages its own transaction boundaries and is too opaque for
+        # mixed DDL/DML migrations where we must guarantee an all-or-nothing rollback.
+        statements = list(self._split_sql_statements(script))
+        conn.execute("BEGIN")
         try:
-            conn.executescript(wrapped)
+            for statement in statements:
+                conn.execute(statement)
         except Exception:
             conn.rollback()
             raise
+        else:
+            conn.commit()
+
+    @staticmethod
+    def _split_sql_statements(script: str):
+        buffer: list[str] = []
+        for line in script.splitlines():
+            buffer.append(line)
+            candidate = "\n".join(buffer).strip()
+            if candidate and sqlite3.complete_statement(candidate):
+                if Database._has_executable_sql(candidate):
+                    yield candidate
+                buffer = []
+
+        trailing = "\n".join(buffer).strip()
+        if trailing and Database._has_executable_sql(trailing):
+            raise sqlite3.OperationalError("Incomplete SQL statement.")
+
+    @staticmethod
+    def _has_executable_sql(statement: str) -> bool:
+        return any(
+            stripped and not stripped.startswith("--")
+            for stripped in (line.strip() for line in statement.splitlines())
+        )
 
     def _migrate_pipeline_runs_unique_constraint(self, conn: sqlite3.Connection) -> None:
         row = conn.execute(

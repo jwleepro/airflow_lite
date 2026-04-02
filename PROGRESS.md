@@ -3,16 +3,21 @@
 ## Current State Summary
 
 - Repository now has a canonical `AGENT.md` operating guide aligned with `.codex` conventions, separate from `CLAUDE.md`.
-- Repository now has a local `.codex` layout for agent, command, and skill driven work.
+- Repository now has a local `.codex` layout for agent and skill driven work.
 - Repository now has reusable Codex references under `reference/codex/`.
 - Shared execution-state documents now exist at the repository root.
 
 ## Recently Completed
 
+- `2026-04-02` Completed `T-017` for draft PR `#1` by documenting the SQLite transaction rationale in code, adding a `trigger_type` propagation test, and confirming the existing mart wiring and review-fix changes that answer the three actionable review comments.
+- `2026-04-02` Recorded the investigated GitHub PR readiness workflow constraints and implementation order in `reference/codex/pr-ready-automation-policy.md` so future agents can reuse the findings without repeating the tooling check.
+- `2026-04-02` Removed unsupported repository-local `.codex/commands/` files and cleaned command references from `AGENT.md`, planning logs, and `reference/codex/`.
+- `2026-04-02` Saved the working GitHub PR ready-state automation policy and minimum CI recommendations into `reference/codex/` for reuse by future agents.
+- `2026-04-02` Added local Codex support for GitHub PR ready-state automation with a dedicated agent role and a reusable skill for draft-to-ready policy design.
+- `2026-04-02` Addressed actionable code-review findings by switching backfill requests to a safe non-force default, strengthening incremental parquet verification against actual partition row growth, and making SQLite schema scripts execute statement-by-statement inside an explicit transaction.
 - `2026-03-31` Opened draft PR `#1` for the default draft PR workflow update on branch `codex/default-draft-pr-workflow`.
 - `2026-03-31` Updated `AGENT.md` so completed work now defaults to creating a draft PR through the GitHub publish workflow unless the user or environment blocks it.
 - `2026-03-31` Added `.codex/config.toml` with repository-local agent roles and explicit skill registration.
-- `2026-03-31` Added `.codex/commands/` command set for bootstrap, planning, progress tracking, handoff, team split, and reference reading.
 - `2026-03-31` Added baseline `.codex/skills/` packages for bootstrap, progress discipline, indexing, task slicing, Oracle ETL, DuckDB mart design, query tuning, API contract design, export policy, Windows ops, failure bundling, and reference reading.
 - `2026-03-31` Added `reference/codex/` with Markdown reference docs and `index.json`.
 - `2026-03-31` Added `reference-reader` lookup script and tests.
@@ -39,6 +44,19 @@
 
 ## Validation Notes
 
+- `2026-04-02` `python -m compileall src/airflow_lite/storage/database.py tests/test_engine.py` succeeded after adding the SQLite transaction rationale comment and the `trigger_type` propagation regression test.
+- `2026-04-02` Inline Python validation under a workspace-local temp directory confirmed `PipelineRunner.run(trigger_type="backfill")` propagates `trigger_type` into both stage execution and the `on_run_success` callback, and `_execute_script_atomically()` still rolls back earlier statements when a later statement fails.
+- `2026-04-02` `pytest tests/test_engine.py tests/test_storage.py tests/test_service.py tests/test_settings.py tests/test_extract.py tests/test_backfill.py -q -p no:cacheprovider` could not complete in this environment because pytest temp-directory setup/cleanup still hit Windows permission errors even with explicit `--basetemp`.
+- `2026-04-02` Manual validation confirmed `reference/codex/pr-ready-automation-policy.md`, `reference/codex/index.json`, and `reference/codex/README.md` now record the current GitHub workflow absence, local `gh` CLI absence, and the recommended GitHub Actions-first automation path for draft-to-ready transitions.
+- `2026-04-02` Manual validation confirmed `.codex/commands/` no longer exists and `reference/codex/command-format.md` was removed from both the filesystem and `reference/codex/index.json`.
+- `2026-04-02` Manual validation confirmed `AGENT.md`, `PLAN.md`, `PROGRESS.md`, and `reference/codex/*.md` no longer instruct users to use repository-local slash commands.
+- `2026-04-02` Manual validation confirmed `reference/codex/pr-ready-automation-policy.md` is indexed in `reference/codex/index.json` and summarized in `reference/codex/README.md`.
+- `2026-04-02` Re-read `AGENT.md`, `PLAN.md`, `PROGRESS.md`, `reference/codex/index.json`, and the local Codex reference docs before adding new `.codex` structures for PR readiness automation.
+- `2026-04-02` Manual validation confirmed `.codex/config.toml` now registers `github-automation-agent` and `pr-ready-automation`.
+- `2026-04-02` Inline Python verification confirmed `BackfillRequest.force` now defaults to `False`, `BackfillManager.run_backfill()` forwards `force_rerun=False` by default, and `IncrementalMigrationStrategy.verify()` now rejects partition row counts that do not match expected growth.
+- `2026-04-02` Inline Python verification confirmed `_execute_script_atomically()` rolls back partial SQL sequences after an expected `OperationalError`, and `Database.initialize()` still creates `pipeline_runs` and `step_runs` with the new executor.
+- `2026-04-02` `python -m compileall src/airflow_lite/api/schemas.py src/airflow_lite/engine/backfill.py src/airflow_lite/engine/strategy.py tests/test_api.py tests/test_backfill.py tests/test_extract.py tests/test_storage.py` succeeded.
+- `2026-04-02` `pytest tests/test_api.py tests/test_backfill.py tests/test_extract.py tests/test_storage.py -q -p no:cacheprovider` could not complete in this environment because pytest temp-directory setup/cleanup hit Windows permission errors under both the default temp root and a repository-local `--basetemp`.
 - `2026-03-31` Pushed branch `codex/default-draft-pr-workflow` and created draft PR `#1`: `https://github.com/jwleepro/airflow_lite/pull/1`
 - `2026-03-31` Re-read `AGENT.md`, `PLAN.md`, and `PROGRESS.md` before documenting the new default PR creation workflow.
 - `2026-03-31` `python .codex\skills\reference-reader\scripts\read_reference.py --list` succeeded.
