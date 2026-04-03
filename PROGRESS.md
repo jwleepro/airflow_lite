@@ -9,18 +9,8 @@
 
 ## Recently Completed
 
-- `2026-04-03` Published the local Codex workflow cleanup on branch `codex/cleanup-codex-workflow`, pushed commit `547e9b5`, and opened draft PR `#2` because the earlier working branch `codex/default-draft-pr-workflow` had already been merged by PR `#1`.
-- `2026-04-03` Removed the repository-local `draft-to-ready` automation from current state by deleting the `pr-ready-automation` skill, removing its registration from `.codex/config.toml`, updating `AGENT.md`, and reducing `.github/workflows/pr-checks.yml` to CI-only checks.
-- `2026-04-03` Removed stale `pr-ready-automation-policy` and `github-workflow-gaps` entries from `reference/codex/index.json` and `reference/codex/README.md` so the indexed Codex reference set now matches the files that actually exist under `reference/codex/`.
-- `2026-04-03` Reduced repository-local agent registration to `codex-meta-agent` and `github-automation-agent`, removed duplicated local role files for general planning and implementation work, and updated the operating guide plus Codex references to treat the other roles as Codex built-ins instead of repository-local assets.
-- `2026-04-02` Added `reference/codex/github-workflow-gaps.md` plus matching `reference/codex/index.json` and `reference/codex/README.md` updates so future agents can distinguish draft-to-ready automation from approval-review, merge, and remediation-loop gaps in the current GitHub workflow.
-- `2026-04-02` Updated draft PR `#1` on branch `codex/default-draft-pr-workflow` with commit `41a44bd` to include the repository-local `.codex` workflow, mart skeleton files, moved `spec/` documents, and related tests.
-- `2026-04-02` Completed `T-018` by adding `.github/workflows/pr-checks.yml` with stable `smoke`, `unit-core`, and `draft-pr-ready-gate` jobs, and by documenting the implemented ready-gate policy in the GitHub workflow guide and Codex references.
 - `2026-04-02` Completed `T-017` for draft PR `#1` by documenting the SQLite transaction rationale in code, adding a `trigger_type` propagation test, and confirming the existing mart wiring and review-fix changes that answer the three actionable review comments.
-- `2026-04-02` Recorded the investigated GitHub PR readiness workflow constraints and implementation order in `reference/codex/pr-ready-automation-policy.md` so future agents can reuse the findings without repeating the tooling check.
 - `2026-04-02` Removed unsupported repository-local `.codex/commands/` files and cleaned command references from `AGENT.md`, planning logs, and `reference/codex/`.
-- `2026-04-02` Saved the working GitHub PR ready-state automation policy and minimum CI recommendations into `reference/codex/` for reuse by future agents.
-- `2026-04-02` Added local Codex support for GitHub PR ready-state automation with a dedicated agent role and a reusable skill for draft-to-ready policy design.
 - `2026-04-02` Addressed actionable code-review findings by switching backfill requests to a safe non-force default, strengthening incremental parquet verification against actual partition row growth, and making SQLite schema scripts execute statement-by-statement inside an explicit transaction.
 - `2026-03-31` Opened draft PR `#1` for the default draft PR workflow update on branch `codex/default-draft-pr-workflow`.
 - `2026-03-31` Updated `AGENT.md` so completed work now defaults to creating a draft PR through the GitHub publish workflow unless the user or environment blocks it.
@@ -51,26 +41,15 @@
 
 ## Validation Notes
 
-- `2026-04-03` Pushed branch `codex/cleanup-codex-workflow` with commit `547e9b5` and opened draft PR `#2`: `https://github.com/jwleepro/airflow_lite/pull/2`
-- `2026-04-03` Used a temporary worktree from merged `main` to publish this cleanup safely because the root checkout still held the same local changes on the already-merged branch `codex/default-draft-pr-workflow`.
-- `2026-04-03` Manual validation confirmed `.codex/skills/pr-ready-automation/` is gone, `.codex/config.toml` no longer registers the skill, and `.github/workflows/pr-checks.yml` now contains only the `smoke` and `unit-core` CI jobs.
+- `2026-04-04` `PYTHONPATH=src`, `PYTHONDONTWRITEBYTECODE=1`, `python -B -m pytest tests/test_issue_triage.py -q -p no:cacheprovider` succeeded with `5 passed` after adding explicit `needs-human` signal handling to the issue forms and triage script.
 - `2026-04-03` `python .codex\skills\reference-reader\scripts\read_reference.py --list` succeeded after the cleanup and now reports `document count: 4`.
 - `2026-04-03` Manual validation confirmed every path still listed in `reference/codex/index.json` now exists under `reference/codex/`.
-- `2026-04-03` Manual validation confirmed `.codex/config.toml` now registers only `codex-meta-agent` and `github-automation-agent`, and that the removed local agent TOML files are no longer present under `.codex/agents/`.
-- `2026-04-02` Manual validation confirmed `reference/codex/github-workflow-gaps.md` now captures the current repository-level GitHub workflow gaps, and that `reference/codex/index.json` plus `reference/codex/README.md` reference the new document for future lookup.
-- `2026-04-02` Pushed commit `41a44bd` to branch `codex/default-draft-pr-workflow`; draft PR `#1` remains open at `https://github.com/jwleepro/airflow_lite/pull/1`.
 - `2026-04-02` `pytest tests/test_api.py tests/test_backfill.py tests/test_extract.py tests/test_service.py tests/test_settings.py tests/test_storage.py tests/test_mart.py tests/test_reference_reader.py -q -p no:cacheprovider` ran to collection and execution but failed in this environment because pytest could not access `C:\Users\170731\AppData\Local\Temp\pytest-of-170731` for `tmp_path` setup.
-- `2026-04-02` `python -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('.github/workflows/pr-checks.yml').read_text(encoding='utf-8')); print('YAML_OK')"` succeeded for the new PR workflow.
-- `2026-04-02` Manual validation confirmed the repository now has `.github/workflows/pr-checks.yml` with stable `smoke`, `unit-core`, and `draft-pr-ready-gate` job names, and the ready gate is intentionally implemented in the same workflow instead of `workflow_run` chaining due GitHub default-branch activation constraints.
 - `2026-04-02` `python -m compileall src/airflow_lite/storage/database.py tests/test_engine.py` succeeded after adding the SQLite transaction rationale comment and the `trigger_type` propagation regression test.
 - `2026-04-02` Inline Python validation under a workspace-local temp directory confirmed `PipelineRunner.run(trigger_type="backfill")` propagates `trigger_type` into both stage execution and the `on_run_success` callback, and `_execute_script_atomically()` still rolls back earlier statements when a later statement fails.
 - `2026-04-02` `pytest tests/test_engine.py tests/test_storage.py tests/test_service.py tests/test_settings.py tests/test_extract.py tests/test_backfill.py -q -p no:cacheprovider` could not complete in this environment because pytest temp-directory setup/cleanup still hit Windows permission errors even with explicit `--basetemp`.
-- `2026-04-02` Manual validation confirmed `reference/codex/pr-ready-automation-policy.md`, `reference/codex/index.json`, and `reference/codex/README.md` now record the current GitHub workflow absence, local `gh` CLI absence, and the recommended GitHub Actions-first automation path for draft-to-ready transitions.
 - `2026-04-02` Manual validation confirmed `.codex/commands/` no longer exists and `reference/codex/command-format.md` was removed from both the filesystem and `reference/codex/index.json`.
 - `2026-04-02` Manual validation confirmed `AGENT.md`, `PLAN.md`, `PROGRESS.md`, and `reference/codex/*.md` no longer instruct users to use repository-local slash commands.
-- `2026-04-02` Manual validation confirmed `reference/codex/pr-ready-automation-policy.md` is indexed in `reference/codex/index.json` and summarized in `reference/codex/README.md`.
-- `2026-04-02` Re-read `AGENT.md`, `PLAN.md`, `PROGRESS.md`, `reference/codex/index.json`, and the local Codex reference docs before adding new `.codex` structures for PR readiness automation.
-- `2026-04-02` Manual validation confirmed `.codex/config.toml` now registers `github-automation-agent` and `pr-ready-automation`.
 - `2026-04-02` Inline Python verification confirmed `BackfillRequest.force` now defaults to `False`, `BackfillManager.run_backfill()` forwards `force_rerun=False` by default, and `IncrementalMigrationStrategy.verify()` now rejects partition row counts that do not match expected growth.
 - `2026-04-02` Inline Python verification confirmed `_execute_script_atomically()` rolls back partial SQL sequences after an expected `OperationalError`, and `Database.initialize()` still creates `pipeline_runs` and `step_runs` with the new executor.
 - `2026-04-02` `python -m compileall src/airflow_lite/api/schemas.py src/airflow_lite/engine/backfill.py src/airflow_lite/engine/strategy.py tests/test_api.py tests/test_backfill.py tests/test_extract.py tests/test_storage.py` succeeded.
