@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reference Reader"
+  short_description: "Find the right Codex reference docs quickly"
+  default_prompt: "Use $reference-reader to locate the smallest relevant set of documents from reference/codex before editing local Codex files."

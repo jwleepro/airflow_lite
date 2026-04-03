@@ -1,0 +1,4 @@
+interface:
+  display_name: "Progress Discipline"
+  short_description: "Keep PLAN.md and PROGRESS.md synchronized"
+  default_prompt: "Use $progress-discipline to update PLAN.md and PROGRESS.md so the task state is accurate before and after the change."

@@ -1,0 +1,118 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - labeled
+      - unlabeled
+      - ready_for_review
+      - converted_to_draft
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: smoke
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e ".[phase2,dev]"
+
+      - name: Compile application sources
+        run: python -m compileall src/airflow_lite
+
+  unit-core:
+    name: unit-core
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -e ".[phase2,dev]"
+
+      - name: Run repository unit tests
+        run: >-
+          pytest
+          tests/test_alerting.py
+          tests/test_api.py
+          tests/test_backfill.py
+          tests/test_engine.py
+          tests/test_extract.py
+          tests/test_mart.py
+          tests/test_reference_reader.py
+          tests/test_scheduler.py
+          tests/test_service.py
+          tests/test_settings.py
+          tests/test_storage.py
+          -q
+          -p
+          no:cacheprovider
+          -m
+          "not integration"
+
+  draft-pr-ready-gate:
+    name: draft-pr-ready-gate
+    needs:
+      - smoke
+      - unit-core
+    if: ${{ github.event.pull_request.draft == true }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Promote eligible draft PR
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const labels = (pr.labels || []).map((label) => label.name);
+            const hasAutoLabel = labels.includes("ready:auto");
+            const hasBlockingLabel = labels.includes("blocked") || labels.includes("wip");
+
+            if (!hasAutoLabel) {
+              core.notice(`Skipping PR #${pr.number}: missing ready:auto label.`);
+              return;
+            }
+
+            if (hasBlockingLabel) {
+              core.notice(`Skipping PR #${pr.number}: blocking label present (${labels.join(", ")}).`);
+              return;
+            }
+
+            await github.graphql(
+              `
+                mutation MarkPullRequestReady($pullRequestId: ID!) {
+                  markPullRequestReadyForReview(input: { pullRequestId: $pullRequestId }) {
+                    pullRequest {
+                      number
+                    }
+                  }
+                }
+              `,
+              { pullRequestId: pr.node_id },
+            );
+
+            core.notice(`PR #${pr.number} was marked ready for review.`);

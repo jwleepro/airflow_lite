@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "updated_at": "2026-04-02",
+  "scope": "Codex local repository structure, formats, and reference workflow",
+  "docs": [
+    {
+      "id": "agent-format",
+      "title": "Agent Config Format",
+      "path": "reference/codex/agent-format.md",
+      "summary": "Documents the Codex agent role structure used from .codex/config.toml and per-role TOML files.",
+      "keywords": ["agent", "config.toml", "config_file", "nickname_candidates", "role"],
+      "use_when": [
+        "adding or editing agent roles",
+        "changing multi-agent settings",
+        "reviewing per-role TOML config"
+      ]
+    },
+    {
+      "id": "skill-format",
+      "title": "Skill Package Format",
+      "path": "reference/codex/skill-format.md",
+      "summary": "Documents SKILL.md frontmatter, optional scripts and references, and agents/openai.yaml usage.",
+      "keywords": ["skill", "SKILL.md", "openai.yaml", "scripts", "references"],
+      "use_when": [
+        "adding a new skill",
+        "editing an existing skill",
+        "checking skill metadata requirements"
+      ]
+    },
+    {
+      "id": "repo-codex-layout",
+      "title": "Repository Codex Layout",
+      "path": "reference/codex/repo-codex-layout.md",
+      "summary": "Explains how this repository maps agents, skills, and reference material under .codex and reference/codex.",
+      "keywords": ["repository", ".codex", "layout", "skills.config", "reference"],
+      "use_when": [
+        "touching repository-local Codex files",
+        "understanding why skills are explicitly registered",
+        "extending the local Codex setup"
+      ]
+    },
+    {
+      "id": "reference-workflow",
+      "title": "Reference Workflow",
+      "path": "reference/codex/reference-workflow.md",
+      "summary": "Defines how agents should read, use, and maintain reference/codex documents during Codex meta work.",
+      "keywords": ["reference", "workflow", "lookup", "maintenance", "reader"],
+      "use_when": [
+        "starting Codex meta work",
+        "deciding which reference document to read",
+        "updating reference docs after a change"
+      ]
+    },
+    {
+      "id": "pr-ready-automation-policy",
+      "title": "PR Ready Automation Policy",
+      "path": "reference/codex/pr-ready-automation-policy.md",
+      "summary": "Records the repository's working policy for automatic draft-to-ready PR promotion, including the implemented `PR Checks` workflow, stable check names, current tooling constraints, recommended implementation order, and the local Codex assets used to implement the gate.",
+      "keywords": ["github", "pull request", "ready for review", "draft", "ci", "checks", "labels", "automation", "workflow", "gh", "tooling"],
+      "use_when": [
+        "designing automatic draft-to-ready promotion",
+        "choosing required CI checks for review readiness",
+        "debugging why a PR did not auto-promote",
+        "deciding whether automation should live in GitHub Actions or local tooling",
+        "using the local github-automation-agent or pr-ready-automation skill"
+      ]
+    }
+  ]
+}

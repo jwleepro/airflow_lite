@@ -447,6 +447,29 @@ def test_on_run_success_callback_called_on_pipeline_success(make_runner):
     assert callback_calls[0].pipeline_name == "test_pipeline"
 
 
+def test_run_passes_trigger_type_into_stage_context_and_success_callback(make_runner):
+    observed_trigger_types = []
+
+    def ok_fn(ctx):
+        observed_trigger_types.append(("stage", ctx.trigger_type))
+        return StageResult(records_processed=1)
+
+    def success_callback(ctx):
+        observed_trigger_types.append(("success", ctx.trigger_type))
+
+    runner = make_runner(
+        [_make_stage("extract", ok_fn)],
+        on_run_success=success_callback,
+    )
+    pipeline_run = runner.run(date(2024, 7, 5), trigger_type="backfill")
+
+    assert pipeline_run.trigger_type == "backfill"
+    assert observed_trigger_types == [
+        ("stage", "backfill"),
+        ("success", "backfill"),
+    ]
+
+
 # ── 멱등성 (idempotency) ──────────────────────────────────────────────────────
 
 def test_run_idempotent_returns_existing_success(make_runner):

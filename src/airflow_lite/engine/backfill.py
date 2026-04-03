@@ -21,7 +21,7 @@ class BackfillManager:
         pipeline_name: str,
         start_date: date,
         end_date: date,
-        force_rerun: bool = True,
+        force_rerun: bool = False,
     ) -> list:
         """날짜 범위를 월 단위로 분할하여 순차 실행.
 

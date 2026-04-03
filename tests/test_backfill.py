@@ -184,7 +184,7 @@ def test_run_backfill_uses_backfill_trigger_type(manager, mock_runner):
 
     call_kwargs = mock_runner.run.call_args_list[0].kwargs
     assert call_kwargs["trigger_type"] == "backfill"
-    assert call_kwargs["force_rerun"] is True
+    assert call_kwargs["force_rerun"] is False
 
 
 def test_run_backfill_single_month(manager, mock_runner):
@@ -194,7 +194,7 @@ def test_run_backfill_single_month(manager, mock_runner):
     mock_runner.run.assert_called_once_with(
         execution_date=date(2026, 6, 1),
         trigger_type="backfill",
-        force_rerun=True,
+        force_rerun=False,
     )
 
 

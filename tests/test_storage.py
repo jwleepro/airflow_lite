@@ -64,6 +64,42 @@ def test_initialize_rolls_back_invalid_schema_script(tmp_path):
     assert tables == []
 
 
+def test_execute_script_atomically_rolls_back_partial_statement_sequence(tmp_path):
+    from airflow_lite.storage.database import Database
+
+    db_path = tmp_path / "partial.db"
+    database = Database(str(db_path))
+    conn = database.get_connection()
+    try:
+        with pytest.raises(sqlite3.OperationalError):
+            database._execute_script_atomically(
+                conn,
+                """
+                CREATE TABLE safe_table (
+                    id INTEGER PRIMARY KEY
+                );
+                INSERT INTO safe_table (id) VALUES (1);
+                INSERT INTO missing_table (id) VALUES (1);
+                """,
+            )
+    finally:
+        conn.close()
+
+    conn = sqlite3.connect(db_path)
+    try:
+        tables = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='safe_table'"
+        ).fetchall()
+        rows = conn.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='safe_table'"
+        ).fetchone()[0]
+    finally:
+        conn.close()
+
+    assert tables == []
+    assert rows == 0
+
+
 # ── PipelineRunRepository ─────────────────────────────────────────────────────
 
 def _make_run(**kwargs) -> PipelineRun:

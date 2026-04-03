@@ -1,0 +1,4 @@
+interface:
+  display_name: "DuckDB Query Tuning"
+  short_description: "Tune analytical queries for large DuckDB datasets"
+  default_prompt: "Use $duckdb-query-tuning to optimize DuckDB queries, table usage, and summary strategy for slow analytics workloads."

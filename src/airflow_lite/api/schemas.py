@@ -10,7 +10,7 @@ class TriggerRequest(BaseModel):
 class BackfillRequest(BaseModel):
     start_date: date
     end_date: date
-    force: bool = True
+    force: bool = False
 
 
 class StepRunResponse(BaseModel):

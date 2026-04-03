@@ -673,6 +673,8 @@ class TestIncrementalMigrationStrategy:
         )
         strategy._extract_count = 10
         strategy._loaded_count = 10
+        strategy._initial_partition_rows = 20
+        parquet_writer.count_rows.return_value = 30
         ctx = _make_context()
         assert strategy.verify(ctx) is True
 
@@ -686,10 +688,54 @@ class TestIncrementalMigrationStrategy:
         )
         strategy._extract_count = 10
         strategy._loaded_count = 10
+        strategy._initial_partition_rows = 20
+        parquet_writer.count_rows.return_value = 30
         ctx = _make_context()
         assert strategy.verify(ctx) is True
 
         strategy._loaded_count = 9
+        parquet_writer.count_rows.return_value = 28
+        assert strategy.verify(ctx) is False
+
+    def test_verify_uses_partition_row_growth(self, tmp_path):
+        oracle_client = MagicMock()
+        chunked_reader = MagicMock()
+        parquet_writer = ParquetWriter(str(tmp_path))
+        strategy = IncrementalMigrationStrategy(
+            oracle_client, chunked_reader, parquet_writer
+        )
+        ctx = _make_context(execution_date=date(2026, 3, 15))
+
+        parquet_writer.write_chunk(pa.table({"ID": [1, 2]}), "TEST_TABLE", 2026, 3)
+        chunked_reader.read_chunks.return_value = iter(
+            [pd.DataFrame({"ID": [3, 4, 5]})]
+        )
+
+        chunks = list(strategy.extract(ctx))
+        assert len(chunks) == 1
+
+        strategy._loaded_count = 3
+        parquet_writer.write_chunk(pa.table({"ID": [3, 4, 5]}), "TEST_TABLE", 2026, 3, append=True)
+
+        assert strategy.verify(ctx) is True
+
+    def test_verify_fails_when_partition_rows_do_not_match_written_rows(self, tmp_path):
+        oracle_client = MagicMock()
+        chunked_reader = MagicMock()
+        parquet_writer = ParquetWriter(str(tmp_path))
+        strategy = IncrementalMigrationStrategy(
+            oracle_client, chunked_reader, parquet_writer
+        )
+        ctx = _make_context(execution_date=date(2026, 3, 15))
+
+        parquet_writer.write_chunk(pa.table({"ID": [1, 2]}), "TEST_TABLE", 2026, 3)
+        chunked_reader.read_chunks.return_value = iter(
+            [pd.DataFrame({"ID": [3, 4, 5]})]
+        )
+
+        list(strategy.extract(ctx))
+        strategy._loaded_count = 3
+
         assert strategy.verify(ctx) is False
 
     def test_finalize_run_failure_removes_incremental_outputs(self):
