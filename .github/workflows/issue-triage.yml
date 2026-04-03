@@ -1,0 +1,74 @@
+name: Issue Triage
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+      - reopened
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: issue-triage-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  normalize-labels:
+    name: normalize-labels
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build issue triage plan
+        id: plan
+        run: >-
+          python .github/scripts/issue_triage.py
+          --event-path "$GITHUB_EVENT_PATH"
+          --output-path "$GITHUB_OUTPUT"
+
+      - name: Apply label additions
+        if: ${{ steps.plan.outputs.labels_to_add != '[]' }}
+        uses: actions/github-script@v8
+        env:
+          LABELS_TO_ADD: ${{ steps.plan.outputs.labels_to_add }}
+        with:
+          script: |
+            const labels = JSON.parse(process.env.LABELS_TO_ADD);
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels,
+            });
+
+      - name: Apply label removals
+        if: ${{ steps.plan.outputs.labels_to_remove != '[]' }}
+        uses: actions/github-script@v8
+        env:
+          LABELS_TO_REMOVE: ${{ steps.plan.outputs.labels_to_remove }}
+        with:
+          script: |
+            const labels = JSON.parse(process.env.LABELS_TO_REMOVE);
+            for (const name of labels) {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  name,
+                });
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+              }
+            }

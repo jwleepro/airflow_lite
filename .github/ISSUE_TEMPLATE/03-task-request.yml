@@ -1,0 +1,116 @@
+name: Task request
+description: 리팩터링, 테스트, 문서, 운영성 개선 같은 비기능 작업을 구조화된 형식으로 접수합니다.
+title: "[Task] "
+labels:
+  - status:needs-triage
+  - priority:medium
+body:
+  - type: markdown
+    attributes:
+      value: |
+        유지보수성, 품질, 문서화, 운영성 개선을 위한 작업 요청 양식입니다.
+
+        - 최종 `type:*` 라벨은 트리아지 또는 후속 자동화가 결정합니다.
+        - 질문성 요청은 가능한 한 구체적인 산출물을 기준으로 적어주세요.
+
+  - type: input
+    id: summary
+    attributes:
+      label: 작업 요약
+      description: 한 줄로 요청 내용을 적어주세요.
+      placeholder: 예) GitHub issue triage 자동화 도입 전 이슈 폼과 라벨 매핑 정리
+    validations:
+      required: true
+
+  - type: dropdown
+    id: requested_type
+    attributes:
+      label: 요청 유형
+      description: 가장 가까운 작업 유형을 선택하세요.
+      options:
+        - type:refactor
+        - type:test
+        - type:chore
+        - documentation
+        - question
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 관련 영역
+      description: 관련 영역을 모두 선택하세요.
+      multiple: true
+      options:
+        - area:backend
+        - area:frontend
+        - area:infra
+        - area:ci
+        - area:docs
+    validations:
+      required: true
+
+  - type: textarea
+    id: background
+    attributes:
+      label: 배경과 목적
+      description: 왜 이 작업이 필요한지 적어주세요.
+      placeholder: 예) 현재 문서와 실제 저장소 구성이 달라 다음 자동화 단계를 진행하기 어려움
+    validations:
+      required: true
+
+  - type: textarea
+    id: deliverable
+    attributes:
+      label: 기대 산출물
+      description: 완료 시 무엇이 생기거나 바뀌어야 하는지 적어주세요.
+      placeholder: |
+        - ...
+        - ...
+        - ...
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: human_review_signals
+    attributes:
+      label: 사람 검토 필요 신호
+      description: 하나라도 해당하면 `needs-human` 검토 대상으로 분류합니다.
+      options:
+        - label: 운영 반영 필요 (Windows 서비스, 스케줄, 배포 절차, 설정 변경 포함)
+        - label: 데이터 위험 있음 (삭제, 재적재, 백필, 마이그레이션, 스키마 영향 포함)
+        - label: 외부 시스템 영향 있음 (Oracle, 파일 저장소, 외부 API, 알림, 인증 시스템 포함)
+        - label: 사람 승인 또는 판단 필요 (우선순위, 정책, 위험 수용 판단 등)
+    validations:
+      required: false
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: 의존성 또는 선행 조건
+      description: 관련 이슈, 문서, 브랜치, 외부 제약이 있으면 적어주세요.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: 요청 긴급도
+      description: 운영 우선순위 판단에 필요한 신호입니다.
+      options:
+        - 현재 진행 중인 작업을 막고 있음
+        - 곧 필요하지만 우회 가능
+        - 백로그 후보
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 제출 전 확인
+      options:
+        - label: 완료 조건이나 기대 산출물을 구체적으로 적었습니다.
+          required: true
+        - label: 민감한 정보나 내부 비밀값을 포함하지 않았습니다.
+          required: true

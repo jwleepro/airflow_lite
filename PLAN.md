@@ -54,6 +54,12 @@ This milestone covers:
   Done condition: summary/chart/filter contracts exist in docs and code-backed schema models.
 - `T-020` Remove repository-local draft-to-ready promotion automation.
   Done condition: current repository docs, skill registration, and CI workflow no longer advertise or execute automatic draft PR promotion.
+- `T-021` Define and add structured GitHub issue intake forms.
+  Done condition: repository has structured issue form YAML files plus chooser configuration that preserve the current label policy and leave status/automation labels under maintainer or workflow control.
+- `T-022` Add issue-triage automation for structured GitHub issue forms.
+  Done condition: issues opened from the new forms can be normalized to the documented label policy without exposing status or automation labels to contributors.
+- `T-023` Refine the GitHub AI automation playbook around the implemented issue-intake baseline.
+  Done condition: the playbook clearly separates implemented issue intake files from future workflow candidates and no longer conflates issue forms with GitHub Actions workflows.
 
 ### Current
 
