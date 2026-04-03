@@ -9,6 +9,7 @@
 
 ## Recently Completed
 
+- `2026-04-03` Published the local Codex workflow cleanup on branch `codex/cleanup-codex-workflow`, pushed commit `547e9b5`, and opened draft PR `#2` because the earlier working branch `codex/default-draft-pr-workflow` had already been merged by PR `#1`.
 - `2026-04-03` Removed the repository-local `draft-to-ready` automation from current state by deleting the `pr-ready-automation` skill, removing its registration from `.codex/config.toml`, updating `AGENT.md`, and reducing `.github/workflows/pr-checks.yml` to CI-only checks.
 - `2026-04-03` Removed stale `pr-ready-automation-policy` and `github-workflow-gaps` entries from `reference/codex/index.json` and `reference/codex/README.md` so the indexed Codex reference set now matches the files that actually exist under `reference/codex/`.
 - `2026-04-03` Reduced repository-local agent registration to `codex-meta-agent` and `github-automation-agent`, removed duplicated local role files for general planning and implementation work, and updated the operating guide plus Codex references to treat the other roles as Codex built-ins instead of repository-local assets.
@@ -35,7 +36,7 @@
 
 ## In Progress
 
-- `2026-04-03` Preparing a safe publish handoff for the current local workflow cleanup changes: move them off the already-merged `codex/default-draft-pr-workflow` branch onto a fresh branch from updated `main`, then open a new draft PR with validation and branch details recorded.
+- No active task is currently marked in progress.
 
 ## Pending Next Work
 
@@ -50,10 +51,11 @@
 
 ## Validation Notes
 
+- `2026-04-03` Pushed branch `codex/cleanup-codex-workflow` with commit `547e9b5` and opened draft PR `#2`: `https://github.com/jwleepro/airflow_lite/pull/2`
+- `2026-04-03` Used a temporary worktree from merged `main` to publish this cleanup safely because the root checkout still held the same local changes on the already-merged branch `codex/default-draft-pr-workflow`.
 - `2026-04-03` Manual validation confirmed `.codex/skills/pr-ready-automation/` is gone, `.codex/config.toml` no longer registers the skill, and `.github/workflows/pr-checks.yml` now contains only the `smoke` and `unit-core` CI jobs.
 - `2026-04-03` `python .codex\skills\reference-reader\scripts\read_reference.py --list` succeeded after the cleanup and now reports `document count: 4`.
 - `2026-04-03` Manual validation confirmed every path still listed in `reference/codex/index.json` now exists under `reference/codex/`.
-- `2026-04-03` Did not create or update a PR for this cleanup because the current branch `codex/default-draft-pr-workflow` already contains unrelated pending changes in `.codex/`, `AGENT.md`, `PLAN.md`, and other reference files, so publishing this documentation-only fix separately was not safe from the mixed worktree.
 - `2026-04-03` Manual validation confirmed `.codex/config.toml` now registers only `codex-meta-agent` and `github-automation-agent`, and that the removed local agent TOML files are no longer present under `.codex/agents/`.
 - `2026-04-02` Manual validation confirmed `reference/codex/github-workflow-gaps.md` now captures the current repository-level GitHub workflow gaps, and that `reference/codex/index.json` plus `reference/codex/README.md` reference the new document for future lookup.
 - `2026-04-02` Pushed commit `41a44bd` to branch `codex/default-draft-pr-workflow`; draft PR `#1` remains open at `https://github.com/jwleepro/airflow_lite/pull/1`.
