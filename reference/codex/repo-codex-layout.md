@@ -25,6 +25,7 @@ reference/
 
 - Agent role registration lives in `.codex/config.toml`.
 - Each role has its own TOML file under `.codex/agents/`.
+- The repository keeps only repository-specific custom roles locally. General planning, indexing, review, testing, docs, and domain roles are expected to come from the Codex built-in agent catalog.
 
 ### 2. Skills
 

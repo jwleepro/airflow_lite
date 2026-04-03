@@ -22,10 +22,10 @@ Relevant keys:
 Each role points to a per-role TOML file, for example:
 
 ```toml
-[agents.planner-agent]
-description = "Planning and coordination role"
-config_file = "./agents/planner-agent.toml"
-nickname_candidates = ["Planner", "Coordinator"]
+[agents.github-automation-agent]
+description = "GitHub Actions, PR gate, and review-state automation role"
+config_file = "./agents/github-automation-agent.toml"
+nickname_candidates = ["GitHub Auto", "PR Gate"]
 ```
 
 Per-role files currently use standard Codex config keys such as:
@@ -38,12 +38,13 @@ Per-role files currently use standard Codex config keys such as:
 
 ## Repository Convention
 
-- Use one role per distinct responsibility.
+- Keep repository-local roles only when they express repository-specific ownership that should not be left to the generic Codex built-in catalog.
 - Keep role descriptions explicit about ownership.
 - Use a dedicated GitHub workflow automation role when PR gates, CI checks, or review-state transitions need explicit ownership distinct from Windows ops or Codex meta maintenance.
 - Prefer `read-only` for exploration and review roles.
 - Prefer `workspace-write` for implementation roles.
 - Keep nickname candidates short and human-readable.
+- As of `2026-04-03`, this repository keeps only `codex-meta-agent` and `github-automation-agent` as repository-local custom roles. Planning, indexing, review, testing, and domain implementation use Codex built-in agents instead of duplicate local registrations.
 
 ## When To Update
 

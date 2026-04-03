@@ -9,6 +9,10 @@
 
 ## Recently Completed
 
+- `2026-04-03` Removed the repository-local `draft-to-ready` automation from current state by deleting the `pr-ready-automation` skill, removing its registration from `.codex/config.toml`, updating `AGENT.md`, and reducing `.github/workflows/pr-checks.yml` to CI-only checks.
+- `2026-04-03` Removed stale `pr-ready-automation-policy` and `github-workflow-gaps` entries from `reference/codex/index.json` and `reference/codex/README.md` so the indexed Codex reference set now matches the files that actually exist under `reference/codex/`.
+- `2026-04-03` Reduced repository-local agent registration to `codex-meta-agent` and `github-automation-agent`, removed duplicated local role files for general planning and implementation work, and updated the operating guide plus Codex references to treat the other roles as Codex built-ins instead of repository-local assets.
+- `2026-04-02` Added `reference/codex/github-workflow-gaps.md` plus matching `reference/codex/index.json` and `reference/codex/README.md` updates so future agents can distinguish draft-to-ready automation from approval-review, merge, and remediation-loop gaps in the current GitHub workflow.
 - `2026-04-02` Updated draft PR `#1` on branch `codex/default-draft-pr-workflow` with commit `41a44bd` to include the repository-local `.codex` workflow, mart skeleton files, moved `spec/` documents, and related tests.
 - `2026-04-02` Completed `T-018` by adding `.github/workflows/pr-checks.yml` with stable `smoke`, `unit-core`, and `draft-pr-ready-gate` jobs, and by documenting the implemented ready-gate policy in the GitHub workflow guide and Codex references.
 - `2026-04-02` Completed `T-017` for draft PR `#1` by documenting the SQLite transaction rationale in code, adding a `trigger_type` propagation test, and confirming the existing mart wiring and review-fix changes that answer the three actionable review comments.
@@ -31,7 +35,7 @@
 
 ## In Progress
 
-- No active task is currently marked in progress.
+- `2026-04-03` Preparing a safe publish handoff for the current local workflow cleanup changes: move them off the already-merged `codex/default-draft-pr-workflow` branch onto a fresh branch from updated `main`, then open a new draft PR with validation and branch details recorded.
 
 ## Pending Next Work
 
@@ -46,6 +50,12 @@
 
 ## Validation Notes
 
+- `2026-04-03` Manual validation confirmed `.codex/skills/pr-ready-automation/` is gone, `.codex/config.toml` no longer registers the skill, and `.github/workflows/pr-checks.yml` now contains only the `smoke` and `unit-core` CI jobs.
+- `2026-04-03` `python .codex\skills\reference-reader\scripts\read_reference.py --list` succeeded after the cleanup and now reports `document count: 4`.
+- `2026-04-03` Manual validation confirmed every path still listed in `reference/codex/index.json` now exists under `reference/codex/`.
+- `2026-04-03` Did not create or update a PR for this cleanup because the current branch `codex/default-draft-pr-workflow` already contains unrelated pending changes in `.codex/`, `AGENT.md`, `PLAN.md`, and other reference files, so publishing this documentation-only fix separately was not safe from the mixed worktree.
+- `2026-04-03` Manual validation confirmed `.codex/config.toml` now registers only `codex-meta-agent` and `github-automation-agent`, and that the removed local agent TOML files are no longer present under `.codex/agents/`.
+- `2026-04-02` Manual validation confirmed `reference/codex/github-workflow-gaps.md` now captures the current repository-level GitHub workflow gaps, and that `reference/codex/index.json` plus `reference/codex/README.md` reference the new document for future lookup.
 - `2026-04-02` Pushed commit `41a44bd` to branch `codex/default-draft-pr-workflow`; draft PR `#1` remains open at `https://github.com/jwleepro/airflow_lite/pull/1`.
 - `2026-04-02` `pytest tests/test_api.py tests/test_backfill.py tests/test_extract.py tests/test_service.py tests/test_settings.py tests/test_storage.py tests/test_mart.py tests/test_reference_reader.py -q -p no:cacheprovider` ran to collection and execution but failed in this environment because pytest could not access `C:\Users\170731\AppData\Local\Temp\pytest-of-170731` for `tmp_path` setup.
 - `2026-04-02` `python -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('.github/workflows/pr-checks.yml').read_text(encoding='utf-8')); print('YAML_OK')"` succeeded for the new PR workflow.
@@ -78,7 +88,7 @@
 ## Handoff
 
 - The repository is ready for the next agent to start `T-014`.
-- Recommended next owner: `duckdb-mart-agent`
+- Recommended next owner: Codex built-in `duckdb-mart-agent`
 - Recommended write scope:
   - `src/airflow_lite/mart/`
   - `src/airflow_lite/service/` only if refresh execution wiring needs a small extension

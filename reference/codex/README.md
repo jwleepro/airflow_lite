@@ -24,4 +24,3 @@ Keep Codex-specific rules, structure notes, and format decisions in one place so
 - skill package format
 - repository-specific `.codex` layout
 - workflow for using these references
-- PR ready-for-review automation policy, including the implemented `PR Checks` workflow, stable check names, and current GitHub event constraints

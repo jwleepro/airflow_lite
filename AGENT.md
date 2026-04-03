@@ -95,17 +95,12 @@ Oracle 11g -> [ingest] -> Parquet raw -> [mart] -> DuckDB -> [serve] -> FastAPI 
 
 ### Agent 선택 기준
 
-- `planner-agent`: 다음 작업 선택, 작업 분해, owner와 write scope 정리
-- `docs-agent`: `AGENT.md`, `PLAN.md`, `PROGRESS.md`, `docs/` 문서 수정
+이 저장소가 별도로 유지하는 repository-local custom agent는 아래 2개만 둔다.
+
 - `codex-meta-agent`: `.codex/`와 `reference/codex/` 구조나 규칙 수정
-- `repo-indexer-agent`: 저장소 구조, 영향 범위, 진입점 파악
-- `duckdb-mart-agent`: `mart/` 빌드, refresh, snapshot, validator
-- `query-api-agent`: summary/chart/detail/export API 계약과 FastAPI 조회 엔드포인트
-- `export-agent`: xlsx/csv.zip/parquet 다운로드 정책과 생성 흐름
-- `ops-agent`: Windows 서비스, 스케줄러, 배포, 로그, 백업/복구
-- `github-automation-agent`: GitHub Actions CI, PR gate, label, ready-for-review 자동화
-- `review-agent`: 변경 리뷰, 리스크 점검
-- `test-agent`: 단위/통합/스모크 검증
+- `github-automation-agent`: GitHub Actions CI, PR gate, label, publish workflow 자동화
+
+그 외 planning, indexing, mart, query API, export, ops, review, test, docs 성격의 작업은 Codex 기본 제공 agent를 그대로 사용한다. 같은 이름의 역할이 있더라도 이 저장소에서는 별도 로컬 정의를 추가로 유지하지 않는다.
 
 ### Skill 선택 기준
 
@@ -114,18 +109,17 @@ Oracle 11g -> [ingest] -> Parquet raw -> [mart] -> DuckDB -> [serve] -> FastAPI 
 - `repo-indexing`: 익숙하지 않은 코드 영역의 구조와 영향 범위 파악
 - `task-slicing`: 일이 크거나 여러 agent로 쪼개야 할 때
 - `reference-reader`: `.codex/` 또는 `reference/codex/` 수정 전 관련 reference 선별
-- `pr-ready-automation`: draft PR 자동 승격 조건, required check, label, GitHub Actions 정책 정의
 - `github:yeet`: 로컬 변경을 의도적으로 커밋, 푸시하고 draft PR까지 열어야 할 때 사용
 - `duckdb-mart-design`, `api-contract-design`, `export-policy`, `windows-ops`, `oracle-batch-etl` 등 도메인 skill: 해당 영역 설계나 구현에 직접 들어갈 때
 
 ### 추천 사용 흐름
 
 1. 새 작업 시작: `project-bootstrap`
-2. 다음 작업 선택이 애매함: `planner-agent`
+2. 다음 작업 선택이 애매함: Codex 기본 `planner-agent`
 3. 수정 착수: `progress-discipline`
 4. `.codex/` 수정: `reference-reader` -> 필요 시 `codex-meta-agent`
-5. PR 자동화 설계/구현: `pr-ready-automation` -> `github-automation-agent`
-6. 구현 후 검증: `review-agent`, `test-agent`
+5. PR 자동화 설계/구현: `github-automation-agent`
+6. 구현 후 검증: Codex 기본 `review-agent`, `test-agent`
 7. 작업 종료: 관련 검증이 끝나면 `github:yeet` 또는 동등한 GitHub 흐름으로 draft PR 생성
 
 ### 작업 종료 및 PR 생성
