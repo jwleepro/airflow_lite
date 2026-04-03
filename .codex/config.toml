@@ -14,65 +14,10 @@ max_threads = 6
 max_depth = 2
 job_max_runtime_seconds = 1800
 
-[agents.planner-agent]
-description = "Read AGENT.md, PLAN.md, and PROGRESS.md first. Break work into milestones, maintain planning state, and coordinate non-overlapping agent scopes."
-config_file = "./agents/planner-agent.toml"
-nickname_candidates = ["Planner", "Task Lead", "Coordinator"]
-
-[agents.repo-indexer-agent]
-description = "Map repository structure, entry points, configuration, tests, and change impact before implementation. Prefer read-only exploration."
-config_file = "./agents/repo-indexer-agent.toml"
-nickname_candidates = ["Indexer", "Scout", "Mapper"]
-
-[agents.oracle-etl-agent]
-description = "Own Oracle 11g extraction, incremental windows, chunking, thick-mode compatibility, and Parquet raw ingestion."
-config_file = "./agents/oracle-etl-agent.toml"
-nickname_candidates = ["Oracle ETL", "Extractor", "Raw Loader"]
-
-[agents.duckdb-mart-agent]
-description = "Own DuckDB mart build, refresh, snapshot promotion, validators, and analytics SQL for the read-optimized serving layer."
-config_file = "./agents/duckdb-mart-agent.toml"
-nickname_candidates = ["DuckDB Mart", "Mart Builder", "Snapshot"]
-
-[agents.query-api-agent]
-description = "Own query services and FastAPI endpoints for summary, chart, detail, filters, sorting, and pagination."
-config_file = "./agents/query-api-agent.toml"
-nickname_candidates = ["Query API", "Serve", "Endpoint"]
-
-[agents.export-agent]
-description = "Own export jobs, xlsx/csv.zip/parquet generation, download lifecycle, and large-result handling policy."
-config_file = "./agents/export-agent.toml"
-nickname_candidates = ["Export", "Downloader", "File Job"]
-
-[agents.frontend-dashboard-agent]
-description = "Own dashboard UX, charts, filters, drill-down, and download affordances while preserving established project conventions."
-config_file = "./agents/frontend-dashboard-agent.toml"
-nickname_candidates = ["Dashboard", "Frontend", "Charts"]
-
-[agents.test-agent]
-description = "Own unit, integration, smoke, and performance verification. Focus on regressions, coverage gaps, and reproducible failures."
-config_file = "./agents/test-agent.toml"
-nickname_candidates = ["Test", "Verifier", "Regression"]
-
-[agents.docs-agent]
-description = "Own AGENT.md, PLAN.md, PROGRESS.md, docs/tasks, docs/api, docs/decisions, and operational documentation."
-config_file = "./agents/docs-agent.toml"
-nickname_candidates = ["Docs", "Writer", "Runbook"]
-
-[agents.ops-agent]
-description = "Own Windows service, scheduler, deployment, environment verification, backup/restore, logging, and operational scripts."
-config_file = "./agents/ops-agent.toml"
-nickname_candidates = ["Ops", "Windows", "Scheduler"]
-
 [agents.github-automation-agent]
-description = "Own GitHub Actions CI, PR gates, labels, review-state automation, and publish workflow glue for this repository."
+description = "Own GitHub Actions CI, PR gates, labels, and publish workflow glue for this repository."
 config_file = "./agents/github-automation-agent.toml"
 nickname_candidates = ["GitHub Auto", "PR Gate", "Actions"]
-
-[agents.review-agent]
-description = "Review changes for bugs, regressions, missing tests, data-risk, and operational risk. Prefer read-only inspection and precise findings."
-config_file = "./agents/review-agent.toml"
-nickname_candidates = ["Review", "Gate", "Risk"]
 
 [agents.codex-meta-agent]
 description = "Own repository-local Codex files under .codex and the reusable research docs under reference/codex. Read the indexed Codex references before changing local agent, command, or skill structure."
@@ -121,10 +66,6 @@ enabled = true
 
 [[skills.config]]
 path = "./skills/windows-ops"
-enabled = true
-
-[[skills.config]]
-path = "./skills/pr-ready-automation"
 enabled = true
 
 [[skills.config]]

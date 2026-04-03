@@ -6,10 +6,6 @@ on:
       - opened
       - reopened
       - synchronize
-      - labeled
-      - unlabeled
-      - ready_for_review
-      - converted_to_draft
 
 permissions:
   contents: read
@@ -71,48 +67,3 @@ jobs:
           no:cacheprovider
           -m
           "not integration"
-
-  draft-pr-ready-gate:
-    name: draft-pr-ready-gate
-    needs:
-      - smoke
-      - unit-core
-    if: ${{ github.event.pull_request.draft == true }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - name: Promote eligible draft PR
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const pr = context.payload.pull_request;
-            const labels = (pr.labels || []).map((label) => label.name);
-            const hasAutoLabel = labels.includes("ready:auto");
-            const hasBlockingLabel = labels.includes("blocked") || labels.includes("wip");
-
-            if (!hasAutoLabel) {
-              core.notice(`Skipping PR #${pr.number}: missing ready:auto label.`);
-              return;
-            }
-
-            if (hasBlockingLabel) {
-              core.notice(`Skipping PR #${pr.number}: blocking label present (${labels.join(", ")}).`);
-              return;
-            }
-
-            await github.graphql(
-              `
-                mutation MarkPullRequestReady($pullRequestId: ID!) {
-                  markPullRequestReadyForReview(input: { pullRequestId: $pullRequestId }) {
-                    pullRequest {
-                      number
-                    }
-                  }
-                }
-              `,
-              { pullRequestId: pr.node_id },
-            );
-
-            core.notice(`PR #${pr.number} was marked ready for review.`);

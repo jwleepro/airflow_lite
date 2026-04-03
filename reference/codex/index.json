@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-04-02",
+  "updated_at": "2026-04-03",
   "scope": "Codex local repository structure, formats, and reference workflow",
   "docs": [
     {
@@ -49,20 +49,6 @@
         "starting Codex meta work",
         "deciding which reference document to read",
         "updating reference docs after a change"
-      ]
-    },
-    {
-      "id": "pr-ready-automation-policy",
-      "title": "PR Ready Automation Policy",
-      "path": "reference/codex/pr-ready-automation-policy.md",
-      "summary": "Records the repository's working policy for automatic draft-to-ready PR promotion, including the implemented `PR Checks` workflow, stable check names, current tooling constraints, recommended implementation order, and the local Codex assets used to implement the gate.",
-      "keywords": ["github", "pull request", "ready for review", "draft", "ci", "checks", "labels", "automation", "workflow", "gh", "tooling"],
-      "use_when": [
-        "designing automatic draft-to-ready promotion",
-        "choosing required CI checks for review readiness",
-        "debugging why a PR did not auto-promote",
-        "deciding whether automation should live in GitHub Actions or local tooling",
-        "using the local github-automation-agent or pr-ready-automation skill"
       ]
     }
   ]

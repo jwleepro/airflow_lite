@@ -1,5 +1,0 @@
-personality = "pragmatic"
-model_reasoning_effort = "medium"
-model_verbosity = "low"
-sandbox_mode = "workspace-write"
-project_doc_fallback_filenames = ["AGENT.md"]
