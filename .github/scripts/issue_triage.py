@@ -5,14 +5,20 @@ import json
 import re
 from pathlib import Path
 
+LABEL_CATALOG_PATH = Path(__file__).resolve().parents[1] / "labels.json"
 
-KNOWN_AREA_LABELS = {
-    "area:backend",
-    "area:frontend",
-    "area:infra",
-    "area:ci",
-    "area:docs",
-}
+
+def _load_known_area_labels() -> set[str]:
+    payload = json.loads(LABEL_CATALOG_PATH.read_text(encoding="utf-8"))
+    labels = payload.get("labels", [])
+    return {
+        str(label["name"]).strip()
+        for label in labels
+        if isinstance(label, dict) and str(label.get("name", "")).startswith("area:")
+    }
+
+
+KNOWN_AREA_LABELS = _load_known_area_labels()
 
 MANAGED_PREFIXES = ("type:", "priority:", "area:")
 MANAGED_EXACT_LABELS = {"documentation", "question"}

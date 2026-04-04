@@ -60,6 +60,8 @@ This milestone covers:
   Done condition: issues opened from the new forms can be normalized to the documented label policy without exposing status or automation labels to contributors.
 - `T-023` Refine the GitHub AI automation playbook around the implemented issue-intake baseline.
   Done condition: the playbook clearly separates implemented issue intake files from future workflow candidates and no longer conflates issue forms with GitHub Actions workflows.
+- `T-024` Declare and sync the GitHub label catalog from the repository.
+  Done condition: playbook labels are declared in-repo and a repository-managed sync path keeps GitHub label state aligned.
 
 ### Current
 

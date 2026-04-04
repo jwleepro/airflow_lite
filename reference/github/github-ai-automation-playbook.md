@@ -26,6 +26,15 @@
 
 ## 현재 확정된 기준
 
+현재 라벨 카탈로그의 source of truth:
+
+- `.github/labels.json`
+
+현재 라벨 동기화 구현:
+
+- `.github/scripts/sync_labels.py`
+- `.github/workflows/label-sync.yml`
+
 ### 구조화된 이슈 접수
 
 현재 저장소에서 사용하는 이슈 폼 파일:
@@ -46,6 +55,8 @@
 ### 현재 확정된 라벨 정책
 
 #### 라벨 체계
+
+정확한 라벨 이름, 색상, 설명은 `.github/labels.json`을 기준으로 관리한다. 아래 목록은 현재 카탈로그 분류를 설명하기 위한 요약이다.
 
 기본 GitHub 라벨:
 

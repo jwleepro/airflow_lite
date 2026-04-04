@@ -9,6 +9,7 @@
 
 ## Recently Completed
 
+- `2026-04-04` Completed `T-024` by adding a repository-managed GitHub label catalog at `.github/labels.json`, wiring `issue_triage.py` to that catalog, adding `sync_labels.py` plus the `label-sync` workflow, and documenting the catalog as the source of truth for issue/automation labels.
 - `2026-04-02` Completed `T-017` for draft PR `#1` by documenting the SQLite transaction rationale in code, adding a `trigger_type` propagation test, and confirming the existing mart wiring and review-fix changes that answer the three actionable review comments.
 - `2026-04-02` Removed unsupported repository-local `.codex/commands/` files and cleaned command references from `AGENT.md`, planning logs, and `reference/codex/`.
 - `2026-04-02` Addressed actionable code-review findings by switching backfill requests to a safe non-force default, strengthening incremental parquet verification against actual partition row growth, and making SQLite schema scripts execute statement-by-statement inside an explicit transaction.
@@ -41,6 +42,9 @@
 
 ## Validation Notes
 
+- `2026-04-04` `PYTHONPATH=src`, `PYTHONDONTWRITEBYTECODE=1`, `python -m pytest tests/test_issue_triage.py tests/test_label_sync.py -q --basetemp .tmp_pytest -p no:cacheprovider` succeeded with `8 passed`.
+- `2026-04-04` `python .github\scripts\sync_labels.py --repo jwleepro/airflow_lite --labels-path .github\labels.json --dry-run` reported `create=[]`, `update=[]`, `unchanged_count=31`.
+- `2026-04-04` `python .github\scripts\sync_labels.py --repo jwleepro/airflow_lite --labels-path .github\labels.json` completed as a no-op with `create=[]`, `update=[]`, `unchanged_count=31`.
 - `2026-04-04` `PYTHONPATH=src`, `PYTHONDONTWRITEBYTECODE=1`, `python -B -m pytest tests/test_issue_triage.py -q -p no:cacheprovider` succeeded with `5 passed` after adding explicit `needs-human` signal handling to the issue forms and triage script.
 - `2026-04-03` `python .codex\skills\reference-reader\scripts\read_reference.py --list` succeeded after the cleanup and now reports `document count: 4`.
 - `2026-04-03` Manual validation confirmed every path still listed in `reference/codex/index.json` now exists under `reference/codex/`.
