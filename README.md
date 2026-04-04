@@ -338,6 +338,7 @@ pytest -m integration
 - 구현된 런타임 동작과 `README.md`를 일치시킬 것
 - 운영 동작이 바뀌면 아키텍처 또는 요구사항 문서도 함께 갱신할 것
 - 변경 전후 관련 `pytest` 명령을 실행할 것
+- GitHub 라벨 정책을 바꾸면 `.github/labels.json`을 수정하고 `label-sync` 경로로 실제 저장소 라벨도 맞출 것
 
 ## Documentation
 
@@ -346,3 +347,4 @@ pytest -m integration
 - [`spec/integration-test.md`](spec/integration-test.md): 통합 테스트 체크리스트
 - [`spec/mart-refresh-design.md`](spec/mart-refresh-design.md): Parquet -> DuckDB mart refresh handoff 설계
 - [`spec/query-api-contract.md`](spec/query-api-contract.md): summary/chart/filter API 계약 초안
+- [`.github/labels.json`](.github/labels.json): GitHub label catalog source of truth
