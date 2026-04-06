@@ -529,11 +529,20 @@ class TestCreateRunnerFactory:
         mock_plan.build_plan.paths.staging_db_path = "staging.duckdb"
         mock_plan.build_plan.paths.snapshot_db_path = "snapshot.duckdb"
 
+        refresh_result = MagicMock()
+        refresh_result.validation_report.is_valid = True
+        refresh_result.promoted = True
+        refresh_result.plan = mock_plan
+        refresh_result.build_result.row_count = 10
+        refresh_result.build_result.file_count = 1
+
         with patch("airflow_lite.alerting.base.AlertManager.notify"), \
-             patch("airflow_lite.mart.orchestration.MartRefreshCoordinator.plan_refresh", return_value=mock_plan) as mock_refresh:
+             patch("airflow_lite.mart.orchestration.MartRefreshCoordinator.plan_refresh", return_value=mock_plan) as mock_refresh, \
+             patch("airflow_lite.mart.refresh.MartRefreshExecutor.execute_refresh", return_value=refresh_result) as mock_execute:
             runner.on_run_success(context)
 
         mock_refresh.assert_called_once_with(context)
+        mock_execute.assert_called_once_with(mock_plan)
 
 
 # ── CLI __main__.py 검증 ──────────────────────────────────────────────────────

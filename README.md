@@ -218,6 +218,8 @@ alerting:
 - `extract_transform_load`
 - `verify`
 
+`mart.enabled: true` 와 `mart.refresh_on_success: true` 가 함께 켜져 있으면 raw Parquet 실행이 성공한 뒤 DuckDB mart staging build, validation, snapshot promotion이 이어서 실행됩니다. 검증에 성공한 빌드만 `data/mart/current/`에 반영되고, 같은 빌드는 `data/mart/snapshots/`에도 보관됩니다.
+
 전략별 실행 방식:
 
 - `full`: 대상 월 전체를 읽고 월 단위 Parquet 산출물을 새로 씁니다.
@@ -239,6 +241,9 @@ alerting:
 | `POST` | `/api/v1/pipelines/{name}/backfill` | 월 단위 분할 백필 실행 |
 | `GET` | `/api/v1/pipelines/{name}/runs` | 페이지네이션 실행 이력 조회 |
 | `GET` | `/api/v1/pipelines/{name}/runs/{run_id}` | 단계 상태를 포함한 실행 상세 조회 |
+| `POST` | `/api/v1/analytics/summary` | current DuckDB mart 기준 KPI 요약 조회 |
+| `POST` | `/api/v1/analytics/charts/{chart_id}/query` | current DuckDB mart 기준 차트 시리즈 조회 |
+| `GET` | `/api/v1/analytics/filters` | dataset별 analytics 필터 메타데이터 조회 |
 
 수동 실행 예시:
 

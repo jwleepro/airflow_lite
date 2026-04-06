@@ -6,7 +6,7 @@ This document defines how to use `reference/codex/` during Codex meta work.
 
 ## Workflow
 
-1. Read `AGENT.md`.
+1. Read `AGENTS.md`.
 2. Read `PLAN.md`.
 3. Read `PROGRESS.md`.
 4. If the task touches `.codex/` or Codex workflow docs:

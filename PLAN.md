@@ -1,105 +1,100 @@
 # PLAN.md
 
-## Goal
+## 목표
 
-Build this repository into a Windows Server 2019 compatible MES analytics system based on:
+이 저장소를 다음 요소를 기반으로 한 Windows Server 2019 호환 MES 분석 시스템으로 확장한다:
 
-- Oracle 11g batch extraction
-- Parquet raw storage
+- Oracle 11g 배치 추출
+- Parquet raw 저장소
 - DuckDB analytics mart
-- FastAPI query and export APIs
-- dashboard and large-result download support
+- FastAPI 조회 및 다운로드 API
+- 대시보드와 대용량 결과 다운로드 지원
 
-## Current Milestone
+## 현재 마일스톤
 
-`M2. DuckDB mart skeleton`
+`M4. 대시보드 및 시각화 계층`
 
-This milestone covers:
+이 마일스톤의 범위:
 
-- staged DuckDB build execution from raw Parquet inputs
-- mart validation rules and snapshot promotion
-- runtime-safe refresh orchestration
+- 승격된 DuckDB mart를 사용하는 대시보드 화면 정의
+- summary/chart API를 소비하는 시각화 요구사항 정리
+- UI 렌더링, drilldown, export UX를 위한 후속 작업 분해
 
-## Milestone Status
+## 마일스톤 상태
 
-- `M0. Existing Oracle -> Parquet pipeline baseline`: available
-- `M1. Collaboration and analytics foundation`: completed
-- `M2. DuckDB mart skeleton`: in progress
-- `M3. Query and export API expansion`: pending
-- `M4. Dashboard and visualization layer`: pending
+- `M0. 기존 Oracle -> Parquet 파이프라인 기반선`: 사용 가능
+- `M1. 협업 및 분석 기초`: 완료
+- `M2. DuckDB mart 골격`: 완료
+- `M3. 조회 및 다운로드 API 확장`: 완료
+- `M4. 대시보드 및 시각화 계층`: 대기
 
-## Task List
+## 작업 목록
 
-### Completed
+### 완료
 
-- `T-001` Create and maintain `AGENT.md` as the repository operating guide.
-  Done condition: repository constraints, target architecture, directory structure, and workflow rules documented.
-- `T-002` Create local `.codex` configuration for agents and skills.
-  Done condition: `.codex/config.toml`, role configs, and baseline skills added.
-- `T-003` Create reusable Codex research references.
-  Done condition: `reference/codex/` documents, index, lookup script, and integration points added.
-- `T-004` Establish repository execution state documents.
-  Done condition: `PLAN.md` and `PROGRESS.md` exist, reflect current repository state, and can be used by future agents immediately.
-- `T-010` Create DuckDB mart module skeleton under `src/airflow_lite/mart/`.
-  Done condition: package and initial tests exist without breaking current pipeline.
-- `T-013` Align repository operating documents and Codex workflow usage guidance.
-  Done condition: `AGENT.md`, `PLAN.md`, and `PROGRESS.md` are consistent with the local Codex workflow, and the repository documents how to choose agents and skills without relying on `CLAUDE.md`.
-- `T-017` Resolve actionable review blockers for draft PR `#1`.
-  Done condition: the three actionable review comments on PR `#1` are either implemented in code/tests or explicitly answered by repository evidence, and validation is recorded in `PROGRESS.md`.
-- `T-019` Reduce repository-local agent registry to Codex-only exceptions.
-  Done condition: `.codex/config.toml` keeps only repository-specific agent roles, and the operating documents distinguish those from Codex built-in agents.
-- `T-011` Add Parquet -> DuckDB refresh step design.
-  Done condition: refresh orchestration flow is documented and the existing pipeline has a narrow mart planning hook.
-- `T-012` Design summary and chart API contracts.
-  Done condition: summary/chart/filter contracts exist in docs and code-backed schema models.
-- `T-020` Remove repository-local draft-to-ready promotion automation.
-  Done condition: current repository docs, skill registration, and CI workflow no longer advertise or execute automatic draft PR promotion.
-- `T-021` Define and add structured GitHub issue intake forms.
-  Done condition: repository has structured issue form YAML files plus chooser configuration that preserve the current label policy and leave status/automation labels under maintainer or workflow control.
-- `T-022` Add issue-triage automation for structured GitHub issue forms.
-  Done condition: issues opened from the new forms can be normalized to the documented label policy without exposing status or automation labels to contributors.
-- `T-023` Refine the GitHub AI automation playbook around the implemented issue-intake baseline.
-  Done condition: the playbook clearly separates implemented issue intake files from future workflow candidates and no longer conflates issue forms with GitHub Actions workflows.
-- `T-024` Declare and sync the GitHub label catalog from the repository.
-  Done condition: playbook labels are declared in-repo and a repository-managed sync path keeps GitHub label state aligned.
+- `T-001` 저장소 운영 가이드로서 `AGENTS.md`를 작성하고 유지한다.
+  완료 조건: 저장소 제약, 목표 아키텍처, 디렉터리 구조, 협업 규칙이 문서화되어 있다.
+- `T-002` 에이전트와 스킬을 위한 로컬 `.codex` 구성을 만든다.
+  완료 조건: `.codex/config.toml`, 역할 설정, 기본 스킬이 추가되어 있다.
+- `T-003` 재사용 가능한 Codex 조사 레퍼런스를 만든다.
+  완료 조건: `reference/codex/` 문서, 인덱스, 조회 스크립트, 연동 지점이 추가되어 있다.
+- `T-004` 저장소 실행 상태 문서를 정착시킨다.
+  완료 조건: `PLAN.md`와 `PROGRESS.md`가 존재하고 현재 저장소 상태를 반영하며 다음 에이전트가 바로 사용할 수 있다.
+- `T-010` `src/airflow_lite/mart/` 아래에 DuckDB mart 모듈 골격을 만든다.
+  완료 조건: 기존 파이프라인을 깨지 않으면서 패키지와 초기 테스트가 존재한다.
+- `T-013` 저장소 운영 문서와 Codex 워크플로 사용 지침을 정렬한다.
+  완료 조건: `AGENTS.md`, `PLAN.md`, `PROGRESS.md`가 로컬 Codex 워크플로와 일치하고, 저장소가 `CLAUDE.md`에 의존하지 않고 agent/skill 선택법을 문서화한다.
+- `T-017` draft PR `#1`의 실제 리뷰 블로커를 해소한다.
+  완료 조건: PR `#1`의 조치 가능한 리뷰 3건이 코드/테스트로 반영되거나 저장소 근거로 명시 응답되며, 검증 결과가 `PROGRESS.md`에 기록된다.
+- `T-019` 저장소 로컬 agent 레지스트리를 Codex 전용 예외만 남기도록 줄인다.
+  완료 조건: `.codex/config.toml`에는 저장소 특화 역할만 남고, 운영 문서가 이를 Codex 내장 agent와 구분한다.
+- `T-011` Parquet -> DuckDB refresh 단계 설계를 추가한다.
+  완료 조건: refresh orchestration 흐름이 문서화되고 기존 파이프라인에 좁은 mart planning hook이 추가되어 있다.
+- `T-012` summary 및 chart API 계약을 설계한다.
+  완료 조건: summary/chart/filter 계약이 문서와 코드 기반 스키마 모델로 존재한다.
+- `T-020` 저장소 로컬 draft-to-ready 승격 자동화를 제거한다.
+  완료 조건: 현재 저장소 문서, skill 등록, CI 워크플로가 더 이상 자동 draft PR 승격을 광고하거나 실행하지 않는다.
+- `T-021` 구조화된 GitHub 이슈 접수 폼을 정의하고 추가한다.
+  완료 조건: 저장소에 구조화된 issue form YAML과 chooser 구성이 추가되고, 기존 라벨 정책을 유지하면서 상태/자동화 라벨은 maintainer나 workflow만 제어한다.
+- `T-022` 구조화된 GitHub issue form용 triage 자동화를 추가한다.
+  완료 조건: 새 폼으로 생성된 이슈가 contributor에게 상태/자동화 라벨을 노출하지 않으면서 문서화된 라벨 정책으로 정규화된다.
+- `T-023` 구현된 issue intake 기준선에 맞춰 GitHub AI 자동화 플레이북을 정제한다.
+  완료 조건: 플레이북이 이미 구현된 issue intake 파일과 미래 워크플로 후보를 명확히 구분하고, issue form과 GitHub Actions 워크플로를 혼동하지 않는다.
+- `T-024` GitHub 라벨 카탈로그를 저장소에서 선언하고 동기화한다.
+  완료 조건: 플레이북 라벨이 저장소에 선언되고 저장소 관리 경로로 GitHub 라벨 상태를 동기화한다.
+- `T-014` refresh plan으로부터 staged DuckDB mart build를 실행한다.
+  완료 조건: 검증된 staging 데이터베이스를 `data/mart/current/`로 승격할 수 있다.
+- `T-015` read-only analytics query service와 summary/chart endpoint를 추가한다.
+  완료 조건: 문서화된 summary/chart 계약이 ad-hoc SQL 노출 없이 read-only endpoint로 제공된다.
 
-### Current
+### 현재
 
-### Next
+### 다음
 
-- `T-014` Execute staged DuckDB mart builds from the refresh plan.
-  Owner: Codex built-in `duckdb-mart-agent`
-  Status: pending
-  Scope: DuckDB staging build execution, validation SQL, and snapshot promotion
-  Done condition: a validated staging database can be promoted into `data/mart/current/`.
-- `T-015` Add read-only analytics query services and summary/chart endpoints.
-  Owner: Codex built-in `query-api-agent`
-  Status: pending
-  Scope: DuckDB-backed query service, FastAPI analytics routes, and filter metadata endpoints
-  Done condition: the documented summary/chart contracts are served by read-only endpoints without exposing ad-hoc SQL.
+- 현재 `PLAN.md`에 올라와 있는 활성 구현 작업은 없다.
 
-## Dependencies
+## 의존 관계
 
-- `T-004` must complete before the planning workflow is fully operational.
-- `T-010` should start before `T-011` and `T-012`.
-- `T-012` depends on at least a provisional mart shape from `T-010`.
-- `T-014` depends on `T-011`.
-- `T-015` depends on `T-012` and a runnable mart produced by `T-014`.
+- `T-004`는 planning 워크플로가 완전히 운영되기 전에 완료되어야 한다.
+- `T-010`은 `T-011`, `T-012`보다 먼저 시작하는 것이 좋다.
+- `T-012`는 최소한 `T-010`의 가안 수준 mart shape에 의존한다.
+- `T-014`는 `T-011`에 의존한다.
+- `T-015`는 `T-012`와 `T-014`가 만든 실행 가능한 mart에 의존한다.
 
-## Priority Order
+## 우선순위
 
-1. `T-014` Execute staged mart builds.
-2. `T-015` Serve analytics queries.
+1. `M4` 대시보드 범위와 대상 화면을 정의한다.
+2. 대시보드 데이터 소비와 렌더링을 위한 시각화 계층 작업을 추가한다.
 
-## Done Definition
+## 완료 정의
 
-A planned task is considered done when:
+계획된 작업은 다음을 만족할 때 완료로 간주한다:
 
-- the target files exist or are updated correctly
-- the scope is narrow enough for the next agent to pick up safely
-- validation status is recorded in `PROGRESS.md`
-- any follow-up work is explicitly listed
+- 대상 파일이 존재하거나 올바르게 갱신되어 있다
+- 범위가 충분히 좁아 다음 에이전트가 안전하게 이어받을 수 있다
+- 검증 상태가 `PROGRESS.md`에 기록되어 있다
+- 후속 작업이 있으면 명시적으로 나열되어 있다
 
-## Next Recommended Task
+## 다음 추천 작업
 
-Start `T-014` by consuming the new `MartRefreshPlan`, building a staging DuckDB database, and validating it before promotion.
+새로 추가된 analytics summary/chart endpoint를 대시보드 화면과 시각화 작업으로 연결하는 `M4` 계획을 시작한다.
