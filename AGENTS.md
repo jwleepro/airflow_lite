@@ -1,4 +1,4 @@
-# AGENT.md
+# AGENTS.md
 
 > Canonical repository operating guide for Codex and local agents.
 > `CLAUDE.md` is reserved for Claude Code and is not part of the Codex workflow.
@@ -87,7 +87,7 @@ Oracle 11g -> [ingest] -> Parquet raw -> [mart] -> DuckDB -> [serve] -> FastAPI 
 
 모든 agent는 아래 순서를 기본으로 따른다.
 
-1. `AGENT.md`
+1. `AGENTS.md`
 2. `PLAN.md`
 3. `PROGRESS.md`
 
@@ -142,7 +142,7 @@ Oracle 11g -> [ingest] -> Parquet raw -> [mart] -> DuckDB -> [serve] -> FastAPI 
 
 - `PLAN.md` - 작업 계획, 우선순위, 완료 조건
 - `PROGRESS.md` - 진행 상태, 블로커, handoff 메모
-- 작업 시작 전 `AGENT.md` -> `PLAN.md` -> `PROGRESS.md` 순서로 읽고 시작
+- 작업 시작 전 `AGENTS.md` -> `PLAN.md` -> `PROGRESS.md` 순서로 읽고 시작
 
 ## 빌드 & 테스트 명령어
 

@@ -3,8 +3,8 @@
 personality = "pragmatic"
 model_reasoning_effort = "high"
 model_verbosity = "low"
-project_doc_fallback_filenames = ["AGENT.md"]
-project_root_markers = [".git", "pyproject.toml", "AGENT.md"]
+project_doc_fallback_filenames = ["AGENTS.md"]
+project_root_markers = [".git", "pyproject.toml", "AGENTS.md"]
 
 [features]
 multi_agent = true
