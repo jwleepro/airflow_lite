@@ -639,3 +639,44 @@ def test_analytics_chart_and_filter_endpoints_return_mart_data(tmp_path, mock_ru
     assert filters_response.status_code == 200
     filter_keys = [item["key"] for item in filters_response.json()["filters"]]
     assert filter_keys == ["source", "partition_month"]
+
+
+def test_analytics_dashboard_endpoint_returns_dashboard_definition(tmp_path, mock_run_repo, mock_step_repo):
+    settings = _make_settings()
+    database_path = tmp_path / "analytics.duckdb"
+    _build_analytics_mart(database_path)
+    app = create_app(
+        settings=settings,
+        run_repo=mock_run_repo,
+        step_repo=mock_step_repo,
+        analytics_query_service=DuckDBAnalyticsQueryService(database_path),
+    )
+    client = TestClient(app)
+
+    response = client.get("/api/v1/analytics/dashboards/operations_overview?dataset=mes_ops")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["contract_version"] == "dashboard.v1"
+    assert body["dashboard_id"] == "operations_overview"
+    assert body["dataset"] == "mes_ops"
+    assert [card["metric_key"] for card in body["cards"]] == [
+        "rows_loaded",
+        "source_files",
+        "source_tables",
+        "covered_months",
+    ]
+    assert body["cards"][0]["request_method"] == "POST"
+    assert body["cards"][0]["filter_keys"] == ["source", "partition_month"]
+    assert [chart["chart_id"] for chart in body["charts"]] == [
+        "rows_by_month",
+        "files_by_source",
+    ]
+    assert body["charts"][1]["request_method"] == "POST"
+    assert body["charts"][1]["filter_keys"] == ["source", "partition_month"]
+    assert body["drilldown_actions"][0]["scope"] == "chart"
+    assert body["drilldown_actions"][0]["target_key"] == "files_by_source"
+    assert body["drilldown_actions"][0]["endpoint"] == "/api/v1/analytics/details/source-files/query"
+    assert body["export_actions"][0]["status"] == "planned"
+    assert body["export_actions"][0]["endpoint"] == "/api/v1/analytics/exports"
+    assert body["export_actions"][0]["status_reason"]
