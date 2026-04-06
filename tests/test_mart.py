@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
+import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 
 from airflow_lite.config.settings import PipelineConfig
@@ -10,6 +12,7 @@ from airflow_lite.engine.stage import StageContext
 from airflow_lite.mart import (
     DuckDBMartBuilder,
     MartRefreshCoordinator,
+    MartRefreshExecutor,
     MartRefreshMode,
     MartRefreshPlanner,
     MartRefreshRequest,
@@ -133,6 +136,103 @@ def test_refresh_coordinator_discovers_partition_files_and_maps_backfill_mode(
     assert plan.request.mode == MartRefreshMode.BACKFILL
     assert plan.request.source_paths == (file_a, file_b)
     assert plan.build_plan.snapshot_name == "ops_dataset-20260301-run-001"
+
+
+def test_refresh_executor_builds_staging_validates_and_promotes_snapshot(tmp_path: Path) -> None:
+    raw_root = tmp_path / "parquet"
+    source_root = raw_root / "OPS_TABLE"
+    first_month = source_root / "year=2026" / "month=03"
+    second_month = source_root / "year=2026" / "month=04"
+    first_month.mkdir(parents=True)
+    second_month.mkdir(parents=True)
+
+    march_file = first_month / "OPS_TABLE_2026_03.parquet"
+    april_file = second_month / "OPS_TABLE_2026_04.parquet"
+    pq.write_table(pa.table({"id": [1, 2], "qty": [10, 20]}), march_file)
+    pq.write_table(pa.table({"id": [3], "qty": [30]}), april_file)
+
+    layout = MartSnapshotLayout(root_dir=tmp_path / "mart")
+    builder = DuckDBMartBuilder(layout)
+    planner = MartRefreshPlanner(builder)
+    refresh_executor = MartRefreshExecutor(builder)
+    plan = planner.plan_refresh(
+        MartRefreshRequest(
+            dataset_name="mes_ops",
+            source_paths=(march_file,),
+            build_id="20260406-run-001",
+            mode=MartRefreshMode.FULL,
+        )
+    )
+
+    result = refresh_executor.execute_refresh(plan)
+
+    assert result.validation_report.is_valid is True
+    assert result.promoted is True
+    assert result.build_result.row_count == 3
+    assert result.plan.build_plan.paths.current_db_path.exists()
+    assert result.plan.build_plan.paths.snapshot_db_path.exists()
+
+    import duckdb
+
+    connection = duckdb.connect(str(result.plan.build_plan.paths.current_db_path), read_only=True)
+    try:
+        raw_count = connection.execute(
+            'SELECT COUNT(*) FROM "raw__mes_ops__ops_table"'
+        ).fetchone()[0]
+        dataset_row = connection.execute(
+            "SELECT total_rows, total_files FROM mart_datasets WHERE dataset_name = ?",
+            ["mes_ops"],
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert raw_count == 3
+    assert dataset_row == (3, 2)
+
+
+def test_refresh_executor_keeps_existing_other_source_tables(tmp_path: Path) -> None:
+    raw_root = tmp_path / "parquet"
+    source_root = raw_root / "OPS_TABLE" / "year=2026" / "month=03"
+    source_root.mkdir(parents=True)
+    source_file = source_root / "OPS_TABLE_2026_03.parquet"
+    pq.write_table(pa.table({"id": [1], "qty": [10]}), source_file)
+
+    layout = MartSnapshotLayout(root_dir=tmp_path / "mart")
+    current_paths = layout.plan_paths("seed", "seed")
+    layout.ensure_directories(current_paths)
+
+    import duckdb
+
+    seed_connection = duckdb.connect(str(current_paths.current_db_path))
+    try:
+        seed_connection.execute("CREATE TABLE raw__mes_ops__equipment_status (id INTEGER)")
+        seed_connection.execute("INSERT INTO raw__mes_ops__equipment_status VALUES (99)")
+    finally:
+        seed_connection.close()
+
+    builder = DuckDBMartBuilder(layout)
+    planner = MartRefreshPlanner(builder)
+    refresh_executor = MartRefreshExecutor(builder)
+    plan = planner.plan_refresh(
+        MartRefreshRequest(
+            dataset_name="mes_ops",
+            source_paths=(source_file,),
+            build_id="20260406-run-002",
+            mode=MartRefreshMode.FULL,
+        )
+    )
+
+    result = refresh_executor.execute_refresh(plan)
+
+    connection = duckdb.connect(str(result.plan.build_plan.paths.current_db_path), read_only=True)
+    try:
+        preserved_rows = connection.execute(
+            'SELECT COUNT(*) FROM "raw__mes_ops__equipment_status"'
+        ).fetchone()[0]
+    finally:
+        connection.close()
+
+    assert preserved_rows == 1
 
 
 def test_refresh_coordinator_skips_when_partition_has_no_parquet_files(

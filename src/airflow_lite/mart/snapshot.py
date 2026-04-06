@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -47,3 +48,16 @@ class MartSnapshotLayout:
         paths.current_db_path.parent.mkdir(parents=True, exist_ok=True)
         paths.staging_db_path.parent.mkdir(parents=True, exist_ok=True)
         paths.snapshot_db_path.parent.mkdir(parents=True, exist_ok=True)
+
+
+class MartSnapshotPromoter:
+    """Promote a validated staging DuckDB file into both snapshot and current locations."""
+
+    def promote(self, paths: SnapshotPaths) -> None:
+        if not paths.staging_db_path.exists():
+            raise FileNotFoundError(paths.staging_db_path)
+
+        paths.current_db_path.parent.mkdir(parents=True, exist_ok=True)
+        paths.snapshot_db_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(paths.staging_db_path, paths.snapshot_db_path)
+        shutil.copy2(paths.staging_db_path, paths.current_db_path)

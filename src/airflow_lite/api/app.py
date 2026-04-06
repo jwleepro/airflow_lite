@@ -32,6 +32,7 @@ def create_app(
     backfill_map: dict | None = None,
     run_repo: "PipelineRunRepository | None" = None,
     step_repo: "StepRunRepository | None" = None,
+    analytics_query_service=None,
 ) -> FastAPI:
     """FastAPI 앱 팩토리.
 
@@ -50,6 +51,7 @@ def create_app(
     app.state.backfill_map = backfill_map or {}
     app.state.run_repo = run_repo
     app.state.step_repo = step_repo
+    app.state.analytics_query_service = analytics_query_service
 
     # CORS 미들웨어 설정 — 사내망 전용
     allowed_origins, allowed_origin_regex = _split_cors_origins(settings.api.allowed_origins)
@@ -64,9 +66,11 @@ def create_app(
 
     # 라우터 등록
     from airflow_lite.api.routes.pipelines import router as pipelines_router
+    from airflow_lite.api.routes.analytics import router as analytics_router
     from airflow_lite.api.routes.backfill import router as backfill_router
 
     app.include_router(pipelines_router, prefix="/api/v1")
     app.include_router(backfill_router, prefix="/api/v1")
+    app.include_router(analytics_router, prefix="/api/v1")
 
     return app

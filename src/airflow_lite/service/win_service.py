@@ -85,12 +85,20 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
             }
 
             from airflow_lite.api.app import create_app
+            from airflow_lite.query import DuckDBAnalyticsQueryService
+
+            mart_database_path = (
+                Path(settings.mart.root_path)
+                / "current"
+                / settings.mart.database_filename
+            )
             app = create_app(
                 settings,
                 runner_map=runner_map,
                 backfill_map=backfill_map,
                 run_repo=run_repo,
                 step_repo=step_repo,
+                analytics_query_service=DuckDBAnalyticsQueryService(mart_database_path),
             )
 
             config = uvicorn.Config(
@@ -159,6 +167,7 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
         from airflow_lite.mart import (
             DuckDBMartBuilder,
             MartRefreshCoordinator,
+            MartRefreshExecutor,
             MartRefreshPlanner,
             MartSnapshotLayout,
         )
@@ -195,16 +204,20 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
             },
         )
         mart_refresh_coordinator = None
+        mart_refresh_executor = None
         if settings.mart.enabled and settings.mart.refresh_on_success:
             mart_layout = MartSnapshotLayout(
                 root_dir=Path(settings.mart.root_path),
                 database_filename=settings.mart.database_filename,
             )
+            mart_builder = DuckDBMartBuilder(mart_layout)
+            mart_planner = MartRefreshPlanner(mart_builder)
             mart_refresh_coordinator = MartRefreshCoordinator(
-                planner=MartRefreshPlanner(DuckDBMartBuilder(mart_layout)),
+                planner=mart_planner,
                 parquet_root=Path(settings.storage.parquet_base_path),
                 pipeline_datasets=settings.mart.pipeline_datasets,
             )
+            mart_refresh_executor = MartRefreshExecutor(mart_builder)
 
         def _notify(status: str, context, exc: Exception | None = None) -> None:
             alert_manager.notify(
@@ -249,13 +262,34 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
                 if plan is None:
                     return
 
+                try:
+                    result = mart_refresh_executor.execute_refresh(plan)
+                except Exception:
+                    logger.exception(
+                        "Mart refresh execution failed: %s / %s",
+                        context.pipeline_name,
+                        context.execution_date,
+                    )
+                    return
+
+                if not result.validation_report.is_valid:
+                    logger.error(
+                        "Mart refresh validation failed: dataset=%s issues=%s",
+                        result.plan.request.dataset_name,
+                        [issue.message for issue in result.validation_report.issues],
+                    )
+                    return
+
                 logger.info(
-                    "Mart refresh planned: dataset=%s mode=%s staging=%s snapshot=%s sources=%s",
-                    plan.request.dataset_name,
-                    plan.request.mode.value,
-                    plan.build_plan.paths.staging_db_path,
-                    plan.build_plan.paths.snapshot_db_path,
-                    len(plan.request.source_paths),
+                    "Mart refresh completed: dataset=%s mode=%s promoted=%s staging=%s current=%s snapshot=%s rows=%s files=%s",
+                    result.plan.request.dataset_name,
+                    result.plan.request.mode.value,
+                    result.promoted,
+                    result.plan.build_plan.paths.staging_db_path,
+                    result.plan.build_plan.paths.current_db_path,
+                    result.plan.build_plan.paths.snapshot_db_path,
+                    result.build_result.row_count,
+                    result.build_result.file_count,
                 )
 
             retry_config = RetryConfig(

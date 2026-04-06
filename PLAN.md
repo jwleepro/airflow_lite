@@ -12,20 +12,20 @@ Build this repository into a Windows Server 2019 compatible MES analytics system
 
 ## Current Milestone
 
-`M2. DuckDB mart skeleton`
+`M4. Dashboard and visualization layer`
 
 This milestone covers:
 
-- staged DuckDB build execution from raw Parquet inputs
-- mart validation rules and snapshot promotion
-- runtime-safe refresh orchestration
+- dashboard screen definitions backed by the promoted DuckDB mart
+- visualization requirements for summary and chart API consumption
+- follow-up task slicing for UI rendering, drilldown, and export UX
 
 ## Milestone Status
 
 - `M0. Existing Oracle -> Parquet pipeline baseline`: available
 - `M1. Collaboration and analytics foundation`: completed
-- `M2. DuckDB mart skeleton`: in progress
-- `M3. Query and export API expansion`: pending
+- `M2. DuckDB mart skeleton`: completed
+- `M3. Query and export API expansion`: completed
 - `M4. Dashboard and visualization layer`: pending
 
 ## Task List
@@ -62,21 +62,16 @@ This milestone covers:
   Done condition: the playbook clearly separates implemented issue intake files from future workflow candidates and no longer conflates issue forms with GitHub Actions workflows.
 - `T-024` Declare and sync the GitHub label catalog from the repository.
   Done condition: playbook labels are declared in-repo and a repository-managed sync path keeps GitHub label state aligned.
+- `T-014` Execute staged DuckDB mart builds from the refresh plan.
+  Done condition: a validated staging database can be promoted into `data/mart/current/`.
+- `T-015` Add read-only analytics query services and summary/chart endpoints.
+  Done condition: the documented summary/chart contracts are served by read-only endpoints without exposing ad-hoc SQL.
 
 ### Current
 
 ### Next
 
-- `T-014` Execute staged DuckDB mart builds from the refresh plan.
-  Owner: Codex built-in `duckdb-mart-agent`
-  Status: pending
-  Scope: DuckDB staging build execution, validation SQL, and snapshot promotion
-  Done condition: a validated staging database can be promoted into `data/mart/current/`.
-- `T-015` Add read-only analytics query services and summary/chart endpoints.
-  Owner: Codex built-in `query-api-agent`
-  Status: pending
-  Scope: DuckDB-backed query service, FastAPI analytics routes, and filter metadata endpoints
-  Done condition: the documented summary/chart contracts are served by read-only endpoints without exposing ad-hoc SQL.
+- No active implementation task is currently staged in `PLAN.md`.
 
 ## Dependencies
 
@@ -88,8 +83,8 @@ This milestone covers:
 
 ## Priority Order
 
-1. `T-014` Execute staged mart builds.
-2. `T-015` Serve analytics queries.
+1. Define `M4` dashboard scope and target screens.
+2. Add visualization-layer tasks for dashboard data consumption and rendering.
 
 ## Done Definition
 
@@ -102,4 +97,4 @@ A planned task is considered done when:
 
 ## Next Recommended Task
 
-Start `T-014` by consuming the new `MartRefreshPlan`, building a staging DuckDB database, and validating it before promotion.
+Start `M4` planning by turning the new analytics summary/chart endpoints into dashboard screens and visualization tasks.
