@@ -3,7 +3,11 @@ from datetime import datetime
 import duckdb
 
 from airflow_lite.api.analytics_contracts import ChartGranularity, ChartQueryRequest, DateRangeFilterValue, SummaryQueryRequest
-from airflow_lite.query import AnalyticsQueryError, DuckDBAnalyticsQueryService
+from airflow_lite.query import (
+    AnalyticsDashboardNotFoundError,
+    AnalyticsQueryError,
+    DuckDBAnalyticsQueryService,
+)
 
 
 def _build_test_mart(database_path):
@@ -160,6 +164,42 @@ def test_query_filters_returns_source_and_partition_options(tmp_path):
         "2026-04",
         "2026-03",
     ]
+
+
+def test_get_dashboard_definition_returns_dashboard_metadata(tmp_path):
+    database_path = tmp_path / "analytics.duckdb"
+    _build_test_mart(database_path)
+    service = DuckDBAnalyticsQueryService(database_path)
+
+    response = service.get_dashboard_definition("operations_overview", "mes_ops")
+
+    assert response.dashboard_id == "operations_overview"
+    assert response.dataset == "mes_ops"
+    assert response.last_refreshed_at == datetime(2026, 4, 6, 10, 0, 0)
+    assert [card.metric_key for card in response.cards] == [
+        "rows_loaded",
+        "source_files",
+        "source_tables",
+        "covered_months",
+    ]
+    assert [chart.chart_id for chart in response.charts] == [
+        "rows_by_month",
+        "files_by_source",
+    ]
+    assert response.export_actions[0].status.value == "planned"
+
+
+def test_get_dashboard_definition_rejects_unknown_dashboard(tmp_path):
+    database_path = tmp_path / "analytics.duckdb"
+    _build_test_mart(database_path)
+    service = DuckDBAnalyticsQueryService(database_path)
+
+    try:
+        service.get_dashboard_definition("unknown", "mes_ops")
+    except AnalyticsDashboardNotFoundError as exc:
+        assert "dashboard not found" in str(exc)
+    else:
+        raise AssertionError("AnalyticsDashboardNotFoundError was not raised")
 
 
 def test_query_summary_rejects_unsupported_filters(tmp_path):

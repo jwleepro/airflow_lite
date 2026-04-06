@@ -66,12 +66,14 @@
   완료 조건: 검증된 staging 데이터베이스를 `data/mart/current/`로 승격할 수 있다.
 - `T-015` read-only analytics query service와 summary/chart endpoint를 추가한다.
   완료 조건: 문서화된 summary/chart 계약이 ad-hoc SQL 노출 없이 read-only endpoint로 제공된다.
+- `T-025` analytics summary/chart/filter endpoint 위에 대시보드 정의 endpoint를 추가한다.
+  완료 조건: 대시보드 화면이 필요한 카드/차트/필터/드릴다운/export 액션 메타데이터를 단일 API 응답으로 조회할 수 있고, 관련 테스트가 존재한다.
 
 ### 현재
 
 ### 다음
 
-- 현재 `PLAN.md`에 올라와 있는 활성 구현 작업은 없다.
+- `T-026` 대시보드 정의 endpoint를 소비하는 프론트엔드 통합 계약과 상세/detail-export 후속 API를 정리한다.
 
 ## 의존 관계
 
@@ -83,8 +85,8 @@
 
 ## 우선순위
 
-1. `M4` 대시보드 범위와 대상 화면을 정의한다.
-2. 대시보드 데이터 소비와 렌더링을 위한 시각화 계층 작업을 추가한다.
+1. `T-025`로 대시보드 범위와 대상 화면 메타데이터를 API로 노출한다.
+2. `T-026`으로 대시보드 데이터 소비와 렌더링을 위한 후속 시각화 계층 작업을 추가한다.
 
 ## 완료 정의
 
@@ -97,4 +99,4 @@
 
 ## 다음 추천 작업
 
-새로 추가된 analytics summary/chart endpoint를 대시보드 화면과 시각화 작업으로 연결하는 `M4` 계획을 시작한다.
+진행 중인 `T-025`에서 summary/chart/filter endpoint를 묶는 대시보드 정의 API를 구현하고, 이후 `T-026`에서 프론트엔드 통합과 detail/export 후속 계약으로 확장한다.

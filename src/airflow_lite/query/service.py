@@ -4,7 +4,12 @@ from contextlib import contextmanager
 from datetime import date, datetime
 from pathlib import Path
 
-from airflow_lite.analytics import SUPPORTED_CHARTS, build_filter_definitions
+from airflow_lite.analytics import (
+    SUPPORTED_CHARTS,
+    SUPPORTED_DASHBOARDS,
+    build_dashboard_definition,
+    build_filter_definitions,
+)
 from airflow_lite.api.analytics_contracts import (
     AnalyticsFilterMetadataResponse,
     ChartGranularity,
@@ -12,6 +17,7 @@ from airflow_lite.api.analytics_contracts import (
     ChartQueryRequest,
     ChartQueryResponse,
     ChartSeries,
+    DashboardDefinitionResponse,
     FilterOption,
     SummaryMetricCard,
     SummaryPrecision,
@@ -25,6 +31,10 @@ class AnalyticsQueryError(ValueError):
 
 
 class AnalyticsDatasetNotFoundError(LookupError):
+    pass
+
+
+class AnalyticsDashboardNotFoundError(LookupError):
     pass
 
 
@@ -197,6 +207,29 @@ class DuckDBAnalyticsQueryService:
         return AnalyticsFilterMetadataResponse(
             dataset=dataset,
             filters=build_filter_definitions(source_options, month_options),
+        )
+
+    def get_dashboard_definition(self, dashboard_id: str, dataset: str) -> DashboardDefinitionResponse:
+        self._ensure_dataset_exists(dataset)
+        if dashboard_id not in SUPPORTED_DASHBOARDS:
+            raise AnalyticsDashboardNotFoundError(f"dashboard not found: {dashboard_id}")
+
+        filter_metadata = self.get_filter_metadata(dataset)
+        with self._connect(read_only=True) as connection:
+            last_refreshed_at = connection.execute(
+                """
+                SELECT last_refreshed_at
+                FROM mart_datasets
+                WHERE dataset_name = ?
+                """,
+                [dataset],
+            ).fetchone()[0]
+
+        return build_dashboard_definition(
+            dashboard_id=dashboard_id,
+            dataset=dataset,
+            filters=filter_metadata.filters,
+            last_refreshed_at=last_refreshed_at,
         )
 
     def _ensure_supported_filters(self, filters: dict[str, list[str]]) -> None:

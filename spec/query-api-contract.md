@@ -6,6 +6,8 @@ Define stable summary and chart contracts for the DuckDB-backed analytics layer 
 
 ## Endpoint Boundaries
 
+- `GET /api/v1/analytics/dashboards/{dashboard_id}`
+  Returns dashboard-ready metadata describing which summary, chart, filter, drilldown, and export affordances the UI should render.
 - `POST /api/v1/analytics/summary`
   Returns KPI cards only. No row-level detail.
 - `POST /api/v1/analytics/charts/{chart_id}/query`
@@ -14,6 +16,68 @@ Define stable summary and chart contracts for the DuckDB-backed analytics layer 
   Returns filter metadata and allowed options for the selected dataset.
 
 Detail rows, export jobs, and admin refresh visibility stay out of this document.
+
+## Dashboard Definition Contract
+
+```json
+{
+  "dashboard_id": "operations_overview",
+  "title": "MES Operations Overview",
+  "dataset": "mes_ops",
+  "last_refreshed_at": "2026-04-06T10:00:00",
+  "filters": [
+    {
+      "key": "source",
+      "label": "Source Table",
+      "type": "multi_select",
+      "supports_multiple": true,
+      "options": [
+        {"value": "OPS_TABLE", "label": "OPS_TABLE"}
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "key": "rows_loaded",
+      "label": "Rows Loaded",
+      "metric_key": "rows_loaded",
+      "summary_endpoint": "/api/v1/analytics/summary",
+      "span": "small"
+    }
+  ],
+  "charts": [
+    {
+      "chart_id": "rows_by_month",
+      "title": "Rows by Month",
+      "chart_type": "line",
+      "default_granularity": "month",
+      "query_endpoint": "/api/v1/analytics/charts/rows_by_month/query",
+      "limit": 12,
+      "span": "large"
+    }
+  ],
+  "drilldown_actions": [
+    {
+      "key": "source_file_detail",
+      "label": "Source File Detail",
+      "type": "drilldown",
+      "status": "planned"
+    }
+  ],
+  "export_actions": [
+    {
+      "key": "csv_zip_export",
+      "label": "CSV Zip Export",
+      "type": "export",
+      "status": "planned",
+      "format": "csv.zip"
+    }
+  ],
+  "warnings": [
+    "Detail drilldown and export jobs are planned follow-up work and are not executable yet."
+  ]
+}
+```
 
 ## Common Request Rules
 

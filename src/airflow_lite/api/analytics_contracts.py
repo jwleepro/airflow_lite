@@ -25,6 +25,27 @@ class ChartGranularity(str, Enum):
     MONTH = "month"
 
 
+class DashboardChartType(str, Enum):
+    LINE = "line"
+    BAR = "bar"
+
+
+class DashboardLayoutSpan(str, Enum):
+    SMALL = "small"
+    MEDIUM = "medium"
+    LARGE = "large"
+
+
+class DashboardActionType(str, Enum):
+    DRILLDOWN = "drilldown"
+    EXPORT = "export"
+
+
+class DashboardActionStatus(str, Enum):
+    AVAILABLE = "available"
+    PLANNED = "planned"
+
+
 class FilterOption(BaseModel):
     value: str
     label: str
@@ -102,3 +123,46 @@ class ChartQueryResponse(BaseModel):
 class AnalyticsFilterMetadataResponse(BaseModel):
     dataset: str
     filters: list[FilterDefinition] = Field(default_factory=list)
+
+
+class DashboardCardDefinition(BaseModel):
+    key: str
+    label: str
+    metric_key: str
+    description: str | None = None
+    summary_endpoint: str = "/api/v1/analytics/summary"
+    span: DashboardLayoutSpan = DashboardLayoutSpan.SMALL
+
+
+class DashboardChartDefinition(BaseModel):
+    chart_id: str
+    title: str
+    chart_type: DashboardChartType
+    default_granularity: ChartGranularity
+    query_endpoint: str
+    limit: int = Field(default=12, ge=1, le=366)
+    span: DashboardLayoutSpan = DashboardLayoutSpan.LARGE
+
+
+class DashboardActionDefinition(BaseModel):
+    key: str
+    label: str
+    type: DashboardActionType
+    status: DashboardActionStatus = DashboardActionStatus.PLANNED
+    description: str | None = None
+    endpoint: str | None = None
+    format: str | None = None
+
+
+class DashboardDefinitionResponse(BaseModel):
+    dashboard_id: str
+    title: str
+    description: str | None = None
+    dataset: str
+    last_refreshed_at: datetime | None = None
+    filters: list[FilterDefinition] = Field(default_factory=list)
+    cards: list[DashboardCardDefinition] = Field(default_factory=list)
+    charts: list[DashboardChartDefinition] = Field(default_factory=list)
+    drilldown_actions: list[DashboardActionDefinition] = Field(default_factory=list)
+    export_actions: list[DashboardActionDefinition] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)

@@ -4,10 +4,15 @@ from airflow_lite.api.analytics_contracts import (
     AnalyticsFilterMetadataResponse,
     ChartQueryRequest,
     ChartQueryResponse,
+    DashboardDefinitionResponse,
     SummaryQueryRequest,
     SummaryQueryResponse,
 )
-from airflow_lite.query import AnalyticsDatasetNotFoundError, AnalyticsQueryError
+from airflow_lite.query import (
+    AnalyticsDashboardNotFoundError,
+    AnalyticsDatasetNotFoundError,
+    AnalyticsQueryError,
+)
 
 router = APIRouter(tags=["analytics"])
 
@@ -50,6 +55,17 @@ def get_filters(request: Request, dataset: str = Query(...)):
     try:
         return query_service.get_filter_metadata(dataset)
     except AnalyticsDatasetNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except AnalyticsQueryError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/analytics/dashboards/{dashboard_id}", response_model=DashboardDefinitionResponse)
+def get_dashboard_definition(dashboard_id: str, request: Request, dataset: str = Query(...)):
+    query_service = _get_query_service(request)
+    try:
+        return query_service.get_dashboard_definition(dashboard_id=dashboard_id, dataset=dataset)
+    except (AnalyticsDashboardNotFoundError, AnalyticsDatasetNotFoundError) as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except AnalyticsQueryError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
