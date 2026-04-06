@@ -173,6 +173,7 @@ def test_get_dashboard_definition_returns_dashboard_metadata(tmp_path):
 
     response = service.get_dashboard_definition("operations_overview", "mes_ops")
 
+    assert response.contract_version == "dashboard.v1"
     assert response.dashboard_id == "operations_overview"
     assert response.dataset == "mes_ops"
     assert response.last_refreshed_at == datetime(2026, 4, 6, 10, 0, 0)
@@ -186,7 +187,14 @@ def test_get_dashboard_definition_returns_dashboard_metadata(tmp_path):
         "rows_by_month",
         "files_by_source",
     ]
+    assert response.cards[0].request_method.value == "POST"
+    assert response.cards[0].filter_keys == ["source", "partition_month"]
+    assert response.drilldown_actions[0].scope.value == "chart"
+    assert response.drilldown_actions[0].target_key == "files_by_source"
+    assert response.drilldown_actions[0].endpoint == "/api/v1/analytics/details/source-files/query"
     assert response.export_actions[0].status.value == "planned"
+    assert response.export_actions[0].endpoint == "/api/v1/analytics/exports"
+    assert response.export_actions[0].status_reason
 
 
 def test_get_dashboard_definition_rejects_unknown_dashboard(tmp_path):

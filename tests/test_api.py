@@ -657,6 +657,7 @@ def test_analytics_dashboard_endpoint_returns_dashboard_definition(tmp_path, moc
 
     assert response.status_code == 200
     body = response.json()
+    assert body["contract_version"] == "dashboard.v1"
     assert body["dashboard_id"] == "operations_overview"
     assert body["dataset"] == "mes_ops"
     assert [card["metric_key"] for card in body["cards"]] == [
@@ -665,8 +666,17 @@ def test_analytics_dashboard_endpoint_returns_dashboard_definition(tmp_path, moc
         "source_tables",
         "covered_months",
     ]
+    assert body["cards"][0]["request_method"] == "POST"
+    assert body["cards"][0]["filter_keys"] == ["source", "partition_month"]
     assert [chart["chart_id"] for chart in body["charts"]] == [
         "rows_by_month",
         "files_by_source",
     ]
+    assert body["charts"][1]["request_method"] == "POST"
+    assert body["charts"][1]["filter_keys"] == ["source", "partition_month"]
+    assert body["drilldown_actions"][0]["scope"] == "chart"
+    assert body["drilldown_actions"][0]["target_key"] == "files_by_source"
+    assert body["drilldown_actions"][0]["endpoint"] == "/api/v1/analytics/details/source-files/query"
     assert body["export_actions"][0]["status"] == "planned"
+    assert body["export_actions"][0]["endpoint"] == "/api/v1/analytics/exports"
+    assert body["export_actions"][0]["status_reason"]

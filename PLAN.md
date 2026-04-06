@@ -26,7 +26,7 @@
 - `M1. 협업 및 분석 기초`: 완료
 - `M2. DuckDB mart 골격`: 완료
 - `M3. 조회 및 다운로드 API 확장`: 완료
-- `M4. 대시보드 및 시각화 계층`: 대기
+- `M4. 대시보드 및 시각화 계층`: 진행 중 (`T-025`, `T-026` 완료; KPI/detail/export 구현 후속 범위 남음)
 
 ## 작업 목록
 
@@ -68,12 +68,17 @@
   완료 조건: 문서화된 summary/chart 계약이 ad-hoc SQL 노출 없이 read-only endpoint로 제공된다.
 - `T-025` analytics summary/chart/filter endpoint 위에 대시보드 정의 endpoint를 추가한다.
   완료 조건: 대시보드 화면이 필요한 카드/차트/필터/드릴다운/export 액션 메타데이터를 단일 API 응답으로 조회할 수 있고, 관련 테스트가 존재한다.
+- `T-026` 대시보드 정의 endpoint를 소비하는 프론트엔드 통합 계약과 상세/detail-export 후속 API를 정리한다.
+  완료 조건: 대시보드 화면이 `operations_overview` 메타데이터를 안정적으로 소비할 수 있는 계약이 문서화되고, detail/drilldown/export 후속 API 범위가 명시된다.
 
 ### 현재
 
+- 현재 활성 작업 없음. 다음 작업은 dataset별 KPI와 planned detail/export API 구현이다.
+
 ### 다음
 
-- `T-026` 대시보드 정의 endpoint를 소비하는 프론트엔드 통합 계약과 상세/detail-export 후속 API를 정리한다.
+- dataset별 KPI 계산 로직과 대시보드 전용 summary 카드 구성을 확장한다.
+- `T-026`에서 고정한 계약에 맞춰 paginated detail API와 async export API를 구현한다.
 
 ## 의존 관계
 
@@ -85,8 +90,8 @@
 
 ## 우선순위
 
-1. `T-025`로 대시보드 범위와 대상 화면 메타데이터를 API로 노출한다.
-2. `T-026`으로 대시보드 데이터 소비와 렌더링을 위한 후속 시각화 계층 작업을 추가한다.
+1. dataset별 KPI 계산 로직과 대시보드 전용 summary 카드 구성을 확장한다.
+2. `T-026`에서 확정한 detail/drilldown/export API 범위를 실제 endpoint와 job flow로 구현한다.
 
 ## 완료 정의
 
@@ -99,4 +104,4 @@
 
 ## 다음 추천 작업
 
-진행 중인 `T-025`에서 summary/chart/filter endpoint를 묶는 대시보드 정의 API를 구현하고, 이후 `T-026`에서 프론트엔드 통합과 detail/export 후속 계약으로 확장한다.
+dataset별 KPI 계산 로직을 추가하고, `operations_overview`가 광고하는 planned detail/export endpoint를 실제 API와 job lifecycle로 구현한다.

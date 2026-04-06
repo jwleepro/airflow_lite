@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from airflow_lite.api.analytics_contracts import (
     AnalyticsFilterType,
+    DashboardActionScope,
     ChartGranularity,
     DashboardActionDefinition,
     DashboardActionType,
@@ -10,6 +11,7 @@ from airflow_lite.api.analytics_contracts import (
     DashboardDefinitionResponse,
     DashboardCardDefinition,
     DashboardLayoutSpan,
+    DashboardRequestMethod,
     FilterDefinition,
     FilterOption,
 )
@@ -22,6 +24,8 @@ SUPPORTED_CHARTS = {
 SUPPORTED_DASHBOARDS = {
     "operations_overview": "MES Operations Overview",
 }
+
+COMMON_FILTER_KEYS = ["source", "partition_month"]
 
 
 def build_filter_definitions(
@@ -68,6 +72,8 @@ def build_dashboard_definition(
                 label="Rows Loaded",
                 metric_key="rows_loaded",
                 description="Total rows covered by the current mart selection.",
+                request_method=DashboardRequestMethod.POST,
+                filter_keys=COMMON_FILTER_KEYS,
                 span=DashboardLayoutSpan.SMALL,
             ),
             DashboardCardDefinition(
@@ -75,6 +81,8 @@ def build_dashboard_definition(
                 label="Source Files",
                 metric_key="source_files",
                 description="Parquet file count backing the selected view.",
+                request_method=DashboardRequestMethod.POST,
+                filter_keys=COMMON_FILTER_KEYS,
                 span=DashboardLayoutSpan.SMALL,
             ),
             DashboardCardDefinition(
@@ -82,6 +90,8 @@ def build_dashboard_definition(
                 label="Source Tables",
                 metric_key="source_tables",
                 description="Distinct raw sources currently represented in the mart.",
+                request_method=DashboardRequestMethod.POST,
+                filter_keys=COMMON_FILTER_KEYS,
                 span=DashboardLayoutSpan.SMALL,
             ),
             DashboardCardDefinition(
@@ -89,6 +99,8 @@ def build_dashboard_definition(
                 label="Covered Months",
                 metric_key="covered_months",
                 description="Number of month partitions included in the response window.",
+                request_method=DashboardRequestMethod.POST,
+                filter_keys=COMMON_FILTER_KEYS,
                 span=DashboardLayoutSpan.SMALL,
             ),
         ],
@@ -99,6 +111,8 @@ def build_dashboard_definition(
                 chart_type=DashboardChartType.LINE,
                 default_granularity=ChartGranularity.MONTH,
                 query_endpoint="/api/v1/analytics/charts/rows_by_month/query",
+                request_method=DashboardRequestMethod.POST,
+                filter_keys=COMMON_FILTER_KEYS,
                 limit=12,
                 span=DashboardLayoutSpan.LARGE,
             ),
@@ -108,6 +122,8 @@ def build_dashboard_definition(
                 chart_type=DashboardChartType.BAR,
                 default_granularity=ChartGranularity.MONTH,
                 query_endpoint="/api/v1/analytics/charts/files_by_source/query",
+                request_method=DashboardRequestMethod.POST,
+                filter_keys=COMMON_FILTER_KEYS,
                 limit=20,
                 span=DashboardLayoutSpan.MEDIUM,
             ),
@@ -118,6 +134,12 @@ def build_dashboard_definition(
                 label="Source File Detail",
                 type=DashboardActionType.DRILLDOWN,
                 description="Planned detail grid for source-level file records and partition slices.",
+                scope=DashboardActionScope.CHART,
+                target_key="files_by_source",
+                endpoint="/api/v1/analytics/details/source-files/query",
+                request_method=DashboardRequestMethod.POST,
+                filter_keys=COMMON_FILTER_KEYS,
+                status_reason="Requires the paginated detail API and chart-to-filter drilldown wiring.",
             ),
         ],
         export_actions=[
@@ -125,18 +147,28 @@ def build_dashboard_definition(
                 key="csv_zip_export",
                 label="CSV Zip Export",
                 type=DashboardActionType.EXPORT,
+                scope=DashboardActionScope.DASHBOARD,
+                endpoint="/api/v1/analytics/exports",
+                request_method=DashboardRequestMethod.POST,
+                filter_keys=COMMON_FILTER_KEYS,
                 format="csv.zip",
                 description="Planned large-result export workflow for downstream analysis.",
+                status_reason="Requires asynchronous export job creation, polling, and download endpoints.",
             ),
             DashboardActionDefinition(
                 key="parquet_export",
                 label="Parquet Export",
                 type=DashboardActionType.EXPORT,
+                scope=DashboardActionScope.DASHBOARD,
+                endpoint="/api/v1/analytics/exports",
+                request_method=DashboardRequestMethod.POST,
+                filter_keys=COMMON_FILTER_KEYS,
                 format="parquet",
                 description="Planned raw-compatible export for bulk data reuse.",
+                status_reason="Requires asynchronous export job creation, polling, and download endpoints.",
             ),
         ],
         warnings=[
-            "Detail drilldown and export jobs are planned follow-up work and are not executable yet.",
+            "Planned drilldown and export actions advertise their future endpoints, but the backing APIs are not implemented yet.",
         ],
     )
