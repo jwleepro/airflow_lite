@@ -15,7 +15,7 @@ from airflow_lite.api.analytics_contracts import (
     SummaryQueryResponse,
 )
 from airflow_lite.query import DuckDBAnalyticsQueryService
-from airflow_lite.config.settings import ApiConfig, PipelineConfig, Settings
+from airflow_lite.config.settings import ApiConfig, PipelineConfig
 from airflow_lite.storage.models import PipelineRun, StepRun
 
 
@@ -483,113 +483,15 @@ def test_chart_contract_serializes_series_points():
     assert data["granularity"] == "day"
     assert data["series"][0]["points"][1]["value"] == 110
 
-
-def _build_analytics_mart(database_path):
-    import duckdb
-
-    connection = duckdb.connect(str(database_path))
-    try:
-        connection.execute(
-            """
-            CREATE TABLE mart_datasets (
-                dataset_name VARCHAR,
-                source_count BIGINT,
-                total_rows BIGINT,
-                total_files BIGINT,
-                min_partition_start DATE,
-                max_partition_start DATE,
-                last_refreshed_at TIMESTAMP
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE mart_dataset_sources (
-                dataset_name VARCHAR,
-                source_name VARCHAR,
-                raw_table_name VARCHAR,
-                source_root VARCHAR,
-                row_count BIGINT,
-                file_count BIGINT,
-                min_partition_start DATE,
-                max_partition_start DATE,
-                last_build_id VARCHAR,
-                refresh_mode VARCHAR,
-                last_refreshed_at TIMESTAMP
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE mart_dataset_files (
-                dataset_name VARCHAR,
-                source_name VARCHAR,
-                partition_start DATE,
-                file_path VARCHAR,
-                row_count BIGINT,
-                last_build_id VARCHAR
-            )
-            """
-        )
-        connection.execute(
-            "INSERT INTO mart_datasets VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [
-                "mes_ops",
-                2,
-                20,
-                3,
-                "2026-03-01",
-                "2026-04-01",
-                datetime(2026, 4, 6, 10, 0, 0),
-            ],
-        )
-        connection.executemany(
-            "INSERT INTO mart_dataset_sources VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [
-                [
-                    "mes_ops",
-                    "OPS_TABLE",
-                    "raw__mes_ops__ops_table",
-                    "D:/data/parquet/OPS_TABLE",
-                    15,
-                    2,
-                    "2026-03-01",
-                    "2026-04-01",
-                    "build-001",
-                    "full",
-                    datetime(2026, 4, 6, 9, 0, 0),
-                ],
-                [
-                    "mes_ops",
-                    "EQUIPMENT_STATUS",
-                    "raw__mes_ops__equipment_status",
-                    "D:/data/parquet/EQUIPMENT_STATUS",
-                    5,
-                    1,
-                    "2026-04-01",
-                    "2026-04-01",
-                    "build-002",
-                    "incremental",
-                    datetime(2026, 4, 6, 10, 0, 0),
-                ],
-            ],
-        )
-        connection.executemany(
-            "INSERT INTO mart_dataset_files VALUES (?, ?, ?, ?, ?, ?)",
-            [
-                ["mes_ops", "OPS_TABLE", "2026-03-01", "march.parquet", 10, "build-001"],
-                ["mes_ops", "OPS_TABLE", "2026-04-01", "april.parquet", 5, "build-001"],
-                ["mes_ops", "EQUIPMENT_STATUS", "2026-04-01", "equipment.parquet", 5, "build-002"],
-            ],
-        )
-    finally:
-        connection.close()
-
-
-def test_analytics_summary_endpoint_returns_mart_metrics(tmp_path, mock_run_repo, mock_step_repo):
+def test_analytics_summary_endpoint_returns_mart_metrics(
+    tmp_path,
+    mock_run_repo,
+    mock_step_repo,
+    analytics_mart_builder,
+):
     settings = _make_settings()
     database_path = tmp_path / "analytics.duckdb"
-    _build_analytics_mart(database_path)
+    analytics_mart_builder(database_path)
     app = create_app(
         settings=settings,
         run_repo=mock_run_repo,
@@ -610,10 +512,15 @@ def test_analytics_summary_endpoint_returns_mart_metrics(tmp_path, mock_run_repo
     assert metric_map["source_files"] == 2
 
 
-def test_analytics_chart_and_filter_endpoints_return_mart_data(tmp_path, mock_run_repo, mock_step_repo):
+def test_analytics_chart_and_filter_endpoints_return_mart_data(
+    tmp_path,
+    mock_run_repo,
+    mock_step_repo,
+    analytics_mart_builder,
+):
     settings = _make_settings()
     database_path = tmp_path / "analytics.duckdb"
-    _build_analytics_mart(database_path)
+    analytics_mart_builder(database_path)
     app = create_app(
         settings=settings,
         run_repo=mock_run_repo,
@@ -641,10 +548,15 @@ def test_analytics_chart_and_filter_endpoints_return_mart_data(tmp_path, mock_ru
     assert filter_keys == ["source", "partition_month"]
 
 
-def test_analytics_dashboard_endpoint_returns_dashboard_definition(tmp_path, mock_run_repo, mock_step_repo):
+def test_analytics_dashboard_endpoint_returns_dashboard_definition(
+    tmp_path,
+    mock_run_repo,
+    mock_step_repo,
+    analytics_mart_builder,
+):
     settings = _make_settings()
     database_path = tmp_path / "analytics.duckdb"
-    _build_analytics_mart(database_path)
+    analytics_mart_builder(database_path)
     app = create_app(
         settings=settings,
         run_repo=mock_run_repo,

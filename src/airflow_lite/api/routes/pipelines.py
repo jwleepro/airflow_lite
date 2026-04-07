@@ -45,6 +45,11 @@ def build_run_response(run, step_runs) -> PipelineRunResponse:
     )
 
 
+def _build_run_response_with_steps(run, step_repo) -> PipelineRunResponse:
+    step_runs = step_repo.find_by_pipeline_run(run.id) if step_repo else []
+    return build_run_response(run, step_runs)
+
+
 @router.post("/pipelines/{name}/trigger", response_model=PipelineRunResponse)
 def trigger_pipeline(name: str, body: TriggerRequest, req: Request):
     """수동 즉시 실행. execution_date 미지정 시 오늘 날짜 사용."""
@@ -61,8 +66,7 @@ def trigger_pipeline(name: str, body: TriggerRequest, req: Request):
     )
 
     step_repo = req.app.state.step_repo
-    steps = step_repo.find_by_pipeline_run(run.id) if step_repo else []
-    return build_run_response(run, steps)
+    return _build_run_response_with_steps(run, step_repo)
 
 
 @router.get("/pipelines", response_model=list[PipelineInfo])
@@ -103,10 +107,7 @@ def list_runs(name: str, req: Request, page: int = 1, page_size: int = 50):
     items, total = run_repo.find_by_pipeline_paginated(name, page=page, page_size=page_size)
     step_repo = req.app.state.step_repo
 
-    run_responses = []
-    for run in items:
-        steps = step_repo.find_by_pipeline_run(run.id) if step_repo else []
-        run_responses.append(build_run_response(run, steps))
+    run_responses = [_build_run_response_with_steps(run, step_repo) for run in items]
 
     return PaginatedResponse(items=run_responses, total=total, page=page, page_size=page_size)
 
@@ -123,5 +124,4 @@ def get_run_detail(name: str, run_id: str, req: Request):
         raise HTTPException(status_code=404, detail=f"실행 ID '{run_id}'를 찾을 수 없습니다.")
 
     step_repo = req.app.state.step_repo
-    steps = step_repo.find_by_pipeline_run(run.id) if step_repo else []
-    return build_run_response(run, steps)
+    return _build_run_response_with_steps(run, step_repo)
