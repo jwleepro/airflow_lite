@@ -4,26 +4,30 @@
 
 ## 1. 시스템 개요
 
-Airflow Lite 는 Oracle 11g 데이터를 Parquet 로 이관하는 단일 프로세스 기반 서비스다. 런타임 조립은 대부분 [`src/airflow_lite/service/win_service.py`](../../src/airflow_lite/service/win_service.py) 에 모여 있다.
+Airflow Lite 는 Oracle 11g 데이터를 Parquet 로 이관하고, DuckDB mart 를 통해 분석 API 를 서빙하는 단일 프로세스 기반 서비스다. 런타임 조립은 대부분 [`src/airflow_lite/service/win_service.py`](../src/airflow_lite/service/win_service.py) 에 모여 있다.
 
 핵심 구성은 아래와 같다.
 
-- 설정: [`src/airflow_lite/config/settings.py`](../../src/airflow_lite/config/settings.py)
-- 실행 엔진: [`src/airflow_lite/engine/`](../../src/airflow_lite/engine/)
-- Oracle 추출: [`src/airflow_lite/extract/`](../../src/airflow_lite/extract/)
-- Parquet 적재: [`src/airflow_lite/transform/parquet_writer.py`](../../src/airflow_lite/transform/parquet_writer.py)
-- 메타데이터 저장: [`src/airflow_lite/storage/`](../../src/airflow_lite/storage/)
-- API: [`src/airflow_lite/api/`](../../src/airflow_lite/api/)
-- 스케줄러: [`src/airflow_lite/scheduler/scheduler.py`](../../src/airflow_lite/scheduler/scheduler.py)
-- Windows 서비스 진입점: [`src/airflow_lite/__main__.py`](../../src/airflow_lite/__main__.py)
+- 설정: [`src/airflow_lite/config/settings.py`](../src/airflow_lite/config/settings.py)
+- 실행 엔진: [`src/airflow_lite/engine/`](../src/airflow_lite/engine/)
+- Oracle 추출: [`src/airflow_lite/extract/`](../src/airflow_lite/extract/)
+- Parquet 적재: [`src/airflow_lite/transform/parquet_writer.py`](../src/airflow_lite/transform/parquet_writer.py)
+- 메타데이터 저장: [`src/airflow_lite/storage/`](../src/airflow_lite/storage/)
+- DuckDB mart: [`src/airflow_lite/mart/`](../src/airflow_lite/mart/)
+- Analytics 카탈로그: [`src/airflow_lite/analytics/`](../src/airflow_lite/analytics/)
+- Query service: [`src/airflow_lite/query/`](../src/airflow_lite/query/)
+- Export service: [`src/airflow_lite/export/`](../src/airflow_lite/export/)
+- API: [`src/airflow_lite/api/`](../src/airflow_lite/api/)
+- 스케줄러: [`src/airflow_lite/scheduler/scheduler.py`](../src/airflow_lite/scheduler/scheduler.py)
+- Windows 서비스 진입점: [`src/airflow_lite/__main__.py`](../src/airflow_lite/__main__.py)
 
 ## 2. 런타임 토폴로지
 
-현재 운영 경로는 Windows 서비스 중심이다.
+현재 운영 경로는 Windows 서비스 중심이며, 포그라운드 모드(`python -m airflow_lite run`)도 지원한다.
 
 ```mermaid
 flowchart TD
-    CLI[python -m airflow_lite service ...] --> SVC[AirflowLiteService]
+    CLI[python -m airflow_lite service/run] --> SVC[AirflowLiteService / _run_foreground]
     SVC --> CFG[Settings.load]
     SVC --> LOG[setup_logging]
     SVC --> DB[Database.initialize]
@@ -35,6 +39,15 @@ flowchart TD
     RUNNER --> STRATEGY[Full / Incremental Strategy]
     RUNNER --> SQLITE[(SQLite)]
     STRATEGY --> PARQUET[ParquetWriter]
+    RUNNER -->|on_run_success| MART[MartRefreshCoordinator]
+    MART --> EXECUTOR[MartRefreshExecutor]
+    EXECUTOR --> DUCKDB[(DuckDB staging)]
+    EXECUTOR --> VALIDATOR[DuckDBMartValidator]
+    EXECUTOR --> PROMOTER[MartSnapshotPromoter]
+    API --> QS[DuckDBAnalyticsQueryService]
+    API --> ES[FilesystemAnalyticsExportService]
+    QS --> CURRENT[(DuckDB current)]
+    ES --> QS
 ```
 
 중요한 점:
@@ -43,6 +56,8 @@ flowchart TD
 - FastAPI 는 `uvicorn.Server` 를 별도 스레드에서 실행한다.
 - 파이프라인 인스턴스는 서비스가 보유한 factory 가 요청할 때마다 생성한다.
 - Oracle 연결, ParquetWriter, StageStateMachine, AlertManager 는 factory 내부 공유 인프라로 재사용된다.
+- 파이프라인 성공 시 `on_run_success` 콜백이 mart refresh 를 트리거한다.
+- Analytics query service 는 promoted `current/` DuckDB 를 read-only 로 연결한다.
 
 ## 3. 패키지 구조
 
@@ -53,12 +68,17 @@ src/airflow_lite/
 │   ├── base.py
 │   ├── email.py
 │   └── webhook.py
+├── analytics/
+│   ├── catalog.py
+│   └── kpi.py
 ├── api/
 │   ├── app.py
+│   ├── analytics_contracts.py
 │   ├── schemas.py
 │   └── routes/
-│       ├── pipelines.py
-│       └── backfill.py
+│       ├── analytics.py
+│       ├── backfill.py
+│       └── pipelines.py
 ├── config/
 │   └── settings.py
 ├── engine/
@@ -67,11 +87,22 @@ src/airflow_lite/
 │   ├── stage.py
 │   ├── state_machine.py
 │   └── strategy.py
+├── export/
+│   └── service.py
 ├── extract/
 │   ├── chunked_reader.py
 │   └── oracle_client.py
 ├── logging_config/
 │   └── setup.py
+├── mart/
+│   ├── builder.py
+│   ├── execution.py
+│   ├── orchestration.py
+│   ├── refresh.py
+│   ├── snapshot.py
+│   └── validator.py
+├── query/
+│   └── service.py
 ├── scheduler/
 │   └── scheduler.py
 ├── service/
@@ -79,15 +110,14 @@ src/airflow_lite/
 ├── storage/
 │   ├── database.py
 │   ├── models.py
-│   ├── repository.py
-│   └── schema.sql
+│   └── repository.py
 └── transform/
     └── parquet_writer.py
 ```
 
 ## 4. 설정 모델
 
-설정 파일은 기본적으로 `config/pipelines.yaml` 이며, [`Settings.load()`](../../src/airflow_lite/config/settings.py) 가 파싱한다.
+설정 파일은 기본적으로 `config/pipelines.yaml` 이며, [`Settings.load()`](../src/airflow_lite/config/settings.py) 가 파싱한다.
 
 ### 4.1 지원 섹션
 
@@ -97,12 +127,13 @@ src/airflow_lite/
 - `pipelines`
 - `api`
 - `alerting`
+- `mart`
 
 ### 4.2 구현 포인트
 
 - 문자열의 `${VAR_NAME}` 패턴은 재귀적으로 환경변수 치환한다.
 - 일부 숫자 필드는 문자열이어도 정수로 강제 변환한다.
-- `api`, `alerting` 섹션이 없으면 기본 dataclass 값으로 채운다.
+- `api`, `alerting`, `mart` 섹션이 없으면 기본 dataclass 값으로 채운다.
 - 알림 채널 타입은 현재 `email`, `webhook` 두 개만 허용한다.
 
 ### 4.3 현재 설정 객체
@@ -120,6 +151,7 @@ src/airflow_lite/
 - `WebhookChannelConfig`
 - `AlertingTriggersConfig`
 - `AlertingConfig`
+- `MartConfig`
 
 `PipelineConfig` 필드:
 
@@ -140,9 +172,9 @@ incremental_key: str | None = None
 
 엔진 계층의 주요 타입은 아래 파일에 있다.
 
-- [`engine/stage.py`](../../src/airflow_lite/engine/stage.py)
-- [`engine/pipeline.py`](../../src/airflow_lite/engine/pipeline.py)
-- [`engine/state_machine.py`](../../src/airflow_lite/engine/state_machine.py)
+- [`engine/stage.py`](../src/airflow_lite/engine/stage.py)
+- [`engine/pipeline.py`](../src/airflow_lite/engine/pipeline.py)
+- [`engine/state_machine.py`](../src/airflow_lite/engine/state_machine.py)
 
 주요 개념:
 
@@ -154,7 +186,7 @@ incremental_key: str | None = None
 
 ### 5.2 실제 stage 구성
 
-초기 설계 문서와 달리 현재 서비스가 만드는 stage 는 4단계가 아니라 2단계다.
+현재 서비스가 만드는 stage 는 2단계다.
 
 1. `extract_transform_load`
 2. `verify`
@@ -170,7 +202,7 @@ incremental_key: str | None = None
 
 ### 5.3 상태 전이
 
-유효한 전이는 [`StageStateMachine.VALID_TRANSITIONS`](../../src/airflow_lite/engine/state_machine.py) 에 고정되어 있다.
+유효한 전이는 [`StageStateMachine.VALID_TRANSITIONS`](../src/airflow_lite/engine/state_machine.py) 에 고정되어 있다.
 
 ```text
 pending -> running
@@ -219,9 +251,16 @@ retry(
 
 `verify` 단계는 현재 `max_attempts=1` 로 생성되므로 재시도하지 않는다.
 
+### 5.6 실행 후처리
+
+`PipelineRunner.run()` 의 마지막 단계:
+
+1. `strategy.finalize_run(context, succeeded)` — full 전략은 성공 시 `.bak` 삭제, 실패 시 `.bak` 복원. incremental 전략은 실패 시 적재 파일 삭제.
+2. `on_run_success(context)` — mart refresh 트리거 (성공 시에만)
+
 ## 6. 마이그레이션 전략
 
-전략 구현은 [`src/airflow_lite/engine/strategy.py`](../../src/airflow_lite/engine/strategy.py) 에 있다.
+전략 구현은 [`src/airflow_lite/engine/strategy.py`](../src/airflow_lite/engine/strategy.py) 에 있다.
 
 ### 6.1 FullMigrationStrategy
 
@@ -231,24 +270,7 @@ retry(
 - 첫 청크 적재 전 기존 월 파티션 Parquet 를 `.bak` 로 rename 한다.
 - 첫 청크는 base 파일에 쓰고, 이후 청크는 같은 파일에 row group append 한다.
 - 검증은 `SELECT COUNT(*) FROM (...)` 결과와 Parquet 총 row 수를 비교한다.
-
-쿼리 형태:
-
-```sql
-SELECT {columns}
-FROM {table}
-WHERE {partition_column} >= DATE 'YYYY-MM-01'
-  AND {partition_column} < DATE 'NEXT_MONTH_01'
-```
-
-적재 모드:
-
-- 첫 청크: `append=False`, `append_mode="single_file"`
-- 이후 청크: `append=True`, `append_mode="single_file"`
-
-주의:
-
-- 현재 구현은 기존 파일을 `.bak` 로 남기지만, verify 실패 시 `.bak` 자동 복원까지는 연결돼 있지 않다.
+- `finalize_run()`: 성공 시 `.bak` 삭제, 실패 시 `.bak` 복원. 백업이 없었으면 새 파일 삭제.
 
 ### 6.2 IncrementalMigrationStrategy
 
@@ -256,25 +278,14 @@ WHERE {partition_column} >= DATE 'YYYY-MM-01'
 
 - `incremental_key` 기준으로 `execution_date` 당일 범위만 조회한다.
 - 적재는 항상 append 로 수행한다.
-- 월별 디렉터리 안에 base 파일 또는 `.partNNNNN.parquet` 파일이 추가될 수 있다.
-- 검증은 "이번 실행에서 적재한 row 수 <= 파티션 전체 row 수" 조건을 사용한다.
-
-쿼리 형태:
-
-```sql
-SELECT {columns}
-FROM {table}
-WHERE {incremental_key} >= DATE 'YYYY-MM-DD'
-  AND {incremental_key} < DATE 'NEXT_DAY'
-```
-
-증분 적재는 일 단위 조회지만 저장 경로는 월 단위 파티션을 계속 사용한다.
+- 검증은 "추출 건수 == 적재 건수" and "현재 파티션 row 수 == 초기 + 적재분" 조건을 사용한다.
+- `finalize_run()`: 실패 시 이번 실행에서 생성한 파일을 삭제한다.
 
 ## 7. Oracle 추출 계층
 
 ### 7.1 OracleClient
 
-[`extract/oracle_client.py`](../../src/airflow_lite/extract/oracle_client.py) 의 역할:
+[`extract/oracle_client.py`](../src/airflow_lite/extract/oracle_client.py) 의 역할:
 
 - `oracledb.makedsn()` 으로 DSN 생성
 - 연결 객체 캐시 및 `ping()` 기반 생존 확인
@@ -290,42 +301,22 @@ WHERE {incremental_key} >= DATE 'YYYY-MM-DD'
 
 ### 7.2 ChunkedReader
 
-[`extract/chunked_reader.py`](../../src/airflow_lite/extract/chunked_reader.py) 는 커서에서 `fetchmany(chunk_size)` 로 DataFrame 을 순차 생성한다.
-
-데이터 흐름:
-
-```text
-Oracle cursor -> fetchmany() -> pandas.DataFrame -> caller yield
-```
-
-이 계층은 변환이나 적재를 몰라도 되고, 단순히 읽기 스트리밍만 담당한다.
+[`extract/chunked_reader.py`](../src/airflow_lite/extract/chunked_reader.py) 는 커서에서 `fetchmany(chunk_size)` 로 DataFrame 을 순차 생성한다.
 
 ## 8. Parquet 적재 계층
 
-[`transform/parquet_writer.py`](../../src/airflow_lite/transform/parquet_writer.py) 의 책임:
+[`transform/parquet_writer.py`](../src/airflow_lite/transform/parquet_writer.py) 의 책임:
 
 - 월 파티션 경로 생성
 - `pyarrow.parquet.write_table()` 또는 `ParquetWriter` 사용
 - append 시 sidecar 파일 또는 single file row group append 지원
-- 기존 파일 백업
+- 기존 파일 백업, 복원, 삭제
 - 월 파티션 row count 조회
 
 ### 8.1 경로 규칙
 
 ```text
 {base_path}/{TABLE_NAME}/year={YYYY}/month={MM}/
-```
-
-대표 파일명:
-
-```text
-{TABLE_NAME}_{YYYY}_{MM}.parquet
-```
-
-증분 append 예:
-
-```text
-{TABLE_NAME}_{YYYY}_{MM}.part00001.parquet
 ```
 
 ### 8.2 append 모드
@@ -340,16 +331,7 @@ Oracle cursor -> fetchmany() -> pandas.DataFrame -> caller yield
 
 ## 9. 메타데이터 저장소
 
-### 9.1 DB 초기화
-
-[`storage/database.py`](../../src/airflow_lite/storage/database.py) 는 SQLite 연결 시 아래 pragma 를 적용한다.
-
-- `PRAGMA journal_mode = WAL`
-- `PRAGMA foreign_keys = ON`
-
-초기화 시 [`storage/schema.sql`](../../src/airflow_lite/storage/schema.sql) 을 실행한 뒤, 예전 스키마의 전체 유니크 제약을 부분 유니크 인덱스로 바꾸는 마이그레이션을 수행한다.
-
-### 9.2 현재 스키마
+### 9.1 현재 스키마
 
 ```sql
 CREATE TABLE pipeline_runs (
@@ -379,59 +361,96 @@ CREATE TABLE step_runs (
 
 핵심 인덱스:
 
-- `idx_pipeline_runs_exec_date`
-- `idx_pipeline_runs_status`
-- `idx_pipeline_runs_success_unique`
-- `idx_step_runs_pipeline_run`
+- `idx_pipeline_runs_success_unique` — 성공 실행만 `(pipeline_name, execution_date, trigger_type)` 유일 제약
 
-`idx_pipeline_runs_success_unique` 는 아래 조건을 갖는다.
-
-```sql
-CREATE UNIQUE INDEX IF NOT EXISTS idx_pipeline_runs_success_unique
-ON pipeline_runs(pipeline_name, execution_date, trigger_type)
-WHERE status = 'success';
-```
-
-즉, 실패 실행은 같은 날짜에 여러 번 존재할 수 있고, 성공 실행만 유일해야 한다.
-
-### 9.3 Repository 계층
-
-[`storage/repository.py`](../../src/airflow_lite/storage/repository.py) 는 dataclass 모델과 SQLite row 사이를 매핑한다.
+### 9.2 Repository 계층
 
 주요 메서드:
 
-- `PipelineRunRepository.create()`
-- `PipelineRunRepository.find_by_id()`
-- `PipelineRunRepository.find_by_pipeline_paginated()`
-- `PipelineRunRepository.find_latest_success_by_execution_date()`
-- `StepRunRepository.create()`
-- `StepRunRepository.update_status()`
-- `StepRunRepository.find_by_pipeline_run()`
+- `PipelineRunRepository.create()`, `find_by_id()`, `find_by_pipeline_paginated()`, `find_latest_success_by_execution_date()`
+- `StepRunRepository.create()`, `update_status()`, `find_by_pipeline_run()`
 
-## 10. 스케줄러
+## 10. DuckDB Mart 계층
 
-[`scheduler/scheduler.py`](../../src/airflow_lite/scheduler/scheduler.py) 는 APScheduler `BackgroundScheduler` 를 감싼 얇은 래퍼다.
+### 10.1 아키텍처 흐름
 
-설정 특징:
+```text
+raw Parquet → MartRefreshCoordinator.plan_refresh()
+           → MartRefreshExecutor.execute_refresh()
+             → DuckDBMartExecutor.execute_build()  (staging DB 생성)
+             → DuckDBMartValidator.validate_build() (메타데이터 검증)
+             → MartSnapshotPromoter.promote()       (current + snapshot 복사)
+```
 
-- JobStore: `SQLAlchemyJobStore(sqlite:///{sqlite_path})`
-- `coalesce=True`
-- `max_instances=1`
-- `misfire_grace_time=3600`
+### 10.2 디렉터리 레이아웃
 
-각 파이프라인의 `schedule` 문자열은 `CronTrigger.from_crontab()` 으로 등록된다.
+```text
+{mart_root}/
+  ├── staging/{build_id}/analytics.duckdb   — 빌드 중 임시 DB
+  ├── current/analytics.duckdb              — 검증 통과한 최신 mart
+  └── snapshots/{snapshot_name}/analytics.duckdb — 롤백용
+```
 
-스케줄 실행 시 동작:
+### 10.3 메타데이터 테이블 (DuckDB 내부)
 
-1. `runner_factory(pipeline_name)` 호출
-2. `runner.run(execution_date=date.today(), trigger_type="scheduled")`
-3. 예외는 로깅하고 APScheduler 밖으로 전파하지 않음
+- `mart_datasets`: dataset 전체 집계
+- `mart_dataset_sources`: source 단위 상태 (row_count, file_count, refresh_mode 등)
+- `mart_dataset_files`: 개별 파일 단위 (partition_start, row_count, last_build_id 등)
 
-## 11. API
+### 10.4 Orchestration
 
-API 앱 생성은 [`api/app.py`](../../src/airflow_lite/api/app.py) 의 `create_app()` 가 맡는다.
+[`mart/orchestration.py`](../src/airflow_lite/mart/orchestration.py) 의 `MartRefreshCoordinator` 는:
 
-### 11.1 app.state 주입
+- `pipeline_datasets` 설정을 사용해 pipeline_name → dataset_name 매핑
+- Parquet 파티션 디렉터리에서 source 파일 자동 탐색
+- `trigger_type` 기반으로 refresh mode (FULL/INCREMENTAL/BACKFILL) 결정
+
+### 10.5 Validation
+
+`DuckDBMartValidator` 는 staging DB 에 대해 다음을 검증:
+
+- 필수 메타데이터 테이블 존재 여부
+- raw 테이블의 row count 일치
+- `mart_dataset_sources`, `mart_dataset_files` 메타데이터 정합성
+- `mart_datasets` 집계 정합성
+
+## 11. Analytics 계층
+
+### 11.1 Query Service
+
+[`query/service.py`](../src/airflow_lite/query/service.py) 의 `DuckDBAnalyticsQueryService`:
+
+- promoted `current/` DuckDB 를 read-only 로 연결
+- summary, chart, detail, filter, dashboard, export plan 쿼리 제공
+- ad-hoc SQL 노출 없이 parameterized 쿼리만 사용
+- 서버 측 필터링, 정렬, 페이징 기본
+
+### 11.2 KPI 계산
+
+[`analytics/kpi.py`](../src/airflow_lite/analytics/kpi.py):
+
+- `DatasetSummaryStats` 로 집계 데이터를 받아 `SummaryMetricCard` 리스트 생성
+- 메트릭: rows_loaded, source_files, source_tables, avg_rows_per_file, covered_months
+
+### 11.3 Dashboard Catalog
+
+[`analytics/catalog.py`](../src/airflow_lite/analytics/catalog.py):
+
+- `operations_overview` 대시보드 정의 (카드, 차트, drilldown, export 액션)
+- chart: `rows_by_month` (LINE), `files_by_source` (BAR)
+- actions: `source_file_detail` (drilldown), `csv_zip_export`, `parquet_export`
+
+### 11.4 Export Service
+
+[`export/service.py`](../src/airflow_lite/export/service.py) 의 `FilesystemAnalyticsExportService`:
+
+- ThreadPoolExecutor 기반 비동기 export
+- 파일 시스템에 job 상태 (JSON) + artifact (csv.zip/parquet) 저장
+- 72시간 후 만료 자동 cleanup
+
+## 12. API
+
+### 12.1 app.state 주입
 
 `create_app()` 는 아래 객체를 `app.state` 에 넣는다.
 
@@ -440,24 +459,15 @@ API 앱 생성은 [`api/app.py`](../../src/airflow_lite/api/app.py) 의 `create_
 - `backfill_map`
 - `run_repo`
 - `step_repo`
+- `analytics_query_service`
+- `analytics_export_service`
 
-라우터는 DI 시스템 대신 이 `app.state` 를 읽는다.
-
-### 11.2 CORS
-
-`settings.api.allowed_origins` 를 exact origin 과 wildcard regex 로 분해해 `CORSMiddleware` 에 설정한다.
-
-예:
-
-- `http://10.0.0.*`
-- `http://192.168.1.*`
-
-### 11.3 엔드포인트
+### 12.2 엔드포인트
 
 #### pipelines 라우터
 
-- `POST /api/v1/pipelines/{name}/trigger`
 - `GET /api/v1/pipelines`
+- `POST /api/v1/pipelines/{name}/trigger`
 - `GET /api/v1/pipelines/{name}/runs`
 - `GET /api/v1/pipelines/{name}/runs/{run_id}`
 
@@ -465,98 +475,69 @@ API 앱 생성은 [`api/app.py`](../../src/airflow_lite/api/app.py) 의 `create_
 
 - `POST /api/v1/pipelines/{name}/backfill`
 
-### 11.4 응답 특성
+#### analytics 라우터
 
-- 실행 이력 목록은 `{items, total, page, page_size}` 형태
-- 실행 상세와 수동 실행 응답에는 `steps` 배열이 포함
-- 백필 응답은 월별 실행 결과 리스트
+- `POST /api/v1/analytics/summary`
+- `POST /api/v1/analytics/charts/{chart_id}/query`
+- `POST /api/v1/analytics/details/{detail_key}/query`
+- `GET /api/v1/analytics/filters`
+- `GET /api/v1/analytics/dashboards/{dashboard_id}`
+- `POST /api/v1/analytics/exports`
+- `GET /api/v1/analytics/exports/{job_id}`
+- `GET /api/v1/analytics/exports/{job_id}/download`
 
-## 12. 백필
+### 12.3 CORS
 
-[`engine/backfill.py`](../../src/airflow_lite/engine/backfill.py) 의 `BackfillManager` 는 날짜 범위를 월 시작일 목록으로 분해한 후 `PipelineRunner.run(..., trigger_type="backfill")` 을 반복 호출한다.
+`settings.api.allowed_origins` 를 exact origin 과 wildcard regex 로 분해해 `CORSMiddleware` 에 설정한다.
 
-예:
+## 13. 스케줄러
 
-```text
-2026-01-15 ~ 2026-04-10
--> [2026-01-01, 2026-02-01, 2026-03-01, 2026-04-01]
-```
+[`scheduler/scheduler.py`](../src/airflow_lite/scheduler/scheduler.py) 는 APScheduler `BackgroundScheduler` 를 감싼 얇은 래퍼다.
 
-`BackfillManager` 안에는 `backup_existing()`, `remove_backup()`, `restore_backup()` 유틸리티도 있지만, 현재 서비스 경로에서는 full migration 검증 실패 시 자동 호출되지는 않는다.
+- JobStore: `SQLAlchemyJobStore(sqlite:///{sqlite_path})`
+- `coalesce=True`, `max_instances=1`, `misfire_grace_time=3600`
+- Cron 표현식 또는 `interval:30m` 형식 지원
 
-## 13. 알림
+## 14. 백필
 
-알림 계층은 [`alerting/base.py`](../../src/airflow_lite/alerting/base.py) 를 중심으로 구성된다.
+`BackfillManager` 는 날짜 범위를 월 시작일 목록으로 분해한 후 `PipelineRunner.run(..., trigger_type="backfill")` 을 반복 호출한다.
 
-구성요소:
+## 15. 알림
 
-- `AlertMessage`
-- `AlertChannel`
-- `AlertManager`
-- `EmailAlertChannel`
-- `WebhookAlertChannel`
+### 15.1 구성요소
 
-지원 채널:
+- `AlertMessage`, `AlertChannel`, `AlertManager`
+- `EmailAlertChannel` (SMTP), `WebhookAlertChannel` (httpx POST)
 
-- 이메일: `smtplib.SMTP`
-- 웹훅: `httpx.Client.post()`
+### 15.2 서비스에서의 연결
 
-### 13.1 현재 서비스에서의 실제 연결 방식
+현재 런타임에서 자동 알림이 발송되는 경우:
 
-`AirflowLiteService._create_runner_factory()` 가 `AlertManager` 를 만들고, ETL stage 의 `RetryConfig.on_failure_callback` 에만 연결한다.
-
-따라서 현재 런타임에서는 다음만 자동 발송된다.
-
-- `extract_transform_load` 단계가 재시도 소진 후 실패했을 때
-
-현재 자동 발송되지 않는 경우:
-
+- `extract_transform_load` 단계 최종 실패
 - `verify` 단계 실패
-- 파이프라인 성공 완료
+- 파이프라인 성공 완료 (설정에서 `on_success: true` 인 경우)
+- mart refresh planning/execution/validation 실패
 
-`AlertManager` 와 설정 모델은 성공 알림을 지원하지만, 서비스 조립 경로에서 실제로 호출하지는 않는다.
+## 16. 로깅
 
-## 14. 로깅
+- `TimedRotatingFileHandler` — 자정 기준 일 단위, `backupCount=30`
+- 콘솔 핸들러 병행
 
-[`logging_config/setup.py`](../../src/airflow_lite/logging_config/setup.py) 는 `airflow_lite` 루트 로거에 핸들러를 등록한다.
+## 17. 서비스 수명주기
 
-특징:
-
-- `TimedRotatingFileHandler`
-- 자정 기준 일 단위 로테이션
-- `backupCount=30`
-- 파일명 기본값: `airflow_lite.log`
-- suffix: `%Y-%m-%d`
-- 콘솔 핸들러도 함께 등록
-
-포맷:
-
-```text
-%(asctime)s [%(levelname)s] %(name)s - %(message)s
-```
-
-주의:
-
-- 현재 구현은 핸들러 중복 등록 방지 로직이 없다. 같은 프로세스에서 `setup_logging()` 을 반복 호출하면 핸들러가 누적될 수 있다.
-
-## 15. 서비스 수명주기
-
-Windows 서비스 클래스는 [`service/win_service.py`](../../src/airflow_lite/service/win_service.py) 의 `AirflowLiteService` 이다.
-
-### 15.1 시작 시퀀스
+### 17.1 시작 시퀀스
 
 1. `Settings.load("config/pipelines.yaml")`
 2. `setup_logging(settings.storage.log_path)`
 3. `Database.initialize()`
 4. `run_repo`, `step_repo` 생성
-5. `runner_factory` 생성
-6. `PipelineScheduler.register_pipelines()`
-7. `PipelineScheduler.start()`
-8. FastAPI 앱 생성
-9. `uvicorn.Server` 를 daemon thread 로 시작
-10. 서비스 stop event 대기
+5. `runner_factory` 생성 (OracleClient, ParquetWriter, AlertManager, MartRefresh 포함)
+6. `PipelineScheduler.register_pipelines()` + `start()`
+7. FastAPI 앱 생성 (analytics_query_service, analytics_export_service 포함)
+8. `uvicorn.Server` 를 daemon thread 로 시작
+9. 종료 이벤트 대기
 
-### 15.2 종료 시퀀스
+### 17.2 종료 시퀀스
 
 1. 서비스 상태를 `SERVICE_STOP_PENDING` 으로 변경
 2. `uvicorn_server.should_exit = True`
@@ -564,41 +545,29 @@ Windows 서비스 클래스는 [`service/win_service.py`](../../src/airflow_lite
 4. API thread `join(timeout=30)`
 5. stop event signal
 
-## 16. CLI
-
-패키지 엔트리포인트는 [`__main__.py`](../../src/airflow_lite/__main__.py) 에서 처리한다.
-
-현재 지원 명령은 하나다.
+## 18. CLI
 
 ```bash
+# 포그라운드 실행 (개발/디버깅)
+python -m airflow_lite run [config_path]
+
+# Windows 서비스 관리
 python -m airflow_lite service install
 python -m airflow_lite service remove
 python -m airflow_lite service start
 python -m airflow_lite service stop
 ```
 
-즉, 현재 저장소에는 별도 `run`, `api`, `scheduler`, `backfill` CLI 명령은 없다.
+## 19. 참고 테스트
 
-## 17. 현재 구현 기준 주의사항
-
-나중에 코드를 다시 볼 때 혼동하기 쉬운 부분만 따로 남긴다.
-
-- 문서상 "Extract -> Transform -> Load -> Verify" 라는 개념은 있지만, 실제 stage 는 2개다.
-- full migration 은 `.bak` 백업을 만들지만 verify 실패 후 자동 복원 로직은 연결돼 있지 않다.
-- incremental verify 는 "이번 실행 적재 수 <= 월 파티션 총 row 수" 검증이라, full strategy 의 정확한 source-target 동등성 검증과 다르다.
-- 알림 인프라는 범용적으로 보이지만 실제 서비스 경로에서는 ETL 실패만 자동 통지한다.
-- CLI 는 Windows 서비스 중심이며, 비서비스 모드 실행 진입점은 아직 없다.
-
-## 18. 참고 테스트
-
-현재 아키텍처를 이해할 때 같이 보면 좋은 테스트:
-
-- [`tests/test_engine.py`](../../tests/test_engine.py)
-- [`tests/test_extract.py`](../../tests/test_extract.py)
-- [`tests/test_storage.py`](../../tests/test_storage.py)
-- [`tests/test_api.py`](../../tests/test_api.py)
-- [`tests/test_scheduler.py`](../../tests/test_scheduler.py)
-- [`tests/test_service.py`](../../tests/test_service.py)
-- [`tests/integration/test_pipeline_runner_e2e.py`](../../tests/integration/test_pipeline_runner_e2e.py)
-- [`tests/integration/test_full_migration.py`](../../tests/integration/test_full_migration.py)
-- [`tests/integration/test_incremental_migration.py`](../../tests/integration/test_incremental_migration.py)
+- [`tests/test_engine.py`](../tests/test_engine.py)
+- [`tests/test_extract.py`](../tests/test_extract.py)
+- [`tests/test_storage.py`](../tests/test_storage.py)
+- [`tests/test_api.py`](../tests/test_api.py)
+- [`tests/test_scheduler.py`](../tests/test_scheduler.py)
+- [`tests/test_service.py`](../tests/test_service.py)
+- [`tests/test_query_service.py`](../tests/test_query_service.py)
+- [`tests/test_mart.py`](../tests/test_mart.py)
+- [`tests/integration/test_pipeline_runner_e2e.py`](../tests/integration/test_pipeline_runner_e2e.py)
+- [`tests/integration/test_full_migration.py`](../tests/integration/test_full_migration.py)
+- [`tests/integration/test_incremental_migration.py`](../tests/integration/test_incremental_migration.py)

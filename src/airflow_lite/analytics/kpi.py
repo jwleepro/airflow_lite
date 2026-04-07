@@ -16,9 +16,6 @@ class DatasetSummaryStats:
 
 
 def build_dataset_summary_metrics(dataset: str, stats: DatasetSummaryStats) -> list[SummaryMetricCard]:
-    if dataset != "mes_ops":
-        raise KeyError(dataset)
-
     covered_months = _count_inclusive_months(stats.min_partition_start, stats.max_partition_start)
     average_rows = round(stats.total_rows / stats.total_files, 2) if stats.total_files else 0.0
 
