@@ -11,6 +11,7 @@
 
 ## 최근 완료 작업
 
+- `2026-04-07` analytics 테스트용 DuckDB mart fixture를 `tests/conftest.py`로 공통화하고, pipeline/backfill route의 run response 조립 중복을 내부 helper로 축소했다. `tests/test_query_service.py`와 `tests/test_api.py`는 같은 seed mart를 공유하고 기존 응답 계약은 유지된다.
 - `2026-04-06` `T-025` 대시보드 정의 endpoint를 추가했다. `operations_overview` 대시보드가 summary/chart/filter endpoint를 묶는 카드/차트/드릴다운/export 메타데이터를 `GET /api/v1/analytics/dashboards/{dashboard_id}`로 제공한다.
 - `2026-04-06` `T-026` 대시보드 소비 계약을 구체화했다. `contract_version`, 위젯별 `filter_keys`, action `scope/target_key`, planned detail/export endpoint와 후속 API 범위를 코드와 `spec/query-api-contract.md`에 고정했다.
 
@@ -30,6 +31,8 @@
 
 ## 검증 메모
 
+- `2026-04-07` `pytest tests/test_query_service.py tests/test_api.py -q --basetemp .tmp_pytest_refactor -p no:cacheprovider`가 `33 passed`로 성공했다.
+- `2026-04-07` 브랜치 `codex/conservative-refactor-fixtures`를 푸시했고 draft PR `#9`를 열었다: `https://github.com/jwleepro/airflow_lite/pull/9`
 - `2026-04-06` `pytest tests/test_query_service.py tests/test_api.py -q --basetemp .tmp_pytest -p no:cacheprovider`가 `33 passed`로 성공했다.
 - `2026-04-06` `python -m compileall src/airflow_lite/analytics src/airflow_lite/api src/airflow_lite/query tests/test_api.py tests/test_query_service.py`가 성공했다.
 - `2026-04-06` `pytest tests/test_query_service.py tests/test_api.py -q --basetemp .tmp_pytest_contract -p no:cacheprovider`는 테스트 본문 실행 후 `pytest_sessionfinish` cleanup 단계에서 `PermissionError`로 종료됐다.
