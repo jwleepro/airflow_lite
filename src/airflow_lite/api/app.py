@@ -33,6 +33,7 @@ def create_app(
     run_repo: "PipelineRunRepository | None" = None,
     step_repo: "StepRunRepository | None" = None,
     analytics_query_service=None,
+    analytics_export_service=None,
 ) -> FastAPI:
     """FastAPI 앱 팩토리.
 
@@ -52,6 +53,7 @@ def create_app(
     app.state.run_repo = run_repo
     app.state.step_repo = step_repo
     app.state.analytics_query_service = analytics_query_service
+    app.state.analytics_export_service = analytics_export_service
 
     # CORS 미들웨어 설정 — 사내망 전용
     allowed_origins, allowed_origin_regex = _split_cors_origins(settings.api.allowed_origins)

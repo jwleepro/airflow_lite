@@ -2,7 +2,7 @@
 
 ## Goal
 
-Define a stable dashboard-consumption contract for the DuckDB-backed analytics layer and pin down the follow-on detail and export API boundaries before UI work starts.
+Define a stable dashboard-consumption contract for the DuckDB-backed analytics layer, including implemented detail and export APIs that the UI can consume without ad-hoc SQL behavior.
 
 ## Endpoint Boundaries
 
@@ -14,13 +14,13 @@ Define a stable dashboard-consumption contract for the DuckDB-backed analytics l
   Returns chart-ready series payloads only.
 - `GET /api/v1/analytics/filters`
   Returns filter metadata and allowed options for the selected dataset.
-- Future `POST /api/v1/analytics/details/source-files/query`
+- `POST /api/v1/analytics/details/source-files/query`
   Returns paginated detail rows for drilldown screens.
-- Future `POST /api/v1/analytics/exports`
+- `POST /api/v1/analytics/exports`
   Creates an asynchronous export job for large downloads.
-- Future `GET /api/v1/analytics/exports/{job_id}`
+- `GET /api/v1/analytics/exports/{job_id}`
   Returns export job status and output metadata.
-- Future `GET /api/v1/analytics/exports/{job_id}/download`
+- `GET /api/v1/analytics/exports/{job_id}/download`
   Streams the completed artifact.
 
 Summary, chart, detail, export, and admin responsibilities stay separate. Detail rows and heavy exports must not piggyback on dashboard summary requests.
@@ -74,13 +74,13 @@ Summary, chart, detail, export, and admin responsibilities stay separate. Detail
       "key": "source_file_detail",
       "label": "Source File Detail",
       "type": "drilldown",
-      "status": "planned",
+      "status": "available",
       "scope": "chart",
       "target_key": "files_by_source",
       "endpoint": "/api/v1/analytics/details/source-files/query",
       "request_method": "POST",
       "filter_keys": ["source", "partition_month"],
-      "status_reason": "Requires the paginated detail API and chart-to-filter drilldown wiring."
+      "status_reason": null
     }
   ],
   "export_actions": [
@@ -88,18 +88,16 @@ Summary, chart, detail, export, and admin responsibilities stay separate. Detail
       "key": "csv_zip_export",
       "label": "CSV Zip Export",
       "type": "export",
-      "status": "planned",
+      "status": "available",
       "scope": "dashboard",
       "endpoint": "/api/v1/analytics/exports",
       "request_method": "POST",
       "filter_keys": ["source", "partition_month"],
       "format": "csv.zip",
-      "status_reason": "Requires asynchronous export job creation, polling, and download endpoints."
+      "status_reason": null
     }
   ],
-  "warnings": [
-    "Planned drilldown and export actions advertise their future endpoints, but the backing APIs are not implemented yet."
-  ]
+  "warnings": []
 }
 ```
 
@@ -115,7 +113,7 @@ Summary, chart, detail, export, and admin responsibilities stay separate. Detail
    `scope=dashboard` attaches to the page-level toolbar.
    `scope=chart` attaches to the matching chart identified by `target_key`.
    `scope=card` attaches to the matching card identified by `target_key`.
-8. `status=planned` actions may be shown as disabled affordances. `status_reason` is the user-facing explanation until the backing API exists.
+8. `status=available` actions can be wired directly. If a future dashboard publishes `status=planned`, `status_reason` becomes the user-facing explanation until the backing API exists.
 9. `operations_overview` v1 exposes only server-provided filter metadata. A free-form date picker is out of scope until a date filter is returned as metadata.
 
 ## Common Request Rules
@@ -220,7 +218,7 @@ Summary, chart, detail, export, and admin responsibilities stay separate. Detail
 }
 ```
 
-## Follow-on API Scope
+## Detail And Export API Scope
 
 ### Detail API
 
@@ -279,5 +277,7 @@ Summary, chart, detail, export, and admin responsibilities stay separate. Detail
   Owns the Pydantic request and response models for the current dashboard contract.
 - `src/airflow_lite/analytics/catalog.py`
   Owns `operations_overview` widget metadata, action placement, and planned follow-on endpoint references.
-- Future `T-027+`
-  Should implement the detail and export routes against the DuckDB mart using these boundaries.
+- `src/airflow_lite/query/service.py`
+  Owns dataset KPI aggregation, detail query pagination/sort rules, and export query planning.
+- `src/airflow_lite/export/service.py`
+  Owns asynchronous export job persistence, artifact generation, polling, and download lifecycle.

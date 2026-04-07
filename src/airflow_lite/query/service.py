@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 
 from airflow_lite.analytics import (
+    DatasetSummaryStats,
     SUPPORTED_CHARTS,
     SUPPORTED_DASHBOARDS,
     build_dashboard_definition,
+    build_dataset_summary_metrics,
     build_filter_definitions,
 )
 from airflow_lite.api.analytics_contracts import (
@@ -18,9 +21,15 @@ from airflow_lite.api.analytics_contracts import (
     ChartQueryResponse,
     ChartSeries,
     DashboardDefinitionResponse,
+    DetailColumnDefinition,
+    DetailColumnType,
+    DetailQueryRequest,
+    DetailQueryResponse,
+    DetailSortField,
+    ExportCreateRequest,
+    ExportFormat,
     FilterOption,
-    SummaryMetricCard,
-    SummaryPrecision,
+    SortDirection,
     SummaryQueryRequest,
     SummaryQueryResponse,
 )
@@ -38,10 +47,50 @@ class AnalyticsDashboardNotFoundError(LookupError):
     pass
 
 
+@dataclass(frozen=True)
+class AnalyticsExportPlan:
+    dataset: str
+    action_key: str
+    format: ExportFormat
+    sql: str
+    params: list
+    file_stem: str
+
+
 class DuckDBAnalyticsQueryService:
     """Serve read-only analytics responses from the promoted DuckDB mart."""
 
     SUPPORTED_FILTERS = frozenset({"source", "partition_month"})
+    SUPPORTED_DETAILS = frozenset({"source-files"})
+    DETAIL_COLUMNS = {
+        "source-files": [
+            DetailColumnDefinition(key="source_name", label="Source Table", type=DetailColumnType.STRING),
+            DetailColumnDefinition(key="partition_month", label="Partition Month", type=DetailColumnType.DATE),
+            DetailColumnDefinition(key="file_path", label="File Path", type=DetailColumnType.STRING),
+            DetailColumnDefinition(key="row_count", label="Rows", type=DetailColumnType.INTEGER),
+            DetailColumnDefinition(key="last_build_id", label="Build ID", type=DetailColumnType.STRING),
+        ]
+    }
+    DETAIL_SORT_FIELDS = {
+        "source-files": {
+            "source_name": "source_name",
+            "partition_month": "partition_start",
+            "file_path": "file_path",
+            "row_count": "row_count",
+            "last_build_id": "last_build_id",
+        }
+    }
+    EXPORT_ACTIONS = {
+        "csv_zip_export": ExportFormat.CSV_ZIP,
+        "parquet_export": ExportFormat.PARQUET,
+    }
+    DEFAULT_DETAIL_SORT = {
+        "source-files": [
+            DetailSortField(field="partition_month", direction=SortDirection.DESC),
+            DetailSortField(field="source_name", direction=SortDirection.ASC),
+            DetailSortField(field="file_path", direction=SortDirection.ASC),
+        ]
+    }
 
     def __init__(self, database_path: str | Path):
         self.database_path = Path(database_path)
@@ -57,61 +106,33 @@ class DuckDBAnalyticsQueryService:
         )
 
         with self._connect(read_only=True) as connection:
-            total_rows, total_files, source_tables, covered_months, average_rows = connection.execute(
+            total_rows, total_files, source_tables, min_partition_start, max_partition_start = connection.execute(
                 f"""
                 SELECT
                     COALESCE(SUM(row_count), 0),
                     COUNT(*),
                     COUNT(DISTINCT source_name),
-                    COUNT(DISTINCT partition_start),
-                    COALESCE(AVG(row_count), 0)
+                    MIN(partition_start),
+                    MAX(partition_start)
                 FROM mart_dataset_files
                 WHERE {where_sql}
                 """,
                 params,
             ).fetchone()
 
+        stats = DatasetSummaryStats(
+            total_rows=int(total_rows),
+            total_files=int(total_files),
+            source_tables=int(source_tables),
+            min_partition_start=min_partition_start,
+            max_partition_start=max_partition_start,
+        )
+
         return SummaryQueryResponse(
             dataset=request.dataset,
             generated_at=datetime.now(),
             filters_applied=request.filters,
-            metrics=[
-                SummaryMetricCard(
-                    key="rows_loaded",
-                    label="Rows Loaded",
-                    value=int(total_rows),
-                    precision=SummaryPrecision.INTEGER,
-                    unit="rows",
-                ),
-                SummaryMetricCard(
-                    key="source_files",
-                    label="Source Files",
-                    value=int(total_files),
-                    precision=SummaryPrecision.INTEGER,
-                    unit="files",
-                ),
-                SummaryMetricCard(
-                    key="source_tables",
-                    label="Source Tables",
-                    value=int(source_tables),
-                    precision=SummaryPrecision.INTEGER,
-                    unit="tables",
-                ),
-                SummaryMetricCard(
-                    key="avg_rows_per_file",
-                    label="Avg Rows per File",
-                    value=round(float(average_rows), 2),
-                    precision=SummaryPrecision.DECIMAL,
-                    unit="rows",
-                ),
-                SummaryMetricCard(
-                    key="covered_months",
-                    label="Covered Months",
-                    value=int(covered_months),
-                    precision=SummaryPrecision.INTEGER,
-                    unit="months",
-                ),
-            ],
+            metrics=build_dataset_summary_metrics(request.dataset, stats),
             warnings=[],
         )
 
@@ -180,6 +201,87 @@ class DuckDBAnalyticsQueryService:
             warnings=warnings,
         )
 
+    def query_detail(self, request: DetailQueryRequest) -> DetailQueryResponse:
+        self._ensure_supported_filters(request.filters)
+        self._ensure_dataset_exists(request.dataset)
+        detail_sql = self._build_detail_select_sql(request.detail_key)
+        where_sql, params = self._build_file_filters(
+            dataset=request.dataset,
+            filters=request.filters,
+            start=None,
+            end=None,
+        )
+        sort_fields = request.sort or self.DEFAULT_DETAIL_SORT[request.detail_key]
+        order_sql = self._build_detail_sort_sql(request.detail_key, sort_fields)
+        offset = (request.page - 1) * request.page_size
+
+        with self._connect(read_only=True) as connection:
+            total = connection.execute(
+                f"SELECT COUNT(*) FROM ({detail_sql} WHERE {where_sql}) detail_rows",
+                params,
+            ).fetchone()[0]
+            rows = connection.execute(
+                f"""
+                {detail_sql}
+                WHERE {where_sql}
+                ORDER BY {order_sql}
+                LIMIT ?
+                OFFSET ?
+                """,
+                [*params, request.page_size, offset],
+            ).fetchall()
+
+        return DetailQueryResponse(
+            dataset=request.dataset,
+            detail_key=request.detail_key,
+            columns=self.DETAIL_COLUMNS[request.detail_key],
+            rows=[
+                {
+                    "source_name": source_name,
+                    "partition_month": partition_month.isoformat() if partition_month else None,
+                    "file_path": file_path,
+                    "row_count": int(row_count),
+                    "last_build_id": last_build_id,
+                }
+                for source_name, partition_month, file_path, row_count, last_build_id in rows
+            ],
+            page=request.page,
+            page_size=request.page_size,
+            total=int(total),
+            sort=sort_fields,
+            warnings=[],
+        )
+
+    def build_export_plan(self, request: ExportCreateRequest) -> AnalyticsExportPlan:
+        self._ensure_supported_filters(request.filters)
+        self._ensure_dataset_exists(request.dataset)
+        expected_format = self.EXPORT_ACTIONS.get(request.action_key)
+        if expected_format is None:
+            raise AnalyticsQueryError(f"unsupported export action_key: {request.action_key}")
+        if request.format != expected_format:
+            raise AnalyticsQueryError(
+                f"format {request.format.value} does not match action {request.action_key}"
+            )
+
+        detail_key = "source-files"
+        detail_sql = self._build_detail_select_sql(detail_key)
+        where_sql, params = self._build_file_filters(
+            dataset=request.dataset,
+            filters=request.filters,
+            start=None,
+            end=None,
+        )
+        order_sql = self._build_detail_sort_sql(detail_key, self.DEFAULT_DETAIL_SORT[detail_key])
+
+        return AnalyticsExportPlan(
+            dataset=request.dataset,
+            action_key=request.action_key,
+            format=request.format,
+            sql=f"{detail_sql} WHERE {where_sql} ORDER BY {order_sql}",
+            params=params,
+            file_stem=f"{request.dataset}-{detail_key}-{request.action_key}",
+        )
+
     def get_filter_metadata(self, dataset: str) -> AnalyticsFilterMetadataResponse:
         self._ensure_dataset_exists(dataset)
         with self._connect(read_only=True) as connection:
@@ -231,6 +333,36 @@ class DuckDBAnalyticsQueryService:
             filters=filter_metadata.filters,
             last_refreshed_at=last_refreshed_at,
         )
+
+    def _build_detail_select_sql(self, detail_key: str) -> str:
+        if detail_key not in self.SUPPORTED_DETAILS:
+            raise AnalyticsQueryError(f"unsupported detail_key: {detail_key}")
+        return """
+            SELECT
+                source_name,
+                partition_start AS partition_month,
+                file_path,
+                row_count,
+                last_build_id
+            FROM mart_dataset_files
+        """
+
+    def _build_detail_sort_sql(self, detail_key: str, sort_fields: list[DetailSortField]) -> str:
+        allowed_fields = self.DETAIL_SORT_FIELDS.get(detail_key)
+        if allowed_fields is None:
+            raise AnalyticsQueryError(f"unsupported detail_key: {detail_key}")
+
+        order_terms: list[str] = []
+        for sort_field in sort_fields:
+            column_name = allowed_fields.get(sort_field.field)
+            if column_name is None:
+                raise AnalyticsQueryError(
+                    f"unsupported sort field for {detail_key}: {sort_field.field}"
+                )
+            direction = "DESC" if sort_field.direction is SortDirection.DESC else "ASC"
+            order_terms.append(f"{column_name} {direction}")
+
+        return ", ".join(order_terms)
 
     def _ensure_supported_filters(self, filters: dict[str, list[str]]) -> None:
         unsupported = sorted(set(filters) - self.SUPPORTED_FILTERS)

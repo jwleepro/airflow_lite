@@ -85,6 +85,7 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
             }
 
             from airflow_lite.api.app import create_app
+            from airflow_lite.export import FilesystemAnalyticsExportService
             from airflow_lite.query import DuckDBAnalyticsQueryService
 
             mart_database_path = (
@@ -92,13 +93,19 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
                 / "current"
                 / settings.mart.database_filename
             )
+            analytics_query_service = DuckDBAnalyticsQueryService(mart_database_path)
+            analytics_export_service = FilesystemAnalyticsExportService(
+                root_path=Path(settings.mart.root_path).parent / "exports",
+                query_service=analytics_query_service,
+            )
             app = create_app(
                 settings,
                 runner_map=runner_map,
                 backfill_map=backfill_map,
                 run_repo=run_repo,
                 step_repo=step_repo,
-                analytics_query_service=DuckDBAnalyticsQueryService(mart_database_path),
+                analytics_query_service=analytics_query_service,
+                analytics_export_service=analytics_export_service,
             )
 
             config = uvicorn.Config(
