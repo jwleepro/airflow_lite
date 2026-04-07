@@ -258,12 +258,13 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
 
                 try:
                     plan = mart_refresh_coordinator.plan_refresh(context)
-                except Exception:
+                except Exception as plan_exc:
                     logger.exception(
                         "Mart refresh planning failed: %s / %s",
                         context.pipeline_name,
                         context.execution_date,
                     )
+                    _notify("failed", context, plan_exc)
                     return
 
                 if plan is None:
@@ -271,20 +272,23 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
 
                 try:
                     result = mart_refresh_executor.execute_refresh(plan)
-                except Exception:
+                except Exception as mart_exc:
                     logger.exception(
                         "Mart refresh execution failed: %s / %s",
                         context.pipeline_name,
                         context.execution_date,
                     )
+                    _notify("failed", context, mart_exc)
                     return
 
                 if not result.validation_report.is_valid:
+                    issues = [issue.message for issue in result.validation_report.issues]
                     logger.error(
                         "Mart refresh validation failed: dataset=%s issues=%s",
                         result.plan.request.dataset_name,
-                        [issue.message for issue in result.validation_report.issues],
+                        issues,
                     )
+                    _notify("failed", context, RuntimeError(f"mart validation failed: {issues}"))
                     return
 
                 logger.info(
