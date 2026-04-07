@@ -1,0 +1,78 @@
+# config/pipelines.sample.yaml — 배포 전 복사해서 사용하는 샘플 설정
+
+# Oracle 11g 소스 DB 접속 정보
+# host: DB 서버 주소 또는 호스트명
+# port: 리스너 포트
+# service_name: Oracle service name
+# user/password: 추출에 사용할 계정
+oracle:
+  host: "db.example.local"
+  port: 1521
+  service_name: "DB"
+  user: "user"
+  password: "change-me"
+
+# 로컬 런타임 산출물 저장 경로
+# parquet_base_path: 추출 결과 Parquet 루트 디렉터리
+# sqlite_path: 실행 이력/메타데이터를 저장하는 SQLite 파일 경로
+# log_path: 애플리케이션 로그 출력 디렉터리
+storage:
+  parquet_base_path: "D:/data/parquet"
+  sqlite_path: "D:/data/airflow_lite.db"
+  log_path: "D:/data/logs"
+
+# 공통 기본 실행 옵션
+# chunk_size: Oracle에서 한 번에 읽어올 기본 row 수
+# retry: 실패 시 재시도 정책
+# parquet.compression: Parquet 파일 압축 코덱
+defaults:
+  chunk_size: 10000
+  retry:
+    max_attempts: 3
+    min_wait_seconds: 4
+    max_wait_seconds: 60
+  parquet:
+    compression: "snappy"
+
+# DuckDB mart 생성/갱신 옵션
+# enabled: raw Parquet 이후 mart 단계를 활성화할지 여부
+# root_path: mart staging/current/snapshots 루트 경로
+# refresh_on_success: 파이프라인 성공 후 mart refresh 자동 수행 여부
+# pipeline_datasets: 각 파이프라인 결과를 어떤 dataset 이름으로 묶을지 매핑
+mart:
+  enabled: false
+  root_path: "D:/data/mart"
+  refresh_on_success: true
+  pipeline_datasets:
+    production_log: "ops"
+    equipment_status: "ops"
+
+# 배치 추출 대상 목록
+# name: 내부 식별자 및 API 경로에서 사용하는 파이프라인 이름
+# table: Oracle 원본 테이블명
+# partition_column: 실행 기준 날짜/파티션 컬럼
+# strategy: full 또는 incremental
+# schedule: APScheduler cron 표현식
+# chunk_size: 이 파이프라인에만 적용할 개별 청크 크기
+# columns: 추출할 컬럼 목록. 생략 시 전체 컬럼 대상
+# incremental_key: incremental 전략에서 증분 판단에 사용하는 기준 컬럼
+pipelines:
+  - name: "production_log"
+    table: "PRODUCTION_LOG"
+    partition_column: "LOG_DATE"
+    strategy: "full"
+    chunk_size: 20000
+    schedule: "0 2 * * *"
+    columns:
+      - "LOG_ID"
+      - "PRODUCT_CODE"
+      - "LOG_DATE"
+      - "QUANTITY"
+      - "STATUS"
+
+  - name: "equipment_status"
+    table: "EQUIPMENT_STATUS"
+    partition_column: "STATUS_DATE"
+    strategy: "incremental"
+    schedule: "0 */6 * * *"
+    incremental_key: "UPDATED_AT"

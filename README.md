@@ -111,17 +111,7 @@ mart:
     production_log: "mes_ops"
 ```
 
-**3. 환경변수 설정**
-
-```powershell
-$env:ORACLE_HOST = "db.example.local"
-$env:ORACLE_PORT = "1521"
-$env:ORACLE_SERVICE = "DB"
-$env:ORACLE_USER = "secret"
-$env:ORACLE_PASSWORD = "secret"
-```
-
-**4. Windows 서비스 설치 및 시작**
+**3. Windows 서비스 설치 및 시작**
 
 ```powershell
 python -m airflow_lite service install
@@ -135,7 +125,7 @@ python -m airflow_lite service stop
 python -m airflow_lite service remove
 ```
 
-**5. 기동 확인**
+**4. 기동 확인**
 
 - Swagger UI: `http://localhost:8000/docs`
 - OpenAPI 스키마: `http://localhost:8000/openapi.json`
