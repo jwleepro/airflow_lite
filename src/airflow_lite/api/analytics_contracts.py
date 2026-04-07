@@ -57,6 +57,31 @@ class DashboardActionStatus(str, Enum):
     PLANNED = "planned"
 
 
+class SortDirection(str, Enum):
+    ASC = "asc"
+    DESC = "desc"
+
+
+class DetailColumnType(str, Enum):
+    STRING = "string"
+    INTEGER = "integer"
+    DATE = "date"
+    DATETIME = "datetime"
+
+
+class ExportFormat(str, Enum):
+    CSV_ZIP = "csv.zip"
+    PARQUET = "parquet"
+    XLSX = "xlsx"
+
+
+class ExportJobStatus(str, Enum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 class FilterOption(BaseModel):
     value: str
     label: str
@@ -136,6 +161,39 @@ class AnalyticsFilterMetadataResponse(BaseModel):
     filters: list[FilterDefinition] = Field(default_factory=list)
 
 
+class DetailSortField(BaseModel):
+    field: str
+    direction: SortDirection = SortDirection.ASC
+
+
+class DetailQueryRequest(BaseModel):
+    dataset: str
+    detail_key: str
+    filters: dict[str, list[str]] = Field(default_factory=dict)
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=50, ge=1, le=500)
+    sort: list[DetailSortField] = Field(default_factory=list)
+
+
+class DetailColumnDefinition(BaseModel):
+    key: str
+    label: str
+    type: DetailColumnType
+    sortable: bool = True
+
+
+class DetailQueryResponse(BaseModel):
+    dataset: str
+    detail_key: str
+    columns: list[DetailColumnDefinition] = Field(default_factory=list)
+    rows: list[dict[str, str | int | float | None]] = Field(default_factory=list)
+    page: int
+    page_size: int
+    total: int
+    sort: list[DetailSortField] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class DashboardCardDefinition(BaseModel):
     key: str
     label: str
@@ -187,3 +245,32 @@ class DashboardDefinitionResponse(BaseModel):
     drilldown_actions: list[DashboardActionDefinition] = Field(default_factory=list)
     export_actions: list[DashboardActionDefinition] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+
+
+class ExportCreateRequest(BaseModel):
+    dataset: str
+    action_key: str
+    format: ExportFormat
+    filters: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class ExportCreateResponse(BaseModel):
+    job_id: str
+    status: ExportJobStatus
+    format: ExportFormat
+    created_at: datetime
+
+
+class ExportJobResponse(BaseModel):
+    job_id: str
+    dataset: str
+    action_key: str
+    status: ExportJobStatus
+    format: ExportFormat
+    created_at: datetime
+    updated_at: datetime
+    expires_at: datetime | None = None
+    row_count: int | None = None
+    file_name: str | None = None
+    download_endpoint: str | None = None
+    error_message: str | None = None

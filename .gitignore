@@ -23,6 +23,7 @@ ENV/
 # Testing
 .pytest_cache/
 .tmp_pytest*/
+.tmp_*/
 .coverage
 htmlcov/
 .tox/
@@ -43,6 +44,10 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Runtime outputs
+data/
+var/
 
 # Local config / secrets
 .env

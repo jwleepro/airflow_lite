@@ -154,6 +154,7 @@ class TestSvcDoRun:
              patch("airflow_lite.scheduler.scheduler.PipelineScheduler",
                    return_value=mock_scheduler), \
              patch("airflow_lite.api.app.create_app"), \
+             patch("airflow_lite.export.FilesystemAnalyticsExportService"), \
              patch.object(svc, "_create_runner_factory", return_value=MagicMock()), \
              patch("airflow_lite.service.win_service.uvicorn") as mock_uvicorn_mod, \
              patch("airflow_lite.service.win_service.threading") as mock_threading_mod, \
@@ -215,6 +216,7 @@ class TestSvcDoRun:
              patch("airflow_lite.storage.repository.StepRunRepository"), \
              patch("airflow_lite.scheduler.scheduler.PipelineScheduler"), \
              patch("airflow_lite.api.app.create_app", create_app_mock), \
+             patch("airflow_lite.export.FilesystemAnalyticsExportService"), \
              patch.object(svc, "_create_runner_factory", return_value=MagicMock()), \
              patch("airflow_lite.service.win_service.uvicorn"), \
              patch("airflow_lite.service.win_service.threading"), \
@@ -240,6 +242,7 @@ class TestSvcDoRun:
              patch("airflow_lite.storage.repository.StepRunRepository"), \
              patch("airflow_lite.scheduler.scheduler.PipelineScheduler"), \
              patch("airflow_lite.api.app.create_app"), \
+             patch("airflow_lite.export.FilesystemAnalyticsExportService"), \
              patch.object(svc, "_create_runner_factory", return_value=MagicMock()), \
              patch("airflow_lite.service.win_service.uvicorn"), \
              patch("airflow_lite.service.win_service.threading"), \

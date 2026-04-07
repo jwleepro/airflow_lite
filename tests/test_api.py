@@ -1,5 +1,6 @@
 """Task-007: FastAPI REST API TestClient 기반 통합 테스트."""
 import pytest
+import time
 from datetime import date, datetime
 from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
@@ -15,6 +16,7 @@ from airflow_lite.api.analytics_contracts import (
     SummaryQueryResponse,
 )
 from airflow_lite.query import DuckDBAnalyticsQueryService
+from airflow_lite.export import FilesystemAnalyticsExportService
 from airflow_lite.config.settings import ApiConfig, PipelineConfig
 from airflow_lite.storage.models import PipelineRun, StepRun
 
@@ -69,6 +71,16 @@ def _make_step_run(pipeline_run_id="run-001") -> StepRun:
         error_message=None,
         retry_count=0,
     )
+
+
+def _wait_for_export_completion(client: TestClient, job_id: str) -> dict:
+    for _ in range(40):
+        response = client.get(f"/api/v1/analytics/exports/{job_id}")
+        body = response.json()
+        if body["status"] in {"completed", "failed"}:
+            return body
+        time.sleep(0.05)
+    raise AssertionError(f"export job did not finish in time: {job_id}")
 
 
 # ── fixtures ──────────────────────────────────────────────────────────────────
@@ -577,6 +589,7 @@ def test_analytics_dashboard_endpoint_returns_dashboard_definition(
         "source_files",
         "source_tables",
         "covered_months",
+        "avg_rows_per_file",
     ]
     assert body["cards"][0]["request_method"] == "POST"
     assert body["cards"][0]["filter_keys"] == ["source", "partition_month"]
@@ -589,6 +602,85 @@ def test_analytics_dashboard_endpoint_returns_dashboard_definition(
     assert body["drilldown_actions"][0]["scope"] == "chart"
     assert body["drilldown_actions"][0]["target_key"] == "files_by_source"
     assert body["drilldown_actions"][0]["endpoint"] == "/api/v1/analytics/details/source-files/query"
-    assert body["export_actions"][0]["status"] == "planned"
+    assert body["drilldown_actions"][0]["status"] == "available"
+    assert body["export_actions"][0]["status"] == "available"
     assert body["export_actions"][0]["endpoint"] == "/api/v1/analytics/exports"
-    assert body["export_actions"][0]["status_reason"]
+    assert body["warnings"] == []
+
+
+def test_analytics_detail_endpoint_returns_paginated_rows(
+    tmp_path,
+    mock_run_repo,
+    mock_step_repo,
+    analytics_mart_builder,
+):
+    settings = _make_settings()
+    database_path = tmp_path / "analytics.duckdb"
+    analytics_mart_builder(database_path)
+    app = create_app(
+        settings=settings,
+        run_repo=mock_run_repo,
+        step_repo=mock_step_repo,
+        analytics_query_service=DuckDBAnalyticsQueryService(database_path),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/analytics/details/source-files/query",
+        json={
+            "dataset": "mes_ops",
+            "detail_key": "source-files",
+            "filters": {},
+            "page": 1,
+            "page_size": 2,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["detail_key"] == "source-files"
+    assert body["total"] == 3
+    assert len(body["rows"]) == 2
+    assert body["rows"][0]["source_name"] == "EQUIPMENT_STATUS"
+
+
+def test_analytics_export_endpoints_create_poll_and_download_artifact(
+    tmp_path,
+    mock_run_repo,
+    mock_step_repo,
+    analytics_mart_builder,
+):
+    settings = _make_settings()
+    database_path = tmp_path / "analytics.duckdb"
+    analytics_mart_builder(database_path)
+    query_service = DuckDBAnalyticsQueryService(database_path)
+    export_service = FilesystemAnalyticsExportService(tmp_path / "exports", query_service)
+    app = create_app(
+        settings=settings,
+        run_repo=mock_run_repo,
+        step_repo=mock_step_repo,
+        analytics_query_service=query_service,
+        analytics_export_service=export_service,
+    )
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/v1/analytics/exports",
+        json={
+            "dataset": "mes_ops",
+            "action_key": "csv_zip_export",
+            "format": "csv.zip",
+            "filters": {"source": ["OPS_TABLE"]},
+        },
+    )
+
+    assert create_response.status_code == 200
+    job_id = create_response.json()["job_id"]
+    status_body = _wait_for_export_completion(client, job_id)
+    assert status_body["status"] == "completed"
+    assert status_body["file_name"].endswith(".zip")
+    assert status_body["download_endpoint"] == f"/api/v1/analytics/exports/{job_id}/download"
+
+    download_response = client.get(f"/api/v1/analytics/exports/{job_id}/download")
+    assert download_response.status_code == 200
+    assert "zip" in download_response.headers["content-type"]

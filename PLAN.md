@@ -26,7 +26,7 @@
 - `M1. 협업 및 분석 기초`: 완료
 - `M2. DuckDB mart 골격`: 완료
 - `M3. 조회 및 다운로드 API 확장`: 완료
-- `M4. 대시보드 및 시각화 계층`: 진행 중 (`T-025`, `T-026` 완료; KPI/detail/export 구현 후속 범위 남음)
+- `M4. 대시보드 및 시각화 계층`: 진행 중 (`T-025`~`T-028` 완료; Web UI 후속 범위 남음)
 
 ## 작업 목록
 
@@ -70,15 +70,19 @@
   완료 조건: 대시보드 화면이 필요한 카드/차트/필터/드릴다운/export 액션 메타데이터를 단일 API 응답으로 조회할 수 있고, 관련 테스트가 존재한다.
 - `T-026` 대시보드 정의 endpoint를 소비하는 프론트엔드 통합 계약과 상세/detail-export 후속 API를 정리한다.
   완료 조건: 대시보드 화면이 `operations_overview` 메타데이터를 안정적으로 소비할 수 있는 계약이 문서화되고, detail/drilldown/export 후속 API 범위가 명시된다.
+- `T-027` dataset KPI 계산과 paginated detail API를 구현한다.
+  완료 조건: `mes_ops` dataset용 KPI 계산 로직이 summary 응답과 dashboard card 구성에 반영되고, `POST /api/v1/analytics/details/source-files/query`가 서버 측 pagination/sort로 동작하며 관련 테스트가 존재한다.
+- `T-028` async export workflow와 `export/` 모듈을 추가한다.
+  완료 조건: `POST /api/v1/analytics/exports`, `GET /api/v1/analytics/exports/{job_id}`, `GET /api/v1/analytics/exports/{job_id}/download`가 동작하고, csv.zip/parquet artifact 생성 및 상태 추적이 파일 시스템 기반으로 구현되며 관련 테스트가 존재한다.
 
 ### 현재
 
-- 현재 활성 작업 없음. 다음 작업은 dataset별 KPI와 planned detail/export API 구현이다.
+- 현재 활성 작업 없음. analytics backend 빈칸은 detail/export까지 구현됐다.
 
 ### 다음
 
-- dataset별 KPI 계산 로직과 대시보드 전용 summary 카드 구성을 확장한다.
-- `T-026`에서 고정한 계약에 맞춰 paginated detail API와 async export API를 구현한다.
+- Web UI 범위를 별도 작업으로 쪼개고 dashboard contract를 소비하는 화면 뼈대를 구현한다.
+- Windows 서비스 운영 기준에서 export retention/cleanup 정책과 admin visibility를 보강한다.
 
 ## 의존 관계
 
@@ -90,8 +94,8 @@
 
 ## 우선순위
 
-1. dataset별 KPI 계산 로직과 대시보드 전용 summary 카드 구성을 확장한다.
-2. `T-026`에서 확정한 detail/drilldown/export API 범위를 실제 endpoint와 job flow로 구현한다.
+1. Web UI 범위를 별도 milestone/task로 쪼개고 dashboard contract 소비 경로를 정한다.
+2. export job 운영 정책(retention, cleanup, admin visibility)을 강화한다.
 
 ## 완료 정의
 
@@ -104,4 +108,4 @@
 
 ## 다음 추천 작업
 
-dataset별 KPI 계산 로직을 추가하고, `operations_overview`가 광고하는 planned detail/export endpoint를 실제 API와 job lifecycle로 구현한다.
+`operations_overview` dashboard contract를 실제로 소비하는 Web UI 뼈대를 추가하고, export job 운영 상태를 admin 관점에서 조회하는 후속 경로를 설계한다.
