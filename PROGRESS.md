@@ -11,6 +11,9 @@
 
 ## 최근 완료 작업
 
+- `2026-04-07` `T-027` `mes_ops` dataset KPI 계산 로직과 paginated detail API를 추가했다. summary 응답은 dataset KPI catalog를 사용하고, `POST /api/v1/analytics/details/source-files/query`가 server-side pagination/sort를 제공한다.
+- `2026-04-07` `T-028` filesystem-backed async export workflow를 추가했다. 새 `export/` 모듈이 csv.zip/parquet artifact를 background thread로 생성하고, `POST /api/v1/analytics/exports`, `GET /api/v1/analytics/exports/{job_id}`, `GET /api/v1/analytics/exports/{job_id}/download`가 동작한다.
+
 ## 진행 중
 
 - 현재 활성 작업 없음.
