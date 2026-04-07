@@ -32,6 +32,7 @@
 ## 검증 메모
 
 - `2026-04-07` `pytest tests/test_query_service.py tests/test_api.py -q --basetemp .tmp_pytest_refactor -p no:cacheprovider`가 `33 passed`로 성공했다.
+- `2026-04-07` 브랜치 `codex/conservative-refactor-fixtures`를 푸시했고 draft PR `#9`를 열었다: `https://github.com/jwleepro/airflow_lite/pull/9`
 - `2026-04-06` `pytest tests/test_query_service.py tests/test_api.py -q --basetemp .tmp_pytest -p no:cacheprovider`가 `33 passed`로 성공했다.
 - `2026-04-06` `python -m compileall src/airflow_lite/analytics src/airflow_lite/api src/airflow_lite/query tests/test_api.py tests/test_query_service.py`가 성공했다.
 - `2026-04-06` `pytest tests/test_query_service.py tests/test_api.py -q --basetemp .tmp_pytest_contract -p no:cacheprovider`는 테스트 본문 실행 후 `pytest_sessionfinish` cleanup 단계에서 `PermissionError`로 종료됐다.
