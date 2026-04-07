@@ -116,8 +116,8 @@ mart:
 ```powershell
 $env:ORACLE_HOST = "db.example.local"
 $env:ORACLE_PORT = "1521"
-$env:ORACLE_SERVICE = "MESDB"
-$env:ORACLE_USER = "mesmgr"
+$env:ORACLE_SERVICE = "DB"
+$env:ORACLE_USER = "secret"
 $env:ORACLE_PASSWORD = "secret"
 ```
 
