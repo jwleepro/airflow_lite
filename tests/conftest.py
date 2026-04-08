@@ -1,9 +1,54 @@
 from datetime import datetime
+import shutil
+import time
+from pathlib import Path
+from uuid import uuid4
 
 import pytest
 
 from airflow_lite.storage.database import Database
 from airflow_lite.storage.repository import PipelineRunRepository, StepRunRepository
+
+
+def _resolve_test_tmp_root() -> Path:
+    candidates = [
+        Path.home() / ".codex" / "memories" / "airflow_lite_pytest",
+        Path.home() / ".airflow_lite_pytest",
+        Path(__file__).resolve().parents[1] / "var" / ".pytest-work",
+    ]
+    for candidate in candidates:
+        try:
+            candidate.mkdir(parents=True, exist_ok=True)
+            probe = candidate / ".write-probe"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink()
+            return candidate
+        except OSError:
+            continue
+    raise RuntimeError("No writable tmp root available for tests.")
+
+
+_TEST_TMP_ROOT = _resolve_test_tmp_root()
+
+
+@pytest.fixture
+def tmp_path():
+    """pytest 기본 temp fixture를 대체하는 수동 임시 디렉터리.
+
+    Windows 권한 제약으로 기본 pytest temp plugin cleanup이 불안정한 환경을 우회한다.
+    """
+    path = _TEST_TMP_ROOT / f"airflow-lite-{uuid4().hex}"
+    path.mkdir(parents=True, exist_ok=False)
+    yield path
+
+    for _ in range(5):
+        try:
+            shutil.rmtree(path)
+            break
+        except PermissionError:
+            time.sleep(0.1)
+    else:
+        shutil.rmtree(path, ignore_errors=True)
 
 
 @pytest.fixture

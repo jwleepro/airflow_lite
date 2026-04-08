@@ -40,7 +40,7 @@ markers = [
     "integration: tests requiring live Oracle DB (skip with '-m not integration')",
     "slow: tests taking more than 30 seconds",
 ]
-addopts = "--strict-markers"
+addopts = "--strict-markers -p no:cacheprovider"
 
 [tool.coverage.run]
 source = ["src/airflow_lite"]

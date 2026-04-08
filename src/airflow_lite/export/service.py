@@ -156,6 +156,18 @@ class FilesystemAnalyticsExportService:
         self.cleanup_expired()
         return self._read_record(job_id).to_response()
 
+    def list_jobs(self, *, dataset: str | None = None, limit: int = 50) -> list[ExportJobResponse]:
+        self.cleanup_expired()
+        records: list[ExportJobRecord] = []
+        for job_file in self.jobs_path.glob("*.json"):
+            record = ExportJobRecord.from_json(job_file.read_text(encoding="utf-8"))
+            if dataset and record.dataset != dataset:
+                continue
+            records.append(record)
+
+        records.sort(key=lambda item: (item.created_at, item.job_id), reverse=True)
+        return [record.to_response() for record in records[:limit]]
+
     def get_download_path(self, job_id: str) -> tuple[Path, str]:
         self.cleanup_expired()
         record = self._read_record(job_id)

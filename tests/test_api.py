@@ -2,6 +2,7 @@
 import pytest
 import time
 from datetime import date, datetime
+from urllib.parse import parse_qs, urlparse
 from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 
@@ -109,6 +110,7 @@ def mock_run_repo():
     run = _make_pipeline_run()
     repo.find_by_id.return_value = run
     repo.find_by_pipeline_paginated.return_value = ([run], 1)
+    repo.find_by_pipeline.return_value = [run]
     return repo
 
 
@@ -164,6 +166,114 @@ def test_create_app_default_cors_allows_internal_wildcard_origin():
 
     assert resp.status_code == 200
     assert resp.headers["access-control-allow-origin"] == "http://10.0.0.15"
+
+
+def test_root_redirects_to_monitor():
+    settings = _make_settings()
+    app = create_app(settings)
+    client = TestClient(app)
+
+    response = client.get("/", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/monitor"
+
+
+def test_monitor_page_renders_html_with_pipeline_summary(client):
+    response = client.get("/monitor")
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    body = response.text
+    assert "Airflow Lite Monitor" in body
+    assert "Ops Console" in body
+    assert "Pipeline Inventory" in body
+    assert "test_pipeline" in body
+    assert "run-001" not in body
+    assert "/api/v1/pipelines/test_pipeline/runs" in body
+    assert "manual" in body
+    assert "success" in body
+
+
+def test_monitor_analytics_page_renders_dashboard_view(
+    tmp_path,
+    mock_run_repo,
+    mock_step_repo,
+    analytics_mart_builder,
+):
+    settings = _make_settings()
+    database_path = tmp_path / "analytics.duckdb"
+    analytics_mart_builder(database_path)
+    query_service = DuckDBAnalyticsQueryService(database_path)
+    export_service = FilesystemAnalyticsExportService(tmp_path / "exports", query_service)
+    app = create_app(
+        settings=settings,
+        run_repo=mock_run_repo,
+        step_repo=mock_step_repo,
+        analytics_query_service=query_service,
+        analytics_export_service=export_service,
+    )
+    client = TestClient(app)
+
+    response = client.get("/monitor/analytics?dataset=mes_ops&source=OPS_TABLE")
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    body = response.text
+    assert "Operations Overview" in body
+    assert "Filter Bar" in body
+    assert "Dataset Overview" in body
+    assert "Rows by Month" in body
+    assert "Queue Export" in body
+    assert "source: OPS_TABLE" in body
+    assert "/monitor/exports?dataset=mes_ops" in body
+
+
+def test_monitor_export_page_creates_and_lists_jobs(
+    tmp_path,
+    mock_run_repo,
+    mock_step_repo,
+    analytics_mart_builder,
+):
+    settings = _make_settings()
+    database_path = tmp_path / "analytics.duckdb"
+    analytics_mart_builder(database_path)
+    query_service = DuckDBAnalyticsQueryService(database_path)
+    export_service = FilesystemAnalyticsExportService(tmp_path / "exports", query_service)
+    app = create_app(
+        settings=settings,
+        run_repo=mock_run_repo,
+        step_repo=mock_step_repo,
+        analytics_query_service=query_service,
+        analytics_export_service=export_service,
+    )
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/monitor/analytics/exports",
+        content="dataset=mes_ops&dashboard_id=operations_overview&action_key=csv_zip_export&format=csv.zip&source=OPS_TABLE",
+        headers={"content-type": "application/x-www-form-urlencoded"},
+        follow_redirects=False,
+    )
+
+    assert create_response.status_code == 303
+    location = create_response.headers["location"]
+    parsed = urlparse(location)
+    query = parse_qs(parsed.query)
+    job_id = query["job_id"][0]
+
+    status_body = _wait_for_export_completion(client, job_id)
+    assert status_body["status"] == "completed"
+
+    page_response = client.get(location)
+
+    assert page_response.status_code == 200
+    body = page_response.text
+    assert "Export Job Monitor" in body
+    assert "Job Inventory" in body
+    assert job_id in body
+    assert "completed" in body
+    assert f"/api/v1/analytics/exports/{job_id}/download" in body
 
 
 # ── GET /api/v1/pipelines ─────────────────────────────────────────────────────

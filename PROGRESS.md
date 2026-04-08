@@ -8,11 +8,10 @@
 - 저장소 루트에는 공유 실행 상태 문서가 존재한다.
 - `M4`는 더 이상 대기 상태가 아니며, 대시보드 정의 API(`T-025`)까지 구현된 상태다.
 - `operations_overview` 대시보드 계약은 이제 위젯별 filter binding, action scope, live detail/export endpoint 범위까지 포함한다.
+- read-only 운영 모니터링 화면은 이제 파이프라인 실행 현황(`/monitor`)뿐 아니라 analytics dashboard 뷰(`/monitor/analytics`)와 export job 운영 화면(`/monitor/exports`)까지 포함한다.
+- `/monitor` 계열 화면은 공통 shell, 상단 상태 요약, dense listing/table, Airflow-inspired muted palette를 공유하는 운영 콘솔 형태로 정리되어 있다.
 
 ## 최근 완료 작업
-
-- `2026-04-07` `T-027` `mes_ops` dataset KPI 계산 로직과 paginated detail API를 추가했다. summary 응답은 dataset KPI catalog를 사용하고, `POST /api/v1/analytics/details/source-files/query`가 server-side pagination/sort를 제공한다.
-- `2026-04-07` `T-028` filesystem-backed async export workflow를 추가했다. 새 `export/` 모듈이 csv.zip/parquet artifact를 background thread로 생성하고, `POST /api/v1/analytics/exports`, `GET /api/v1/analytics/exports/{job_id}`, `GET /api/v1/analytics/exports/{job_id}/download`가 동작한다.
 
 ## 진행 중
 
@@ -20,29 +19,24 @@
 
 ## 다음 작업
 
-- Web UI 범위를 별도 작업으로 쪼개고 `operations_overview` dashboard contract를 실제 화면으로 연결한다.
 - export retention/cleanup 정책과 admin visibility를 서비스 운영 관점에서 보강한다.
+- 운영 모니터링 화면에서 필요한 후속 admin control 범위를 정의한다.
 
 ## 블로커 및 리스크
 
-- 현재 analytics backend는 summary/chart/detail/export까지 제공하지만, Web UI와 export admin visibility는 아직 없다.
-- 현재 환경에서는 기본 temp 루트 아래 pytest temp-directory fixture가 막혀 있어 `tmp_path` 기반 검증을 그대로 쓰기 어렵다.
+- 현재 작업 기준 활성 블로커 없음.
 
 ## 검증 메모
 
-- `2026-04-07` `python -m compileall src/airflow_lite/analytics src/airflow_lite/api src/airflow_lite/export src/airflow_lite/query tests/test_query_service.py tests/test_api.py tests/test_service.py`가 성공했다.
-- `2026-04-07` inline smoke 검증으로 `DuckDBAnalyticsQueryService.query_detail()`, `GET /api/v1/analytics/dashboards/operations_overview?dataset=mes_ops`, `POST /api/v1/analytics/exports`, `GET /api/v1/analytics/exports/{job_id}`, `GET /api/v1/analytics/exports/{job_id}/download`가 기대대로 동작함을 확인했다.
-- `2026-04-07` `pytest tests/test_query_service.py tests/test_api.py tests/test_service.py tests/test_settings.py -q --basetemp .tmp_pytest_analytics -p no:cacheprovider`는 테스트 본문 실행 전후 Windows basetemp cleanup 단계의 `PermissionError`로 정상 완료를 기록하지 못했다.
-- `2026-04-07` 브랜치 `codex/analytics-detail-export`를 푸시했고 draft PR `#10`을 열었다: `https://github.com/jwleepro/airflow_lite/pull/10`
-
 ## 인수인계
 
-- 저장소는 승격된 DuckDB mart, analytics endpoint, dashboard definition endpoint 위에서 detail/export까지 포함한 `M4` backend 범위를 이어받을 준비가 되어 있다.
+- 저장소는 승격된 DuckDB mart, analytics endpoint, dashboard definition endpoint 위에서 detail/export까지 포함한 `M4` backend 범위와 read-only 운영 모니터링 화면을 함께 이어받을 준비가 되어 있다.
 - dashboard action은 더 이상 planned metadata만 제공하지 않고, detail/export backend endpoint를 실제로 가리킨다.
-- 다음 추천 담당자: Codex 내장 `planner-agent` 또는 프론트엔드 구현 성격의 agent
+- `/monitor`는 pipeline inventory + execution history, `/monitor/analytics`는 filterable dashboard workspace, `/monitor/exports`는 export inventory monitor 역할로 분리되어 있다.
+- 다음 추천 담당자: Codex 내장 `planner-agent` 또는 운영/API 후속 설계 성격의 agent
 - 추천 수정 범위:
   - `src/airflow_lite/api/`
   - `src/airflow_lite/export/`
   - `src/airflow_lite/query/`
   - `src/airflow_lite/analytics/`
-  - 대시보드/UI 파일이 도입되면 그 경로들
+  - `README.md`

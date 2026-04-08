@@ -7,6 +7,8 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 import logging
 
+from airflow_lite.runtime import run_scheduled_pipeline
+
 logger = logging.getLogger("airflow_lite.scheduler")
 INTERVAL_PATTERN = re.compile(r"^interval:(\d+)([smhd]?)$", re.IGNORECASE)
 
@@ -20,7 +22,12 @@ class PipelineScheduler:
     - misfire_grace_time으로 놓친 실행 처리
     """
 
-    def __init__(self, settings: "Settings", runner_factory: "Callable"):
+    def __init__(
+        self,
+        settings: "Settings",
+        runner_factory: "Callable | None" = None,
+        config_path: str = "config/pipelines.yaml",
+    ):
         """
         Args:
             settings: YAML 설정 객체
@@ -28,6 +35,7 @@ class PipelineScheduler:
         """
         self.settings = settings
         self.runner_factory = runner_factory
+        self.config_path = config_path
 
         # APScheduler 설정
         self.scheduler = BackgroundScheduler(
@@ -52,10 +60,10 @@ class PipelineScheduler:
         for pipeline_config in self.settings.pipelines:
             trigger = self._build_trigger(pipeline_config.schedule)
             self.scheduler.add_job(
-                func=self._run_pipeline,
+                func=run_scheduled_pipeline,
                 trigger=trigger,
                 id=pipeline_config.name,
-                args=[pipeline_config.name],
+                args=[self.config_path, pipeline_config.name],
                 replace_existing=True,
             )
             logger.info(
@@ -92,6 +100,10 @@ class PipelineScheduler:
         예외는 로깅 후 삼키며, APScheduler 잡 제거를 방지한다.
         """
         try:
+            if self.runner_factory is None:
+                run_scheduled_pipeline(self.config_path, pipeline_name)
+                return
+
             runner = self.runner_factory(pipeline_name)
             runner.run(execution_date=date.today(), trigger_type="scheduled")
         except Exception:

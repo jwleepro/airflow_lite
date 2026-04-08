@@ -123,6 +123,7 @@ def test_register_pipelines_replace_existing(settings, runner_factory):
     scheduler_obj = PipelineScheduler.__new__(PipelineScheduler)
     scheduler_obj.settings = settings
     scheduler_obj.runner_factory = runner_factory
+    scheduler_obj.config_path = "config/pipelines.yaml"
     scheduler_obj.scheduler = sched_mem
 
     # start() 후에야 jobstore가 활성화되어 replace_existing이 즉시 적용됨
@@ -162,6 +163,19 @@ def test_register_pipelines_supports_interval_schedule(tmp_path, runner_factory)
     job = sched.scheduler.get_job("interval_pipeline")
     assert job is not None
     assert job.trigger.__class__.__name__ == "IntervalTrigger"
+
+
+def test_start_after_register_pipelines_supports_sqlalchemy_jobstore(settings, runner_factory):
+    """로컬 runner_factory가 있어도 등록된 job은 직렬화 가능해야 한다."""
+    sched = PipelineScheduler(settings=settings, runner_factory=runner_factory)
+    sched.register_pipelines()
+
+    try:
+        sched.start()
+        assert sched.scheduler.running
+    finally:
+        if sched.scheduler.running:
+            sched.shutdown(wait=False)
 
 
 # ── start() / shutdown() 생명주기 ─────────────────────────────────────────────
