@@ -4,7 +4,14 @@ from datetime import date
 from unittest.mock import MagicMock, patch
 
 from airflow_lite.scheduler.scheduler import PipelineScheduler
-from airflow_lite.config.settings import PipelineConfig, Settings, StorageConfig, OracleConfig, DefaultConfig
+from airflow_lite.config.settings import (
+    DefaultConfig,
+    OracleConfig,
+    PipelineConfig,
+    SchedulerConfig,
+    Settings,
+    StorageConfig,
+)
 
 
 # ── fixtures ───────────────────────────────────────────────────────────────────
@@ -19,7 +26,13 @@ def _make_settings(sqlite_path: str, pipelines: list) -> Settings:
         sqlite_path=sqlite_path,
         log_path="/tmp/logs",
     )
-    return Settings(oracle=oracle, storage=storage, defaults=DefaultConfig(), pipelines=pipelines)
+    return Settings(
+        oracle=oracle,
+        storage=storage,
+        defaults=DefaultConfig(),
+        pipelines=pipelines,
+        scheduler=SchedulerConfig(),
+    )
 
 
 @pytest.fixture
@@ -69,6 +82,22 @@ def test_scheduler_init_applies_job_defaults(scheduler):
     assert defaults["coalesce"] is True
     assert defaults["max_instances"] == 1
     assert defaults["misfire_grace_time"] == 3600
+
+
+def test_scheduler_init_uses_configured_job_defaults(tmp_path, pipeline_configs, runner_factory):
+    settings = _make_settings(str(tmp_path / "custom.db"), pipeline_configs)
+    settings.scheduler = SchedulerConfig(
+        coalesce=False,
+        max_instances=3,
+        misfire_grace_time_seconds=900,
+    )
+
+    scheduler = PipelineScheduler(settings=settings, runner_factory=runner_factory)
+
+    defaults = scheduler.scheduler._job_defaults
+    assert defaults["coalesce"] is False
+    assert defaults["max_instances"] == 3
+    assert defaults["misfire_grace_time"] == 900
 
 
 def test_scheduler_init_uses_sqlalchemy_jobstore(scheduler):

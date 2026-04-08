@@ -8,6 +8,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 import logging
 
+from airflow_lite.bootstrap import DEFAULT_CONFIG_PATH
 from airflow_lite.runtime import run_scheduled_pipeline
 
 if TYPE_CHECKING:
@@ -31,7 +32,7 @@ class PipelineScheduler:
         self,
         settings: "Settings",
         runner_factory: "Callable | None" = None,
-        config_path: str = "config/pipelines.yaml",
+        config_path: str = DEFAULT_CONFIG_PATH,
     ):
         """
         Args:
@@ -50,9 +51,9 @@ class PipelineScheduler:
                 )
             },
             job_defaults={
-                "coalesce": True,              # 누적 실행 방지: 여러 번 놓쳤어도 1회만 실행
-                "max_instances": 1,            # 동시 실행 방지: 같은 파이프라인 중복 실행 차단
-                "misfire_grace_time": 3600,    # 1시간 유예: 이 시간 내 놓친 실행은 즉시 실행
+                "coalesce": settings.scheduler.coalesce,
+                "max_instances": settings.scheduler.max_instances,
+                "misfire_grace_time": settings.scheduler.misfire_grace_time_seconds,
             },
         )
 

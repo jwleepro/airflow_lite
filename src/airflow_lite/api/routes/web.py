@@ -11,6 +11,13 @@ from airflow_lite.api.analytics_contracts import (
     SummaryQueryRequest,
 )
 from airflow_lite.api.dependencies import get_export_service, get_query_service
+from airflow_lite.api.paths import (
+    MONITOR_ANALYTICS_PATH,
+    MONITOR_EXPORTS_PATH,
+    MONITOR_EXPORT_DELETE_COMPLETED_PATH,
+    MONITOR_EXPORT_DELETE_JOB_PATH,
+    MONITOR_PATH,
+)
 from airflow_lite.api.routes.pipelines import _build_run_response_with_steps
 from airflow_lite.api.webui import (
     render_analytics_dashboard_page,
@@ -27,6 +34,17 @@ from airflow_lite.query import (
 )
 
 router = APIRouter(include_in_schema=False)
+
+
+def _html_unavailable(title: str, message: str, *, active_path: str, status_code: int = 503) -> HTMLResponse:
+    return HTMLResponse(
+        render_unavailable_page(title, message, active_path=active_path),
+        status_code=status_code,
+    )
+
+
+def _read_form_values(body: bytes) -> dict[str, list[str]]:
+    return parse_qs(body.decode("utf-8"), keep_blank_values=False)
 
 
 def _calc_next_run(schedule_cron: str) -> str | None:
@@ -73,27 +91,27 @@ def _extract_detail_key(endpoint: str | None) -> str | None:
 
 def _redirect_to_exports(job_id: str, dataset: str) -> RedirectResponse:
     query = urlencode({"job_id": job_id, "dataset": dataset})
-    return RedirectResponse(url=f"/monitor/exports?{query}", status_code=303)
+    return RedirectResponse(url=f"{MONITOR_EXPORTS_PATH}?{query}", status_code=303)
 
 
 @router.get("/")
 def redirect_root():
-    return RedirectResponse(url="/monitor", status_code=303)
+    return RedirectResponse(url=MONITOR_PATH, status_code=303)
 
 
-@router.get("/monitor", response_class=HTMLResponse)
+@router.get(MONITOR_PATH, response_class=HTMLResponse)
 def get_monitor_page(request: Request):
     settings = request.app.state.settings
     run_repo = request.app.state.run_repo
     step_repo = request.app.state.step_repo
+    webui = settings.webui
 
     pipeline_rows = []
     for pipeline in settings.pipelines:
         recent_runs = []
         latest_run = None
         if run_repo is not None:
-            # 그리드용 최대 25건, step 포함
-            runs = run_repo.find_by_pipeline(pipeline.name, limit=25)
+            runs = run_repo.find_by_pipeline(pipeline.name, limit=webui.recent_runs_limit)
             recent_runs = [
                 _build_run_response_with_steps(run, step_repo).model_dump(mode="json")
                 for run in runs
@@ -112,10 +130,10 @@ def get_monitor_page(request: Request):
             }
         )
 
-    return HTMLResponse(render_monitor_page(pipeline_rows))
+    return HTMLResponse(render_monitor_page(pipeline_rows, webui_config=webui))
 
 
-@router.get("/monitor/pipelines/{name}/runs/{run_id}", response_class=HTMLResponse)
+@router.get(f"{MONITOR_PATH}/pipelines/{{name}}/runs/{{run_id}}", response_class=HTMLResponse)
 def get_run_detail_page(name: str, run_id: str, request: Request):
     """특정 실행의 step 타임라인 상세 페이지."""
     run_repo = request.app.state.run_repo
@@ -123,23 +141,18 @@ def get_run_detail_page(name: str, run_id: str, request: Request):
     settings = request.app.state.settings
 
     if run_repo is None:
-        return HTMLResponse(
-            render_unavailable_page(
-                "Run Detail",
-                "Repository is not configured for this runtime.",
-                active_path="/monitor",
-            ),
-            status_code=503,
+        return _html_unavailable(
+            "Run Detail",
+            "Repository is not configured for this runtime.",
+            active_path=MONITOR_PATH,
         )
 
     run_obj = run_repo.find_by_id(run_id)
     if run_obj is None or run_obj.pipeline_name != name:
-        return HTMLResponse(
-            render_unavailable_page(
-                "Run Detail",
-                f"Run '{run_id}' not found for pipeline '{name}'.",
-                active_path="/monitor",
-            ),
+        return _html_unavailable(
+            "Run Detail",
+            f"Run '{run_id}' not found for pipeline '{name}'.",
+            active_path=MONITOR_PATH,
             status_code=404,
         )
 
@@ -150,22 +163,24 @@ def get_run_detail_page(name: str, run_id: str, request: Request):
     return HTMLResponse(render_run_detail_page(run_dict, pipeline_name=name, schedule=schedule))
 
 
-@router.get("/monitor/analytics", response_class=HTMLResponse)
+@router.get(MONITOR_ANALYTICS_PATH, response_class=HTMLResponse)
 def get_analytics_monitor_page(
     request: Request,
-    dataset: str = Query(default="mes_ops"),
-    dashboard_id: str = Query(default="operations_overview"),
+    dataset: str | None = Query(default=None),
+    dashboard_id: str | None = Query(default=None),
 ):
+    settings = request.app.state.settings
+    webui = settings.webui
+    dataset = dataset or webui.default_dataset
+    dashboard_id = dashboard_id or webui.default_dashboard_id
+
     try:
         query_service = get_query_service(request)
     except Exception:
-        return HTMLResponse(
-            render_unavailable_page(
-                "Analytics Dashboard",
-                "Analytics query service is not configured for this runtime.",
-                active_path="/monitor/analytics",
-            ),
-            status_code=503,
+        return _html_unavailable(
+            "Analytics Dashboard",
+            "Analytics query service is not configured for this runtime.",
+            active_path=MONITOR_ANALYTICS_PATH,
         )
     try:
         export_service = get_export_service(request)
@@ -207,7 +222,7 @@ def get_analytics_monitor_page(
                     detail_key=detail_key,
                     filters=selected_filters,
                     page=1,
-                    page_size=8,
+                    page_size=webui.detail_preview_page_size,
                 )
             ).model_dump(mode="json")
             break
@@ -216,15 +231,16 @@ def get_analytics_monitor_page(
         if export_service is not None:
             export_jobs = [
                 job.model_dump(mode="json")
-                for job in export_service.list_jobs(dataset=dataset, limit=8)
+                for job in export_service.list_jobs(
+                    dataset=dataset,
+                    limit=webui.analytics_export_jobs_limit,
+                )
             ]
     except (AnalyticsDashboardNotFoundError, AnalyticsDatasetNotFoundError, AnalyticsQueryError) as exc:
-        return HTMLResponse(
-            render_unavailable_page(
-                "Analytics Dashboard",
-                str(exc),
-                active_path="/monitor/analytics",
-            ),
+        return _html_unavailable(
+            "Analytics Dashboard",
+            str(exc),
+            active_path=MONITOR_ANALYTICS_PATH,
             status_code=404 if isinstance(exc, (AnalyticsDashboardNotFoundError, AnalyticsDatasetNotFoundError)) else 400,
         )
 
@@ -237,34 +253,34 @@ def get_analytics_monitor_page(
                 "detail_preview": detail_preview,
                 "filters_applied": selected_filters,
                 "export_jobs": export_jobs,
-            }
+            },
+            webui_config=webui,
         )
     )
 
 
-@router.post("/monitor/analytics/exports")
+@router.post(f"{MONITOR_ANALYTICS_PATH}/exports")
 async def create_analytics_export_from_monitor(request: Request):
+    settings = request.app.state.settings
+    webui = settings.webui
     try:
         query_service = get_query_service(request)
         export_service = get_export_service(request)
     except Exception:
-        return HTMLResponse(
-            render_unavailable_page(
-                "Export Jobs",
-                "Analytics query service or export service is not configured for this runtime.",
-                active_path="/monitor/exports",
-            ),
-            status_code=503,
+        return _html_unavailable(
+            "Export Jobs",
+            "Analytics query service or export service is not configured for this runtime.",
+            active_path=MONITOR_EXPORTS_PATH,
         )
 
-    form_data = parse_qs((await request.body()).decode("utf-8"), keep_blank_values=False)
+    form_data = _read_form_values(await request.body())
 
     def _first(name: str, default: str = "") -> str:
         values = form_data.get(name)
         return values[0] if values else default
 
-    dataset = _first("dataset", "mes_ops")
-    dashboard_id = _first("dashboard_id", "operations_overview")
+    dataset = _first("dataset", webui.default_dataset)
+    dashboard_id = _first("dashboard_id", webui.default_dashboard_id)
 
     try:
         dashboard = query_service.get_dashboard_definition(
@@ -281,37 +297,80 @@ async def create_analytics_export_from_monitor(request: Request):
             )
         )
     except (ValueError, AnalyticsDashboardNotFoundError, AnalyticsDatasetNotFoundError, AnalyticsQueryError) as exc:
-        return HTMLResponse(
-            render_unavailable_page(
-                "Export Jobs",
-                str(exc),
-                active_path="/monitor/exports",
-            ),
+        return _html_unavailable(
+            "Export Jobs",
+            str(exc),
+            active_path=MONITOR_EXPORTS_PATH,
             status_code=400,
         )
 
     return _redirect_to_exports(create_response.job_id, dataset)
 
 
-@router.get("/monitor/exports", response_class=HTMLResponse)
+@router.post(MONITOR_EXPORT_DELETE_JOB_PATH)
+async def delete_export_job_from_monitor(request: Request):
+    try:
+        export_service = get_export_service(request)
+    except Exception:
+        return _html_unavailable(
+            "Export Jobs",
+            "Export service is not configured for this runtime.",
+            active_path=MONITOR_EXPORTS_PATH,
+        )
+
+    form_data = _read_form_values(await request.body())
+    job_id = (form_data.get("job_id") or [None])[0]
+    dataset = (form_data.get("dataset") or [None])[0]
+    if job_id:
+        try:
+            export_service.delete_job(job_id)
+        except AnalyticsExportJobNotFoundError:
+            pass
+
+    query = urlencode({k: v for k, v in {"dataset": dataset}.items() if v})
+    return RedirectResponse(url=f"{MONITOR_EXPORTS_PATH}{'?' + query if query else ''}", status_code=303)
+
+
+@router.post(MONITOR_EXPORT_DELETE_COMPLETED_PATH)
+async def delete_completed_exports_from_monitor(request: Request):
+    try:
+        export_service = get_export_service(request)
+    except Exception:
+        return _html_unavailable(
+            "Export Jobs",
+            "Export service is not configured for this runtime.",
+            active_path=MONITOR_EXPORTS_PATH,
+        )
+
+    form_data = _read_form_values(await request.body())
+    dataset = (form_data.get("dataset") or [None])[0]
+    export_service.delete_all_completed()
+
+    query = urlencode({k: v for k, v in {"dataset": dataset}.items() if v})
+    return RedirectResponse(url=f"{MONITOR_EXPORTS_PATH}{'?' + query if query else ''}", status_code=303)
+
+
+@router.get(MONITOR_EXPORTS_PATH, response_class=HTMLResponse)
 def get_export_monitor_page(
     request: Request,
     dataset: str | None = Query(default=None),
     job_id: str | None = Query(default=None),
 ):
+    settings = request.app.state.settings
+    webui = settings.webui
     try:
         export_service = get_export_service(request)
     except Exception:
-        return HTMLResponse(
-            render_unavailable_page(
-                "Export Jobs",
-                "Export service is not configured for this runtime.",
-                active_path="/monitor/exports",
-            ),
-            status_code=503,
+        return _html_unavailable(
+            "Export Jobs",
+            "Export service is not configured for this runtime.",
+            active_path=MONITOR_EXPORTS_PATH,
         )
 
-    jobs = [job.model_dump(mode="json") for job in export_service.list_jobs(dataset=dataset, limit=50)]
+    jobs = [
+        job.model_dump(mode="json")
+        for job in export_service.list_jobs(dataset=dataset, limit=webui.export_jobs_page_limit)
+    ]
     counts = {
         "queued": sum(1 for job in jobs if job["status"] == "queued"),
         "running": sum(1 for job in jobs if job["status"] == "running"),
@@ -333,6 +392,7 @@ def get_export_monitor_page(
                 "counts": counts,
                 "dataset": dataset,
                 "retention_hours": export_service.retention_hours,
-            }
+            },
+            webui_config=webui,
         )
     )

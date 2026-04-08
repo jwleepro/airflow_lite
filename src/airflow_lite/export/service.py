@@ -19,6 +19,7 @@ from airflow_lite.api.analytics_contracts import (
     ExportJobResponse,
     ExportJobStatus,
 )
+from airflow_lite.api.paths import export_download_path
 from airflow_lite.query.service import AnalyticsExportPlan, DuckDBAnalyticsQueryService
 
 
@@ -48,7 +49,7 @@ class ExportJobRecord:
     def to_response(self) -> ExportJobResponse:
         download_endpoint = None
         if self.status is ExportJobStatus.COMPLETED:
-            download_endpoint = f"/api/v1/analytics/exports/{self.job_id}/download"
+            download_endpoint = export_download_path(self.job_id)
 
         return ExportJobResponse(
             job_id=self.job_id,
@@ -113,19 +114,28 @@ class FilesystemAnalyticsExportService:
         query_service: DuckDBAnalyticsQueryService,
         retention_hours: int = 72,
         max_workers: int = 2,
+        cleanup_cooldown_seconds: int = 300,
+        rows_per_batch: int = 10_000,
+        parquet_compression: str = "snappy",
+        zip_compression: str = "deflated",
     ):
         self.root_path = Path(root_path)
         self.jobs_path = self.root_path / "jobs"
         self.artifacts_path = self.root_path / "artifacts"
         self.query_service = query_service
         self.retention_hours = retention_hours
+        self._cleanup_cooldown_seconds = cleanup_cooldown_seconds
+        self._last_cleanup_at: datetime | None = None
+        self._rows_per_batch = rows_per_batch
+        self._parquet_compression = parquet_compression
+        self._zip_compression = self._resolve_zip_compression(zip_compression)
         self.executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="analytics-export")
         self.jobs_path.mkdir(parents=True, exist_ok=True)
         self.artifacts_path.mkdir(parents=True, exist_ok=True)
-        self.cleanup_expired()
+        self.cleanup_expired(force=True)
 
     def create_export(self, request: ExportCreateRequest) -> ExportCreateResponse:
-        self.cleanup_expired()
+        self._maybe_cleanup()
         plan = self.query_service.build_export_plan(request)
         now = datetime.now()
         suffix = "zip" if request.format is ExportFormat.CSV_ZIP else "parquet"
@@ -153,11 +163,11 @@ class FilesystemAnalyticsExportService:
         )
 
     def get_job(self, job_id: str) -> ExportJobResponse:
-        self.cleanup_expired()
+        self._maybe_cleanup()
         return self._read_record(job_id).to_response()
 
     def list_jobs(self, *, dataset: str | None = None, limit: int = 50) -> list[ExportJobResponse]:
-        self.cleanup_expired()
+        self._maybe_cleanup()
         records: list[ExportJobRecord] = []
         for job_file in self.jobs_path.glob("*.json"):
             record = ExportJobRecord.from_json(job_file.read_text(encoding="utf-8"))
@@ -169,15 +179,52 @@ class FilesystemAnalyticsExportService:
         return [record.to_response() for record in records[:limit]]
 
     def get_download_path(self, job_id: str) -> tuple[Path, str]:
-        self.cleanup_expired()
+        self._maybe_cleanup()
         record = self._read_record(job_id)
         artifact_path = Path(record.artifact_path)
         if record.status is not ExportJobStatus.COMPLETED or not artifact_path.exists():
             raise AnalyticsExportNotReadyError(f"export job is not ready: {job_id}")
         return artifact_path, record.file_name
 
-    def cleanup_expired(self) -> None:
+    def delete_job(self, job_id: str) -> None:
+        """Admin action: delete a specific export job and its artifact."""
+        record = self._read_record(job_id)
+        artifact_path = Path(record.artifact_path)
+        if artifact_path.exists():
+            artifact_path.unlink()
+        job_path = self.jobs_path / f"{job_id}.json"
+        job_path.unlink()
+
+    def delete_all_completed(self) -> int:
+        """Admin action: delete all completed export jobs. Returns count deleted."""
+        count = 0
+        for job_file in self.jobs_path.glob("*.json"):
+            record = ExportJobRecord.from_json(job_file.read_text(encoding="utf-8"))
+            if record.status is not ExportJobStatus.COMPLETED:
+                continue
+            artifact_path = Path(record.artifact_path)
+            if artifact_path.exists():
+                artifact_path.unlink()
+            job_file.unlink()
+            count += 1
+        return count
+
+    def _maybe_cleanup(self) -> None:
+        """Run cleanup only if cooldown has elapsed."""
         now = datetime.now()
+        if (
+            self._last_cleanup_at is not None
+            and (now - self._last_cleanup_at).total_seconds() < self._cleanup_cooldown_seconds
+        ):
+            return
+        self.cleanup_expired(force=True)
+
+    def cleanup_expired(self, *, force: bool = False) -> None:
+        if not force:
+            self._maybe_cleanup()
+            return
+        now = datetime.now()
+        self._last_cleanup_at = now
         for job_file in self.jobs_path.glob("*.json"):
             record = ExportJobRecord.from_json(job_file.read_text(encoding="utf-8"))
             if record.expires_at > now:
@@ -230,7 +277,9 @@ class FilesystemAnalyticsExportService:
     def _write_artifact(self, plan: AnalyticsExportPlan, artifact_path: Path) -> int:
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
         with self.query_service._connect(read_only=True) as connection:
-            reader = connection.execute(plan.sql, plan.params).fetch_record_batch(rows_per_batch=10_000)
+            reader = connection.execute(plan.sql, plan.params).fetch_record_batch(
+                rows_per_batch=self._rows_per_batch
+            )
             if plan.format is ExportFormat.PARQUET:
                 return self._write_parquet(artifact_path, reader)
             if plan.format is ExportFormat.CSV_ZIP:
@@ -239,7 +288,11 @@ class FilesystemAnalyticsExportService:
 
     def _write_parquet(self, artifact_path: Path, reader) -> int:
         row_count = 0
-        with papq.ParquetWriter(str(artifact_path), reader.schema, compression="snappy") as writer:
+        with papq.ParquetWriter(
+            str(artifact_path),
+            reader.schema,
+            compression=self._parquet_compression,
+        ) as writer:
             for batch in reader:
                 writer.write_batch(batch)
                 row_count += batch.num_rows
@@ -255,11 +308,22 @@ class FilesystemAnalyticsExportService:
                     writer.write_batch(batch)
                     row_count += batch.num_rows
 
-        with zipfile.ZipFile(artifact_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        with zipfile.ZipFile(artifact_path, "w", compression=self._zip_compression) as archive:
             archive.write(csv_path, arcname=csv_name)
 
         csv_path.unlink()
         return row_count
+
+    @staticmethod
+    def _resolve_zip_compression(zip_compression: str) -> int:
+        compression_map = {
+            "deflated": zipfile.ZIP_DEFLATED,
+            "stored": zipfile.ZIP_STORED,
+        }
+        try:
+            return compression_map[zip_compression.lower()]
+        except KeyError as exc:
+            raise ValueError(f"unsupported zip compression: {zip_compression}") from exc
 
     def _read_record(self, job_id: str) -> ExportJobRecord:
         job_path = self.jobs_path / f"{job_id}.json"

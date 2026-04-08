@@ -14,6 +14,21 @@ from __future__ import annotations
 from html import escape
 from datetime import datetime
 
+from airflow_lite.api.paths import (
+    ANALYTICS_EXPORTS_PATH,
+    ANALYTICS_FILTERS_PATH,
+    MONITOR_ANALYTICS_PATH,
+    MONITOR_EXPORTS_PATH,
+    MONITOR_EXPORT_DELETE_COMPLETED_PATH,
+    MONITOR_EXPORT_DELETE_JOB_PATH,
+    MONITOR_PATH,
+    PIPELINES_PATH,
+    dashboard_definition_path,
+    monitor_pipeline_run_detail_path,
+    pipeline_run_detail_path,
+    pipeline_runs_path,
+)
+
 
 # ---------------------------------------------------------------------------
 # 내부 헬퍼
@@ -101,14 +116,22 @@ def _run_status_grid(runs: list[dict]) -> str:
     return f'<div class="run-grid">{blocks}</div>'
 
 
-def _first_failed_step_error(run: dict) -> str | None:
-    """실행 결과에서 첫 번째 실패 step의 error_message 반환 (최대 120자)."""
+def _cfg(webui_config, key: str, default):
+    if webui_config is None:
+        return default
+    if isinstance(webui_config, dict):
+        return webui_config.get(key, default)
+    return getattr(webui_config, key, default)
+
+
+def _first_failed_step_error(run: dict, *, max_length: int = 120) -> str | None:
+    """실행 결과에서 첫 번째 실패 step의 error_message 반환."""
     for step in run.get("steps", []):
         if step.get("status") == "failed" and step.get("error_message"):
             name = step.get("step_name", "")
             msg = str(step["error_message"])
-            if len(msg) > 120:
-                msg = msg[:120] + "…"
+            if len(msg) > max_length:
+                msg = msg[:max_length] + "…"
             return f"[{name}] {msg}"
     return None
 
@@ -148,6 +171,7 @@ _CSS = """
       .header-tag,.chip { display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; font-size:.82rem; font-weight:700; }
       .header-tag { background:var(--accent-soft); color:var(--accent); text-transform:uppercase; } .chip { background:var(--accent-soft); color:var(--accent); }
       .header-links a,.button-link,button { color:var(--accent); background:var(--panel-soft); border-color:var(--line); } button.primary { color:#fff; background:var(--accent); border-color:var(--accent); }
+      .btn-delete { color:#d32f2f; background:#fff5f5; border:1px solid #d32f2f; padding:4px 10px; border-radius:6px; font-size:.78rem; cursor:pointer; font-weight:600; } .btn-delete:hover { background:#ffebee; }
       .stack,.section-list,.filter-form,.dense-cell,.brand-copy { display:grid; }
       .stack,.section-list,.filter-form,.dense-cell { gap:14px; }
       .filter-field { display:grid; gap:6px; }
@@ -252,7 +276,7 @@ def _render_layout(
           </div>
           <div class="utility-links">
             <a href="/docs" target="_blank" rel="noreferrer">Swagger</a>
-            <a href="/api/v1/pipelines" target="_blank" rel="noreferrer">Pipeline API</a>
+            <a href="{PIPELINES_PATH}" target="_blank" rel="noreferrer">Pipeline API</a>
           </div>
         </div>
         <div class="nav-row" style="margin-top:18px;">
@@ -262,9 +286,9 @@ def _render_layout(
             <p class="page-subtitle">{escape(subtitle)}</p>
           </div>
           <nav class="nav-tabs">
-            {_nav_link("Pipelines", "/monitor", active_path)}
-            {_nav_link("Analytics", "/monitor/analytics", active_path)}
-            {_nav_link("Exports", "/monitor/exports", active_path)}
+            {_nav_link("Pipelines", MONITOR_PATH, active_path)}
+            {_nav_link("Analytics", MONITOR_ANALYTICS_PATH, active_path)}
+            {_nav_link("Exports", MONITOR_EXPORTS_PATH, active_path)}
           </nav>
         </div>
       </div>
@@ -287,13 +311,15 @@ def _render_layout(
 # /monitor — Pipeline monitor page
 # ---------------------------------------------------------------------------
 
-def render_monitor_page(pipeline_rows: list[dict]) -> str:
+def render_monitor_page(pipeline_rows: list[dict], *, webui_config=None) -> str:
     """파이프라인 목록 + 최근 실행 상태 그리드 (Airflow DAG list 스타일).
 
     pipeline_rows 각 항목:
       name, table, strategy, schedule, next_run (str|None),
       latest_run (dict|None), recent_runs (list[dict], 최대 25건)
     """
+    monitor_refresh_seconds = _cfg(webui_config, "monitor_refresh_seconds", 30)
+    error_message_max_length = _cfg(webui_config, "error_message_max_length", 120)
     total_pipelines = len(pipeline_rows)
     active_runs = sum(
         1 for row in pipeline_rows
@@ -342,7 +368,7 @@ def render_monitor_page(pipeline_rows: list[dict]) -> str:
         # 실패 시 첫 번째 실패 step error 인라인 표시
         error_html = ""
         if latest_status == "failed":
-            err = _first_failed_step_error(latest)
+            err = _first_failed_step_error(latest, max_length=error_message_max_length)
             if err:
                 error_html = f'<div class="error-inline">{escape(err)}</div>'
 
@@ -351,7 +377,7 @@ def render_monitor_page(pipeline_rows: list[dict]) -> str:
 
         # 상세 링크 (run_id가 있을 때만)
         detail_link = (
-            f'<a href="/monitor/pipelines/{escape(row["name"])}/runs/{escape(run_id)}">상세</a>'
+            f'<a href="{escape(monitor_pipeline_run_detail_path(row["name"], run_id))}">상세</a>'
             if run_id
             else "-"
         )
@@ -392,7 +418,7 @@ def render_monitor_page(pipeline_rows: list[dict]) -> str:
           <h2>All configured pipelines</h2>
         </div>
         <span class="muted refresh-notice">
-          최근 완료: {_fmt(latest_finish, fallback="없음")} &nbsp;·&nbsp; 30초마다 자동 갱신
+          최근 완료: {_fmt(latest_finish, fallback="없음")} &nbsp;·&nbsp; {monitor_refresh_seconds}초마다 자동 갱신
         </span>
       </div>
       <div class="table-wrap">
@@ -418,14 +444,14 @@ def render_monitor_page(pipeline_rows: list[dict]) -> str:
     return _render_layout(
         title="Airflow Lite Monitor",
         subtitle="Pipeline inventory with run-status grid, duration, next scheduled run, and inline error summary.",
-        active_path="/monitor",
+        active_path=MONITOR_PATH,
         hero_links=[
-            ("Pipelines API", "/api/v1/pipelines"),
-            ("Analytics", "/monitor/analytics"),
-            ("Exports", "/monitor/exports"),
+            ("Pipelines API", PIPELINES_PATH),
+            ("Analytics", MONITOR_ANALYTICS_PATH),
+            ("Exports", MONITOR_EXPORTS_PATH),
         ],
         content_html=content_html,
-        auto_refresh_seconds=30,
+        auto_refresh_seconds=monitor_refresh_seconds,
     )
 
 
@@ -558,10 +584,10 @@ def render_run_detail_page(run: dict, pipeline_name: str, schedule: str) -> str:
     return _render_layout(
         title=f"Run Detail — {pipeline_name}",
         subtitle=f"Step-level execution timeline · {run.get('execution_date', '')} · {run_status}",
-        active_path="/monitor",
+        active_path=MONITOR_PATH,
         hero_links=[
-            ("All Runs API", f"/api/v1/pipelines/{escape(pipeline_name)}/runs"),
-            ("This Run API", f"/api/v1/pipelines/{escape(pipeline_name)}/runs/{escape(run.get('id', ''))}"),
+            ("All Runs API", pipeline_runs_path(pipeline_name)),
+            ("This Run API", pipeline_run_detail_path(pipeline_name, run.get("id", ""))),
         ],
         content_html=content_html,
         page_tag="Run Timeline",
@@ -587,13 +613,14 @@ def render_unavailable_page(title: str, message: str, *, active_path: str) -> st
         title=title,
         subtitle=message,
         active_path=active_path,
-        hero_links=[("Pipelines", "/monitor"), ("Swagger", "/docs")],
+        hero_links=[("Pipelines", MONITOR_PATH), ("Swagger", "/docs")],
         content_html=content_html,
         page_tag="Service Status",
     )
 
 
-def render_analytics_dashboard_page(page: dict) -> str:
+def render_analytics_dashboard_page(page: dict, *, webui_config=None) -> str:
+    analytics_refresh_seconds = _cfg(webui_config, "analytics_refresh_seconds", 60)
     dashboard = page["dashboard"]
     summary = page["summary"]
     charts = page["charts"]
@@ -703,7 +730,7 @@ def render_analytics_dashboard_page(page: dict) -> str:
         for value in values
     )
     export_forms_html = "".join(f"""
-        <form class="inline-form" method="post" action="/monitor/analytics/exports">
+        <form class="inline-form" method="post" action="{MONITOR_ANALYTICS_PATH}/exports">
           <input type="hidden" name="dataset" value="{escape(dataset)}">
           <input type="hidden" name="dashboard_id" value="{escape(dashboard_id)}">
           <input type="hidden" name="action_key" value="{escape(action["key"])}">
@@ -729,7 +756,7 @@ def render_analytics_dashboard_page(page: dict) -> str:
     <section class="panel">
       <div class="panel-head">
         <div><p class="eyebrow">Dashboard Metadata</p><h2>{escape(dashboard["title"])}</h2></div>
-        <span class="muted refresh-notice">60초마다 자동 갱신</span>
+        <span class="muted refresh-notice">{analytics_refresh_seconds}초마다 자동 갱신</span>
       </div>
       <dl class="meta-grid">
         <div><dt>Dashboard ID</dt><dd>{escape(dashboard_id)}</dd></div>
@@ -743,14 +770,14 @@ def render_analytics_dashboard_page(page: dict) -> str:
         <div><p class="eyebrow">Filter Bar</p><h2>Apply dashboard state</h2></div>
         <span class="muted">Read-only controls backed by the dashboard contract</span>
       </div>
-      <form class="filter-form" method="get" action="/monitor/analytics">
+      <form class="filter-form" method="get" action="{MONITOR_ANALYTICS_PATH}">
         <input type="hidden" name="dataset" value="{escape(dataset)}">
         <input type="hidden" name="dashboard_id" value="{escape(dashboard_id)}">
         <div class="filter-grid">{filter_controls_html}</div>
         <div class="actions">
           <button class="primary" type="submit">Apply Filters</button>
-          <a class="button-link" href="/monitor/analytics?dataset={escape(dataset)}&dashboard_id={escape(dashboard_id)}">Reset</a>
-          <a class="button-link" href="/api/v1/analytics/dashboards/{escape(dashboard_id)}?dataset={escape(dataset)}" target="_blank" rel="noreferrer">Dashboard API</a>
+          <a class="button-link" href="{MONITOR_ANALYTICS_PATH}?dataset={escape(dataset)}&dashboard_id={escape(dashboard_id)}">Reset</a>
+          <a class="button-link" href="{dashboard_definition_path(dashboard_id)}?dataset={escape(dataset)}" target="_blank" rel="noreferrer">Dashboard API</a>
         </div>
       </form>
       <div class="chip-list" style="margin-top:10px;">{filter_chips_html}</div>
@@ -785,7 +812,7 @@ def render_analytics_dashboard_page(page: dict) -> str:
         <section class="panel">
           <div class="panel-head">
             <div><p class="eyebrow">Recent Jobs</p><h2>Latest export activity</h2></div>
-            <a href="/monitor/exports?dataset={escape(dataset)}">Full export monitor →</a>
+            <a href="{MONITOR_EXPORTS_PATH}?dataset={escape(dataset)}">Full export monitor →</a>
           </div>
           <div class="table-wrap">
             <table>
@@ -800,15 +827,15 @@ def render_analytics_dashboard_page(page: dict) -> str:
     return _render_layout(
         title="Analytics Dashboard",
         subtitle="Read-only dashboard workspace — summary metrics, charts, drilldown preview, and export actions.",
-        active_path="/monitor/analytics",
+        active_path=MONITOR_ANALYTICS_PATH,
         hero_links=[
-            ("Dashboard API", f"/api/v1/analytics/dashboards/{dashboard_id}?dataset={dataset}"),
-            ("Filters API", f"/api/v1/analytics/filters?dataset={dataset}"),
-            ("Export Monitor", f"/monitor/exports?dataset={dataset}"),
+            ("Dashboard API", f"{dashboard_definition_path(dashboard_id)}?dataset={dataset}"),
+            ("Filters API", f"{ANALYTICS_FILTERS_PATH}?dataset={dataset}"),
+            ("Export Monitor", f"{MONITOR_EXPORTS_PATH}?dataset={dataset}"),
         ],
         content_html=content_html,
         page_tag="Analytics Workspace",
-        auto_refresh_seconds=60,
+        auto_refresh_seconds=analytics_refresh_seconds,
     )
 
 
@@ -816,12 +843,14 @@ def render_analytics_dashboard_page(page: dict) -> str:
 # /monitor/exports — Export jobs page
 # ---------------------------------------------------------------------------
 
-def render_export_jobs_page(page: dict) -> str:
+def render_export_jobs_page(page: dict, *, webui_config=None) -> str:
     jobs = page["jobs"]
     selected_job_id = page.get("selected_job_id")
     counts = page["counts"]
     dataset = page.get("dataset")
     retention_hours = page["retention_hours"]
+    active_refresh_seconds = _cfg(webui_config, "exports_active_refresh_seconds", 10)
+    idle_refresh_seconds = _cfg(webui_config, "exports_idle_refresh_seconds", 30)
 
     summary_html = "".join([
         _summary_tile(
@@ -849,6 +878,14 @@ def render_export_jobs_page(page: dict) -> str:
         highlight = " highlight" if selected_job_id and job["job_id"] == selected_job_id else ""
         is_active = job["status"] in {"running", "queued"}
         pulse_cls = " pulse" if is_active else ""
+        dataset_hidden = f'<input type="hidden" name="dataset" value="{escape(dataset)}">' if dataset else ""
+        delete_cell = (
+            f'<form method="post" action="{MONITOR_EXPORT_DELETE_JOB_PATH}" style="display:inline">'
+            f'<input type="hidden" name="job_id" value="{escape(job["job_id"])}">'
+            f'{dataset_hidden}'
+            f'<button type="submit" class="btn-delete" onclick="return confirm(\'Delete this job?\')">Delete</button>'
+            f'</form>'
+        ) if not is_active else '<span class="muted">-</span>'
 
         rows.append(f"""
             <tr class="{highlight.strip()}">
@@ -863,18 +900,19 @@ def render_export_jobs_page(page: dict) -> str:
               <td>{_fmt(job["expires_at"])}</td>
               <td>{download_cell}</td>
               <td>{_fmt(job.get("error_message"), fallback="")}</td>
+              <td>{delete_cell}</td>
             </tr>
         """)
 
     rows_html = (
         "".join(rows)
-        or '<tr><td colspan="11" class="empty">No export jobs recorded.</td></tr>'
+        or '<tr><td colspan="12" class="empty">No export jobs recorded.</td></tr>'
     )
     dataset_query = f"?dataset={escape(dataset)}" if dataset else ""
 
     # 진행 중인 job이 있으면 10초, 없으면 30초 갱신
     has_active = counts["queued"] + counts["running"] > 0
-    refresh_secs = 10 if has_active else 30
+    refresh_secs = active_refresh_seconds if has_active else idle_refresh_seconds
 
     content_html = f"""
     <section class="summary-grid">{summary_html}</section>
@@ -887,8 +925,12 @@ def render_export_jobs_page(page: dict) -> str:
       </div>
       <p class="muted">Artifacts and job records are retained for {retention_hours} hour(s) before automatic cleanup.</p>
       <div class="actions">
-        <a class="button-link" href="/monitor/exports">All datasets</a>
-        <a class="button-link" href="/monitor/analytics{dataset_query if dataset else ''}">← Analytics</a>
+        <a class="button-link" href="{MONITOR_EXPORTS_PATH}">All datasets</a>
+        <a class="button-link" href="{MONITOR_ANALYTICS_PATH}{dataset_query if dataset else ''}">← Analytics</a>
+        <form method="post" action="{MONITOR_EXPORT_DELETE_COMPLETED_PATH}" style="display:inline">
+          {'<input type="hidden" name="dataset" value="' + escape(dataset) + '">' if dataset else ''}
+          <button type="submit" class="btn-delete" onclick="return confirm('Delete all completed export jobs?')">Delete All Completed</button>
+        </form>
       </div>
     </section>
     <section class="panel">
@@ -902,7 +944,7 @@ def render_export_jobs_page(page: dict) -> str:
             <tr>
               <th>Job ID</th><th>Dataset</th><th>Action</th><th>Status</th>
               <th>Format</th><th>Rows</th><th>Created</th><th>Updated</th>
-              <th>Expires</th><th>Download</th><th>Error</th>
+              <th>Expires</th><th>Download</th><th>Error</th><th>Admin</th>
             </tr>
           </thead>
           <tbody>{rows_html}</tbody>
@@ -913,10 +955,10 @@ def render_export_jobs_page(page: dict) -> str:
     return _render_layout(
         title="Export Jobs",
         subtitle="Async export job monitor — status, retention, artifact availability, and download links.",
-        active_path="/monitor/exports",
+        active_path=MONITOR_EXPORTS_PATH,
         hero_links=[
-            ("Analytics", f"/monitor/analytics{dataset_query}" if dataset else "/monitor/analytics"),
-            ("Export API", "/api/v1/analytics/exports/{job_id}"),
+            ("Analytics", f"{MONITOR_ANALYTICS_PATH}{dataset_query}" if dataset else MONITOR_ANALYTICS_PATH),
+            ("Export API", ANALYTICS_EXPORTS_PATH),
         ],
         content_html=content_html,
         page_tag="Export Workspace",

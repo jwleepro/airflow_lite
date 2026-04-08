@@ -15,6 +15,7 @@ from airflow_lite.api.analytics_contracts import (
     SummaryQueryResponse,
 )
 from airflow_lite.api.dependencies import get_export_service, get_query_service
+from airflow_lite.api.errors import raise_export_http_error, raise_query_http_error
 from airflow_lite.export import (
     AnalyticsExportJobNotFoundError,
     AnalyticsExportNotReadyError,
@@ -33,10 +34,8 @@ def query_summary(body: SummaryQueryRequest, request: Request):
     query_service = get_query_service(request)
     try:
         return query_service.query_summary(body)
-    except AnalyticsDatasetNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except AnalyticsQueryError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except (AnalyticsDatasetNotFoundError, AnalyticsQueryError) as exc:
+        raise_query_http_error(exc)
 
 
 @router.post("/analytics/charts/{chart_id}/query", response_model=ChartQueryResponse)
@@ -47,10 +46,8 @@ def query_chart(chart_id: str, body: ChartQueryRequest, request: Request):
 
     try:
         return query_service.query_chart(body)
-    except AnalyticsDatasetNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except AnalyticsQueryError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except (AnalyticsDatasetNotFoundError, AnalyticsQueryError) as exc:
+        raise_query_http_error(exc)
 
 
 @router.post("/analytics/details/{detail_key}/query", response_model=DetailQueryResponse)
@@ -61,10 +58,8 @@ def query_detail(detail_key: str, body: DetailQueryRequest, request: Request):
 
     try:
         return query_service.query_detail(body)
-    except AnalyticsDatasetNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except AnalyticsQueryError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except (AnalyticsDatasetNotFoundError, AnalyticsQueryError) as exc:
+        raise_query_http_error(exc)
 
 
 @router.post("/analytics/exports", response_model=ExportCreateResponse)
@@ -72,10 +67,8 @@ def create_export(body: ExportCreateRequest, request: Request):
     export_service = get_export_service(request)
     try:
         return export_service.create_export(body)
-    except AnalyticsDatasetNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except AnalyticsQueryError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except (AnalyticsDatasetNotFoundError, AnalyticsQueryError) as exc:
+        raise_query_http_error(exc)
 
 
 @router.get("/analytics/exports/{job_id}", response_model=ExportJobResponse)
@@ -84,7 +77,7 @@ def get_export_job(job_id: str, request: Request):
     try:
         return export_service.get_job(job_id)
     except AnalyticsExportJobNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise_export_http_error(exc)
 
 
 @router.get("/analytics/exports/{job_id}/download")
@@ -92,12 +85,27 @@ def download_export(job_id: str, request: Request):
     export_service = get_export_service(request)
     try:
         artifact_path, file_name = export_service.get_download_path(job_id)
-    except AnalyticsExportJobNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except AnalyticsExportNotReadyError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except (AnalyticsExportJobNotFoundError, AnalyticsExportNotReadyError) as exc:
+        raise_export_http_error(exc)
 
     return FileResponse(path=artifact_path, filename=file_name)
+
+
+@router.delete("/analytics/exports/{job_id}")
+def delete_export_job(job_id: str, request: Request):
+    export_service = get_export_service(request)
+    try:
+        export_service.delete_job(job_id)
+    except AnalyticsExportJobNotFoundError as exc:
+        raise_export_http_error(exc)
+    return {"deleted": job_id}
+
+
+@router.delete("/analytics/exports")
+def delete_all_completed_exports(request: Request):
+    export_service = get_export_service(request)
+    count = export_service.delete_all_completed()
+    return {"deleted_count": count}
 
 
 @router.get("/analytics/filters", response_model=AnalyticsFilterMetadataResponse)
@@ -105,10 +113,8 @@ def get_filters(request: Request, dataset: str = Query(...)):
     query_service = get_query_service(request)
     try:
         return query_service.get_filter_metadata(dataset)
-    except AnalyticsDatasetNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except AnalyticsQueryError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except (AnalyticsDatasetNotFoundError, AnalyticsQueryError) as exc:
+        raise_query_http_error(exc)
 
 
 @router.get("/analytics/dashboards/{dashboard_id}", response_model=DashboardDefinitionResponse)
@@ -116,7 +122,9 @@ def get_dashboard_definition(dashboard_id: str, request: Request, dataset: str =
     query_service = get_query_service(request)
     try:
         return query_service.get_dashboard_definition(dashboard_id=dashboard_id, dataset=dataset)
-    except (AnalyticsDashboardNotFoundError, AnalyticsDatasetNotFoundError) as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except AnalyticsQueryError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except (
+        AnalyticsDashboardNotFoundError,
+        AnalyticsDatasetNotFoundError,
+        AnalyticsQueryError,
+    ) as exc:
+        raise_query_http_error(exc)

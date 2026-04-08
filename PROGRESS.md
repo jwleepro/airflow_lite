@@ -13,6 +13,27 @@
 
 ## 최근 완료 작업
 
+- `T-036` 런타임 부트스트랩/설정 외부화/운영 UI 상수 정리 (2026-04-08)
+  - `src/airflow_lite/bootstrap.py` 추가 — config path 해석, runtime wiring, export root path 연결, API bind 공통화
+  - `src/airflow_lite/config/settings.py` 확장 — `SchedulerConfig`, `WebUIConfig`, 확장된 `ExportConfig`(`max_workers`, `rows_per_batch`, compression) 추가
+  - `src/airflow_lite/__main__.py`, `src/airflow_lite/service/win_service.py`가 공통 runtime bootstrap을 사용하도록 정리
+  - `src/airflow_lite/api/paths.py`, `src/airflow_lite/api/errors.py` 추가 — 경로/예외 변환 중복 축소
+  - `src/airflow_lite/api/routes/web.py`, `src/airflow_lite/api/webui.py`, `src/airflow_lite/scheduler/scheduler.py`, `src/airflow_lite/export/service.py`가 새 설정값을 사용하도록 리팩터링
+  - `config/pipelines.sample.yaml`, `tests/test_bootstrap.py`, `tests/test_api.py`, `tests/test_scheduler.py`, `tests/test_service.py`, `tests/test_settings.py` 갱신
+- `T-035` export retention/cleanup 정책 및 admin visibility 보강 (2026-04-08)
+  - `ExportConfig` dataclass 추가 — YAML에서 `retention_hours`, `cleanup_cooldown_seconds`, `root_path` 설정 가능
+  - `DELETE /api/v1/analytics/exports/{job_id}` — 개별 job 삭제 API
+  - `DELETE /api/v1/analytics/exports` — 완료 job 일괄 삭제 API
+  - `/monitor/exports` UI에 Delete 버튼(개별) + Delete All Completed 버튼 추가
+  - `tests/test_export_cleanup.py` 3건, `tests/test_settings.py` 2건 테스트 추가
+- `T-032` `/health` 헬스체크 엔드포인트 추가 (2026-04-08)
+  - `GET /api/v1/health` — scheduler, mart_db, disk 3개 컴포넌트 상태 확인
+  - `src/airflow_lite/api/routes/health.py` 신규, `app.py`에 라우터 등록
+  - `tests/test_health.py` 2개 테스트 통과
+- `T-033` export `cleanup_expired` 쿨다운 기반 성능 개선 (2026-04-08)
+  - `cleanup_cooldown_seconds` 파라미터 추가 (기본 300초)
+  - 매 API 호출 시 전체 스캔 → 쿨다운 내 스킵으로 변경
+  - `tests/test_export_cleanup.py` 3개 테스트 통과
 - `T-031` webui.py 소스 복구 및 Airflow-inspired 모니터링 UI 개선 (2026-04-08)
   - Run Status Grid, Auto-refresh, Duration, Next Run, Error Summary, Step Timeline(Gantt) 추가
   - `web.py`: `/monitor/pipelines/{name}/runs/{run_id}` 상세 라우트 추가, limit 5→25 변경, next_run 계산
@@ -28,18 +49,18 @@
 
 ## 다음 작업
 
-- `T-032` `/health` 헬스체크 엔드포인트 추가 — DB 연결, 스케줄러 상태, 디스크 여유 확인
-- `T-033` export `cleanup_expired` 성능 개선 — 쿨다운 기반 정리
-- export retention/cleanup 정책과 admin visibility를 서비스 운영 관점에서 보강한다.
+- M4 마일스톤 후속 범위 검토 및 M5 정의.
 
 ## 블로커 및 리스크
 
-- 현재 활성 블로커 없음.
+- draft PR 미생성 — 기존 더티 워크트리(`.claude/settings.local.json`, `reference/claude/`, 기존 health/export cleanup 관련 변경 포함)와 이번 변경이 혼재해 현재 상태로는 안전한 단일 PR 범위가 아님.
 
 ## 검증 메모
 
-- Export service cleanup_expired 매 API 호출 시 전체 파일 스캔 — 성능 개선 필요 (T-033).
+- Export service cleanup_expired는 이제 쿨다운 기반으로 동작 (T-033 완료).
 - 운영 UI(`webui.py`) 내부에는 고립된 top-level dead function은 없었고, 실제 정리 가치는 `api/routes` 서비스 접근 중복과 저장소 전반의 unused import/test residue 제거에 있었다.
+- `pytest tests/test_bootstrap.py tests/test_settings.py tests/test_scheduler.py tests/test_service.py tests/test_api.py tests/test_export_cleanup.py tests/test_health.py -q --basetemp .tmp_pytest` 통과 (135 passed)
+- `pytest tests -q --basetemp .tmp_pytest_all -m "not integration"` 통과 (312 passed, 46 deselected)
 
 ## 인수인계
 

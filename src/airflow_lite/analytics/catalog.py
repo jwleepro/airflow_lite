@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from airflow_lite.api.paths import (
+    ANALYTICS_EXPORTS_PATH,
+    chart_query_path,
+    detail_query_path,
+)
 from airflow_lite.api.analytics_contracts import (
     AnalyticsFilterType,
     DashboardActionScope,
@@ -120,7 +125,7 @@ def build_dashboard_definition(
                 title=SUPPORTED_CHARTS["rows_by_month"],
                 chart_type=DashboardChartType.LINE,
                 default_granularity=ChartGranularity.MONTH,
-                query_endpoint="/api/v1/analytics/charts/rows_by_month/query",
+                query_endpoint=chart_query_path("rows_by_month"),
                 request_method=DashboardRequestMethod.POST,
                 filter_keys=COMMON_FILTER_KEYS,
                 limit=12,
@@ -131,7 +136,7 @@ def build_dashboard_definition(
                 title=SUPPORTED_CHARTS["files_by_source"],
                 chart_type=DashboardChartType.BAR,
                 default_granularity=ChartGranularity.MONTH,
-                query_endpoint="/api/v1/analytics/charts/files_by_source/query",
+                query_endpoint=chart_query_path("files_by_source"),
                 request_method=DashboardRequestMethod.POST,
                 filter_keys=COMMON_FILTER_KEYS,
                 limit=20,
@@ -147,7 +152,7 @@ def build_dashboard_definition(
                 description="Detail grid for source-level file records and partition slices.",
                 scope=DashboardActionScope.CHART,
                 target_key="files_by_source",
-                endpoint="/api/v1/analytics/details/source-files/query",
+                endpoint=detail_query_path("source-files"),
                 request_method=DashboardRequestMethod.POST,
                 filter_keys=COMMON_FILTER_KEYS,
             ),
@@ -159,7 +164,7 @@ def build_dashboard_definition(
                 type=DashboardActionType.EXPORT,
                 status=DashboardActionStatus.AVAILABLE,
                 scope=DashboardActionScope.DASHBOARD,
-                endpoint="/api/v1/analytics/exports",
+                endpoint=ANALYTICS_EXPORTS_PATH,
                 request_method=DashboardRequestMethod.POST,
                 filter_keys=COMMON_FILTER_KEYS,
                 format="csv.zip",
@@ -171,7 +176,7 @@ def build_dashboard_definition(
                 type=DashboardActionType.EXPORT,
                 status=DashboardActionStatus.AVAILABLE,
                 scope=DashboardActionScope.DASHBOARD,
-                endpoint="/api/v1/analytics/exports",
+                endpoint=ANALYTICS_EXPORTS_PATH,
                 request_method=DashboardRequestMethod.POST,
                 filter_keys=COMMON_FILTER_KEYS,
                 format="parquet",

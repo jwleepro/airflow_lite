@@ -47,6 +47,46 @@ mart:
     production_log: "ops"
     equipment_status: "ops"
 
+# Export 작업 저장소 및 생성 옵션
+# root_path: export job metadata + artifact 루트 경로
+# retention_hours: 만료 전 보관 시간
+# cleanup_cooldown_seconds: cleanup 스캔 최소 간격
+# max_workers: background export worker 수
+# rows_per_batch: DuckDB export fetch batch 크기
+# parquet_compression: parquet artifact 압축 코덱
+# zip_compression: zip 압축 방식 (deflated 또는 stored)
+export:
+  root_path: "D:/data/exports"
+  retention_hours: 72
+  cleanup_cooldown_seconds: 300
+  max_workers: 2
+  rows_per_batch: 10000
+  parquet_compression: "snappy"
+  zip_compression: "deflated"
+
+# APScheduler 실행 정책
+# coalesce: 누적 실행 병합 여부
+# max_instances: 동일 pipeline 최대 동시 실행 수
+# misfire_grace_time_seconds: 놓친 실행 허용 유예 시간
+scheduler:
+  coalesce: true
+  max_instances: 1
+  misfire_grace_time_seconds: 3600
+
+# Read-only 운영 UI 튜닝
+webui:
+  monitor_refresh_seconds: 30
+  analytics_refresh_seconds: 60
+  exports_active_refresh_seconds: 10
+  exports_idle_refresh_seconds: 30
+  recent_runs_limit: 25
+  detail_preview_page_size: 8
+  analytics_export_jobs_limit: 8
+  export_jobs_page_limit: 50
+  error_message_max_length: 120
+  default_dataset: "mes_ops"
+  default_dashboard_id: "operations_overview"
+
 # 배치 추출 대상 목록
 # name: 내부 식별자 및 API 경로에서 사용하는 파이프라인 이름
 # table: Oracle 원본 테이블명
