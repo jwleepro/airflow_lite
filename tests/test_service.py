@@ -97,6 +97,7 @@ def _make_settings(pipelines=None):
     s.webui.error_message_max_length = 120
     s.webui.default_dataset = "mes_ops"
     s.webui.default_dashboard_id = "operations_overview"
+    s.webui.default_language = "en"
     s.pipelines = pipelines if pipelines is not None else []
     return s
 

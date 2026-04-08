@@ -392,6 +392,7 @@ webui:
   error_message_max_length: 80
   default_dataset: "custom_ops"
   default_dashboard_id: "operations_overview"
+  default_language: "ko"
 """
 
         with patch("builtins.open", mock_open(read_data=config_text)):
@@ -409,6 +410,7 @@ webui:
         assert settings.webui.monitor_refresh_seconds == 15
         assert settings.webui.analytics_refresh_seconds == 45
         assert settings.webui.default_dataset == "custom_ops"
+        assert settings.webui.default_language == "ko"
 
     def test_scheduler_and_webui_config_defaults(self):
         config_text = """\
@@ -435,3 +437,28 @@ pipelines: []
         assert isinstance(settings.webui, WebUIConfig)
         assert settings.webui.default_dataset == "mes_ops"
         assert settings.webui.export_jobs_page_limit == 50
+        assert settings.webui.default_language == "en"
+
+    def test_webui_default_language_rejects_unsupported_values(self):
+        config_text = """\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines: []
+
+webui:
+  default_language: "jp"
+"""
+
+        with patch("builtins.open", mock_open(read_data=config_text)):
+            with pytest.raises(ValueError, match="지원되지 않는 언어 값"):
+                Settings.load("pipelines.yaml")

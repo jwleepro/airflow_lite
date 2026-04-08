@@ -86,6 +86,8 @@ webui:
   error_message_max_length: 120
   default_dataset: "mes_ops"
   default_dashboard_id: "operations_overview"
+  # en | ko
+  default_language: "en"
 
 # 배치 추출 대상 목록
 # name: 내부 식별자 및 API 경로에서 사용하는 파이프라인 이름

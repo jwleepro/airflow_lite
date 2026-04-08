@@ -11,6 +11,7 @@ from airflow_lite.api.analytics_contracts import (
     SummaryQueryRequest,
 )
 from airflow_lite.api.dependencies import get_export_service, get_query_service
+from airflow_lite.api.language import resolve_request_language
 from airflow_lite.api.paths import (
     MONITOR_ANALYTICS_PATH,
     MONITOR_EXPORTS_PATH,
@@ -36,9 +37,16 @@ from airflow_lite.query import (
 router = APIRouter(include_in_schema=False)
 
 
-def _html_unavailable(title: str, message: str, *, active_path: str, status_code: int = 503) -> HTMLResponse:
+def _html_unavailable(
+    title: str,
+    message: str,
+    *,
+    active_path: str,
+    language: str,
+    status_code: int = 503,
+) -> HTMLResponse:
     return HTMLResponse(
-        render_unavailable_page(title, message, active_path=active_path),
+        render_unavailable_page(title, message, active_path=active_path, language=language),
         status_code=status_code,
     )
 
@@ -89,22 +97,32 @@ def _extract_detail_key(endpoint: str | None) -> str | None:
     return parts[detail_index + 1]
 
 
-def _redirect_to_exports(job_id: str, dataset: str) -> RedirectResponse:
-    query = urlencode({"job_id": job_id, "dataset": dataset})
+def _redirect_to_exports(job_id: str, dataset: str, language: str) -> RedirectResponse:
+    query_data = {"job_id": job_id, "dataset": dataset}
+    if language != "en":
+        query_data["lang"] = language
+    query = urlencode(query_data)
     return RedirectResponse(url=f"{MONITOR_EXPORTS_PATH}?{query}", status_code=303)
 
 
 @router.get("/")
-def redirect_root():
-    return RedirectResponse(url=MONITOR_PATH, status_code=303)
+def redirect_root(request: Request):
+    requested_lang = request.query_params.get("lang")
+    if requested_lang is None:
+        return RedirectResponse(url=MONITOR_PATH, status_code=303)
+    language = resolve_request_language(request, requested_lang)
+    query_data = {"lang": language} if language != "en" else {}
+    query = urlencode(query_data)
+    return RedirectResponse(url=f"{MONITOR_PATH}{'?' + query if query else ''}", status_code=303)
 
 
 @router.get(MONITOR_PATH, response_class=HTMLResponse)
-def get_monitor_page(request: Request):
+def get_monitor_page(request: Request, lang: str | None = Query(default=None)):
     settings = request.app.state.settings
     run_repo = request.app.state.run_repo
     step_repo = request.app.state.step_repo
     webui = settings.webui
+    language = resolve_request_language(request, lang)
 
     pipeline_rows = []
     for pipeline in settings.pipelines:
@@ -130,21 +148,23 @@ def get_monitor_page(request: Request):
             }
         )
 
-    return HTMLResponse(render_monitor_page(pipeline_rows, webui_config=webui))
+    return HTMLResponse(render_monitor_page(pipeline_rows, webui_config=webui, language=language))
 
 
 @router.get(f"{MONITOR_PATH}/pipelines/{{name}}/runs/{{run_id}}", response_class=HTMLResponse)
-def get_run_detail_page(name: str, run_id: str, request: Request):
+def get_run_detail_page(name: str, run_id: str, request: Request, lang: str | None = Query(default=None)):
     """특정 실행의 step 타임라인 상세 페이지."""
     run_repo = request.app.state.run_repo
     step_repo = request.app.state.step_repo
     settings = request.app.state.settings
+    language = resolve_request_language(request, lang)
 
     if run_repo is None:
         return _html_unavailable(
             "Run Detail",
             "Repository is not configured for this runtime.",
             active_path=MONITOR_PATH,
+            language=language,
         )
 
     run_obj = run_repo.find_by_id(run_id)
@@ -154,13 +174,16 @@ def get_run_detail_page(name: str, run_id: str, request: Request):
             f"Run '{run_id}' not found for pipeline '{name}'.",
             active_path=MONITOR_PATH,
             status_code=404,
+            language=language,
         )
 
     run_dict = _build_run_response_with_steps(run_obj, step_repo).model_dump(mode="json")
     pipeline_cfg = next((p for p in settings.pipelines if p.name == name), None)
     schedule = pipeline_cfg.schedule if pipeline_cfg else "-"
 
-    return HTMLResponse(render_run_detail_page(run_dict, pipeline_name=name, schedule=schedule))
+    return HTMLResponse(
+        render_run_detail_page(run_dict, pipeline_name=name, schedule=schedule, language=language)
+    )
 
 
 @router.get(MONITOR_ANALYTICS_PATH, response_class=HTMLResponse)
@@ -168,11 +191,13 @@ def get_analytics_monitor_page(
     request: Request,
     dataset: str | None = Query(default=None),
     dashboard_id: str | None = Query(default=None),
+    lang: str | None = Query(default=None),
 ):
     settings = request.app.state.settings
     webui = settings.webui
     dataset = dataset or webui.default_dataset
     dashboard_id = dashboard_id or webui.default_dashboard_id
+    language = resolve_request_language(request, lang)
 
     try:
         query_service = get_query_service(request)
@@ -181,6 +206,7 @@ def get_analytics_monitor_page(
             "Analytics Dashboard",
             "Analytics query service is not configured for this runtime.",
             active_path=MONITOR_ANALYTICS_PATH,
+            language=language,
         )
     try:
         export_service = get_export_service(request)
@@ -191,10 +217,12 @@ def get_analytics_monitor_page(
         dashboard = query_service.get_dashboard_definition(
             dashboard_id=dashboard_id,
             dataset=dataset,
+            language=language,
         ).model_dump(mode="json")
         selected_filters = _extract_selected_filters(request.query_params, dashboard["filters"])
         summary = query_service.query_summary(
-            SummaryQueryRequest(dataset=dataset, filters=selected_filters)
+            SummaryQueryRequest(dataset=dataset, filters=selected_filters),
+            language=language,
         ).model_dump(mode="json")
 
         charts: dict[str, dict] = {}
@@ -206,7 +234,8 @@ def get_analytics_monitor_page(
                     granularity=chart_definition["default_granularity"],
                     limit=chart_definition["limit"],
                     filters=selected_filters,
-                )
+                ),
+                language=language,
             ).model_dump(mode="json")
 
         detail_preview = None
@@ -223,7 +252,8 @@ def get_analytics_monitor_page(
                     filters=selected_filters,
                     page=1,
                     page_size=webui.detail_preview_page_size,
-                )
+                ),
+                language=language,
             ).model_dump(mode="json")
             break
 
@@ -242,6 +272,7 @@ def get_analytics_monitor_page(
             str(exc),
             active_path=MONITOR_ANALYTICS_PATH,
             status_code=404 if isinstance(exc, (AnalyticsDashboardNotFoundError, AnalyticsDatasetNotFoundError)) else 400,
+            language=language,
         )
 
     return HTMLResponse(
@@ -255,6 +286,7 @@ def get_analytics_monitor_page(
                 "export_jobs": export_jobs,
             },
             webui_config=webui,
+            language=language,
         )
     )
 
@@ -263,6 +295,7 @@ def get_analytics_monitor_page(
 async def create_analytics_export_from_monitor(request: Request):
     settings = request.app.state.settings
     webui = settings.webui
+    request_language = resolve_request_language(request, request.query_params.get("lang"))
     try:
         query_service = get_query_service(request)
         export_service = get_export_service(request)
@@ -271,6 +304,7 @@ async def create_analytics_export_from_monitor(request: Request):
             "Export Jobs",
             "Analytics query service or export service is not configured for this runtime.",
             active_path=MONITOR_EXPORTS_PATH,
+            language=request_language,
         )
 
     form_data = _read_form_values(await request.body())
@@ -281,11 +315,13 @@ async def create_analytics_export_from_monitor(request: Request):
 
     dataset = _first("dataset", webui.default_dataset)
     dashboard_id = _first("dashboard_id", webui.default_dashboard_id)
+    language = resolve_request_language(request, _first("lang") or None)
 
     try:
         dashboard = query_service.get_dashboard_definition(
             dashboard_id=dashboard_id,
             dataset=dataset,
+            language=language,
         ).model_dump(mode="json")
         selected_filters = _extract_selected_filters(form_data, dashboard["filters"])
         create_response = export_service.create_export(
@@ -302,13 +338,15 @@ async def create_analytics_export_from_monitor(request: Request):
             str(exc),
             active_path=MONITOR_EXPORTS_PATH,
             status_code=400,
+            language=language,
         )
 
-    return _redirect_to_exports(create_response.job_id, dataset)
+    return _redirect_to_exports(create_response.job_id, dataset, language)
 
 
 @router.post(MONITOR_EXPORT_DELETE_JOB_PATH)
 async def delete_export_job_from_monitor(request: Request):
+    request_language = resolve_request_language(request, request.query_params.get("lang"))
     try:
         export_service = get_export_service(request)
     except Exception:
@@ -316,23 +354,29 @@ async def delete_export_job_from_monitor(request: Request):
             "Export Jobs",
             "Export service is not configured for this runtime.",
             active_path=MONITOR_EXPORTS_PATH,
+            language=request_language,
         )
 
     form_data = _read_form_values(await request.body())
     job_id = (form_data.get("job_id") or [None])[0]
     dataset = (form_data.get("dataset") or [None])[0]
+    language = resolve_request_language(request, (form_data.get("lang") or [None])[0])
     if job_id:
         try:
             export_service.delete_job(job_id)
         except AnalyticsExportJobNotFoundError:
             pass
 
-    query = urlencode({k: v for k, v in {"dataset": dataset}.items() if v})
+    redirect_query = {"dataset": dataset}
+    if language != "en":
+        redirect_query["lang"] = language
+    query = urlencode({k: v for k, v in redirect_query.items() if v})
     return RedirectResponse(url=f"{MONITOR_EXPORTS_PATH}{'?' + query if query else ''}", status_code=303)
 
 
 @router.post(MONITOR_EXPORT_DELETE_COMPLETED_PATH)
 async def delete_completed_exports_from_monitor(request: Request):
+    request_language = resolve_request_language(request, request.query_params.get("lang"))
     try:
         export_service = get_export_service(request)
     except Exception:
@@ -340,13 +384,18 @@ async def delete_completed_exports_from_monitor(request: Request):
             "Export Jobs",
             "Export service is not configured for this runtime.",
             active_path=MONITOR_EXPORTS_PATH,
+            language=request_language,
         )
 
     form_data = _read_form_values(await request.body())
     dataset = (form_data.get("dataset") or [None])[0]
+    language = resolve_request_language(request, (form_data.get("lang") or [None])[0])
     export_service.delete_all_completed()
 
-    query = urlencode({k: v for k, v in {"dataset": dataset}.items() if v})
+    redirect_query = {"dataset": dataset}
+    if language != "en":
+        redirect_query["lang"] = language
+    query = urlencode({k: v for k, v in redirect_query.items() if v})
     return RedirectResponse(url=f"{MONITOR_EXPORTS_PATH}{'?' + query if query else ''}", status_code=303)
 
 
@@ -355,9 +404,11 @@ def get_export_monitor_page(
     request: Request,
     dataset: str | None = Query(default=None),
     job_id: str | None = Query(default=None),
+    lang: str | None = Query(default=None),
 ):
     settings = request.app.state.settings
     webui = settings.webui
+    language = resolve_request_language(request, lang)
     try:
         export_service = get_export_service(request)
     except Exception:
@@ -365,6 +416,7 @@ def get_export_monitor_page(
             "Export Jobs",
             "Export service is not configured for this runtime.",
             active_path=MONITOR_EXPORTS_PATH,
+            language=language,
         )
 
     jobs = [
@@ -394,5 +446,6 @@ def get_export_monitor_page(
                 "retention_hours": export_service.retention_hours,
             },
             webui_config=webui,
+            language=language,
         )
     )

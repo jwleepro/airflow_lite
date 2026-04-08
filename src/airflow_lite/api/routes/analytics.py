@@ -16,6 +16,7 @@ from airflow_lite.api.analytics_contracts import (
 )
 from airflow_lite.api.dependencies import get_export_service, get_query_service
 from airflow_lite.api.errors import raise_export_http_error, raise_query_http_error
+from airflow_lite.api.language import resolve_request_language
 from airflow_lite.export import (
     AnalyticsExportJobNotFoundError,
     AnalyticsExportNotReadyError,
@@ -30,34 +31,47 @@ router = APIRouter(tags=["analytics"])
 
 
 @router.post("/analytics/summary", response_model=SummaryQueryResponse)
-def query_summary(body: SummaryQueryRequest, request: Request):
+def query_summary(body: SummaryQueryRequest, request: Request, lang: str | None = Query(default=None)):
     query_service = get_query_service(request)
+    language = resolve_request_language(request, lang)
     try:
-        return query_service.query_summary(body)
+        return query_service.query_summary(body, language=language)
     except (AnalyticsDatasetNotFoundError, AnalyticsQueryError) as exc:
         raise_query_http_error(exc)
 
 
 @router.post("/analytics/charts/{chart_id}/query", response_model=ChartQueryResponse)
-def query_chart(chart_id: str, body: ChartQueryRequest, request: Request):
+def query_chart(
+    chart_id: str,
+    body: ChartQueryRequest,
+    request: Request,
+    lang: str | None = Query(default=None),
+):
     query_service = get_query_service(request)
+    language = resolve_request_language(request, lang)
     if body.chart_id != chart_id:
         raise HTTPException(status_code=400, detail="chart_id in path and body must match.")
 
     try:
-        return query_service.query_chart(body)
+        return query_service.query_chart(body, language=language)
     except (AnalyticsDatasetNotFoundError, AnalyticsQueryError) as exc:
         raise_query_http_error(exc)
 
 
 @router.post("/analytics/details/{detail_key}/query", response_model=DetailQueryResponse)
-def query_detail(detail_key: str, body: DetailQueryRequest, request: Request):
+def query_detail(
+    detail_key: str,
+    body: DetailQueryRequest,
+    request: Request,
+    lang: str | None = Query(default=None),
+):
     query_service = get_query_service(request)
+    language = resolve_request_language(request, lang)
     if body.detail_key != detail_key:
         raise HTTPException(status_code=400, detail="detail_key in path and body must match.")
 
     try:
-        return query_service.query_detail(body)
+        return query_service.query_detail(body, language=language)
     except (AnalyticsDatasetNotFoundError, AnalyticsQueryError) as exc:
         raise_query_http_error(exc)
 
@@ -109,19 +123,30 @@ def delete_all_completed_exports(request: Request):
 
 
 @router.get("/analytics/filters", response_model=AnalyticsFilterMetadataResponse)
-def get_filters(request: Request, dataset: str = Query(...)):
+def get_filters(request: Request, dataset: str = Query(...), lang: str | None = Query(default=None)):
     query_service = get_query_service(request)
+    language = resolve_request_language(request, lang)
     try:
-        return query_service.get_filter_metadata(dataset)
+        return query_service.get_filter_metadata(dataset, language=language)
     except (AnalyticsDatasetNotFoundError, AnalyticsQueryError) as exc:
         raise_query_http_error(exc)
 
 
 @router.get("/analytics/dashboards/{dashboard_id}", response_model=DashboardDefinitionResponse)
-def get_dashboard_definition(dashboard_id: str, request: Request, dataset: str = Query(...)):
+def get_dashboard_definition(
+    dashboard_id: str,
+    request: Request,
+    dataset: str = Query(...),
+    lang: str | None = Query(default=None),
+):
     query_service = get_query_service(request)
+    language = resolve_request_language(request, lang)
     try:
-        return query_service.get_dashboard_definition(dashboard_id=dashboard_id, dataset=dataset)
+        return query_service.get_dashboard_definition(
+            dashboard_id=dashboard_id,
+            dataset=dataset,
+            language=language,
+        )
     except (
         AnalyticsDashboardNotFoundError,
         AnalyticsDatasetNotFoundError,
