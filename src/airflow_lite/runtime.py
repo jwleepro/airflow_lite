@@ -2,21 +2,16 @@ import logging
 from datetime import date, datetime
 from pathlib import Path
 
-from airflow_lite.alerting import AlertManager, AlertMessage, EmailAlertChannel, WebhookAlertChannel
-from airflow_lite.config.settings import EmailChannelConfig, Settings, WebhookChannelConfig
+from airflow_lite.alerting.base import AlertMessage
+from airflow_lite.alerting.factory import build_alert_manager
+from airflow_lite.config.settings import Settings
 from airflow_lite.engine.pipeline import PipelineDefinition, PipelineRunner
 from airflow_lite.engine.stage import RetryConfig, StageDefinition, StageResult
 from airflow_lite.engine.state_machine import StageStateMachine
 from airflow_lite.engine.strategy import FullMigrationStrategy, IncrementalMigrationStrategy
 from airflow_lite.extract.chunked_reader import ChunkedReader
 from airflow_lite.extract.oracle_client import OracleClient
-from airflow_lite.mart import (
-    DuckDBMartBuilder,
-    MartRefreshCoordinator,
-    MartRefreshExecutor,
-    MartRefreshPlanner,
-    MartSnapshotLayout,
-)
+from airflow_lite.mart.factory import build_mart_infrastructure
 from airflow_lite.storage.database import Database
 from airflow_lite.storage.repository import PipelineRunRepository, StepRunRepository
 from airflow_lite.transform.parquet_writer import ParquetWriter
@@ -42,47 +37,8 @@ def create_runner_factory(settings, run_repo, step_repo):
     state_machine = StageStateMachine(step_repo)
     pipeline_config_map = {p.name: p for p in settings.pipelines}
 
-    alert_channels = []
-    for ch_config in settings.alerting.channels:
-        if isinstance(ch_config, EmailChannelConfig):
-            alert_channels.append(
-                EmailAlertChannel(
-                    smtp_host=ch_config.smtp_host,
-                    smtp_port=ch_config.smtp_port,
-                    sender=ch_config.sender,
-                    recipients=ch_config.recipients,
-                )
-            )
-        elif isinstance(ch_config, WebhookChannelConfig):
-            alert_channels.append(
-                WebhookAlertChannel(
-                    url=ch_config.url,
-                    timeout=ch_config.timeout,
-                )
-            )
-    alert_manager = AlertManager(
-        channels=alert_channels,
-        triggers={
-            "on_failure": settings.alerting.triggers.on_failure,
-            "on_success": settings.alerting.triggers.on_success,
-        },
-    )
-
-    mart_refresh_coordinator = None
-    mart_refresh_executor = None
-    if settings.mart.enabled and settings.mart.refresh_on_success:
-        mart_layout = MartSnapshotLayout(
-            root_dir=Path(settings.mart.root_path),
-            database_filename=settings.mart.database_filename,
-        )
-        mart_builder = DuckDBMartBuilder(mart_layout)
-        mart_planner = MartRefreshPlanner(mart_builder)
-        mart_refresh_coordinator = MartRefreshCoordinator(
-            planner=mart_planner,
-            parquet_root=Path(settings.storage.parquet_base_path),
-            pipeline_datasets=settings.mart.pipeline_datasets,
-        )
-        mart_refresh_executor = MartRefreshExecutor(mart_builder)
+    alert_manager = build_alert_manager(settings.alerting)
+    mart_infra = build_mart_infrastructure(settings)
 
     def _notify(status: str, context, exc: Exception | None = None) -> None:
         alert_manager.notify(
@@ -95,6 +51,61 @@ def create_runner_factory(settings, run_repo, step_repo):
             )
         )
 
+    def _on_failure_callback(context, exc):
+        _notify("failed", context, exc)
+
+    def _on_success_callback(context):
+        _notify("success", context)
+        if mart_infra is None:
+            return
+
+        try:
+            plan = mart_infra.coordinator.plan_refresh(context)
+        except Exception as plan_exc:
+            logger.exception(
+                "Mart refresh planning failed: %s / %s",
+                context.pipeline_name,
+                context.execution_date,
+            )
+            _notify("failed", context, plan_exc)
+            return
+
+        if plan is None:
+            return
+
+        try:
+            result = mart_infra.executor.execute_refresh(plan)
+        except Exception as mart_exc:
+            logger.exception(
+                "Mart refresh execution failed: %s / %s",
+                context.pipeline_name,
+                context.execution_date,
+            )
+            _notify("failed", context, mart_exc)
+            return
+
+        if not result.validation_report.is_valid:
+            issues = [issue.message for issue in result.validation_report.issues]
+            logger.error(
+                "Mart refresh validation failed: dataset=%s issues=%s",
+                result.plan.request.dataset_name,
+                issues,
+            )
+            _notify("failed", context, RuntimeError(f"mart validation failed: {issues}"))
+            return
+
+        logger.info(
+            "Mart refresh completed: dataset=%s mode=%s promoted=%s staging=%s current=%s snapshot=%s rows=%s files=%s",
+            result.plan.request.dataset_name,
+            result.plan.request.mode.value,
+            result.promoted,
+            result.plan.build_plan.paths.staging_db_path,
+            result.plan.build_plan.paths.current_db_path,
+            result.plan.build_plan.paths.snapshot_db_path,
+            result.build_result.row_count,
+            result.build_result.file_count,
+        )
+
     def factory(pipeline_name: str) -> PipelineRunner:
         pipeline_config = pipeline_config_map[pipeline_name]
         chunk_size = pipeline_config.chunk_size or settings.defaults.chunk_size
@@ -105,66 +116,11 @@ def create_runner_factory(settings, run_repo, step_repo):
         else:
             strategy = IncrementalMigrationStrategy(oracle_client, chunked_reader, parquet_writer)
 
-        def on_failure_callback(context, exc):
-            _notify("failed", context, exc)
-
-        def on_success_callback(context):
-            _notify("success", context)
-            if mart_refresh_coordinator is None:
-                return
-
-            try:
-                plan = mart_refresh_coordinator.plan_refresh(context)
-            except Exception as plan_exc:
-                logger.exception(
-                    "Mart refresh planning failed: %s / %s",
-                    context.pipeline_name,
-                    context.execution_date,
-                )
-                _notify("failed", context, plan_exc)
-                return
-
-            if plan is None:
-                return
-
-            try:
-                result = mart_refresh_executor.execute_refresh(plan)
-            except Exception as mart_exc:
-                logger.exception(
-                    "Mart refresh execution failed: %s / %s",
-                    context.pipeline_name,
-                    context.execution_date,
-                )
-                _notify("failed", context, mart_exc)
-                return
-
-            if not result.validation_report.is_valid:
-                issues = [issue.message for issue in result.validation_report.issues]
-                logger.error(
-                    "Mart refresh validation failed: dataset=%s issues=%s",
-                    result.plan.request.dataset_name,
-                    issues,
-                )
-                _notify("failed", context, RuntimeError(f"mart validation failed: {issues}"))
-                return
-
-            logger.info(
-                "Mart refresh completed: dataset=%s mode=%s promoted=%s staging=%s current=%s snapshot=%s rows=%s files=%s",
-                result.plan.request.dataset_name,
-                result.plan.request.mode.value,
-                result.promoted,
-                result.plan.build_plan.paths.staging_db_path,
-                result.plan.build_plan.paths.current_db_path,
-                result.plan.build_plan.paths.snapshot_db_path,
-                result.build_result.row_count,
-                result.build_result.file_count,
-            )
-
         retry_config = RetryConfig(
             max_attempts=settings.defaults.retry.max_attempts,
             min_wait_seconds=settings.defaults.retry.min_wait_seconds,
             max_wait_seconds=settings.defaults.retry.max_wait_seconds,
-            on_failure_callback=on_failure_callback,
+            on_failure_callback=_on_failure_callback,
         )
 
         def etl_stage(context) -> StageResult:
@@ -192,7 +148,7 @@ def create_runner_factory(settings, run_repo, step_repo):
                 callable=verify_stage,
                 retry_config=RetryConfig(
                     max_attempts=1,
-                    on_failure_callback=on_failure_callback,
+                    on_failure_callback=_on_failure_callback,
                 ),
             ),
         ]
@@ -208,7 +164,7 @@ def create_runner_factory(settings, run_repo, step_repo):
             run_repo=run_repo,
             step_repo=step_repo,
             state_machine=state_machine,
-            on_run_success=on_success_callback,
+            on_run_success=_on_success_callback,
         )
 
     return factory

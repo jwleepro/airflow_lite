@@ -52,8 +52,7 @@ class PipelineRunRepository:
 
     def create(self, run: PipelineRun) -> PipelineRun:
         """INSERT. id는 UUID 자동 생성."""
-        conn = self.database.get_connection()
-        try:
+        with self.database.connection() as conn:
             conn.execute(
                 """
                 INSERT INTO pipeline_runs
@@ -73,16 +72,13 @@ class PipelineRunRepository:
                 ),
             )
             conn.commit()
-        finally:
-            conn.close()
         return run
 
     def update_status(
         self, run_id: str, status: str, finished_at: datetime | None = None
     ) -> None:
         """status, finished_at 업데이트."""
-        conn = self.database.get_connection()
-        try:
+        with self.database.connection() as conn:
             conn.execute(
                 "UPDATE pipeline_runs SET status = ?, finished_at = ? WHERE id = ?",
                 (
@@ -92,26 +88,20 @@ class PipelineRunRepository:
                 ),
             )
             conn.commit()
-        finally:
-            conn.close()
 
     def find_by_id(self, run_id: str) -> PipelineRun | None:
         """단건 조회."""
-        conn = self.database.get_connection()
-        try:
+        with self.database.connection() as conn:
             row = conn.execute(
                 "SELECT * FROM pipeline_runs WHERE id = ?", (run_id,)
             ).fetchone()
-        finally:
-            conn.close()
         return _row_to_pipeline_run(row) if row else None
 
     def find_by_pipeline(
         self, pipeline_name: str, limit: int = 50
     ) -> list[PipelineRun]:
         """파이프라인 이름으로 최근 실행 이력 조회."""
-        conn = self.database.get_connection()
-        try:
+        with self.database.connection() as conn:
             rows = conn.execute(
                 """
                 SELECT * FROM pipeline_runs
@@ -121,8 +111,6 @@ class PipelineRunRepository:
                 """,
                 (pipeline_name, limit),
             ).fetchall()
-        finally:
-            conn.close()
         return [_row_to_pipeline_run(r) for r in rows]
 
     def find_by_pipeline_paginated(
@@ -130,8 +118,7 @@ class PipelineRunRepository:
     ) -> tuple[list[PipelineRun], int]:
         """파이프라인 이름으로 실행 이력 조회 (pagination). (runs, total) 반환."""
         offset = (page - 1) * page_size
-        conn = self.database.get_connection()
-        try:
+        with self.database.connection() as conn:
             total = conn.execute(
                 "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline_name = ?",
                 (pipeline_name,),
@@ -145,16 +132,13 @@ class PipelineRunRepository:
                 """,
                 (pipeline_name, page_size, offset),
             ).fetchall()
-        finally:
-            conn.close()
         return [_row_to_pipeline_run(r) for r in rows], total
 
     def find_by_execution_date(
         self, pipeline_name: str, execution_date: date
     ) -> PipelineRun | None:
         """특정 파이프라인의 특정 날짜 실행 조회."""
-        conn = self.database.get_connection()
-        try:
+        with self.database.connection() as conn:
             row = conn.execute(
                 """
                 SELECT * FROM pipeline_runs
@@ -164,15 +148,12 @@ class PipelineRunRepository:
                 """,
                 (pipeline_name, execution_date.isoformat()),
             ).fetchone()
-        finally:
-            conn.close()
         return _row_to_pipeline_run(row) if row else None
 
     def find_latest_success_by_execution_date(
         self, pipeline_name: str, execution_date: date
     ) -> PipelineRun | None:
-        conn = self.database.get_connection()
-        try:
+        with self.database.connection() as conn:
             row = conn.execute(
                 """
                 SELECT * FROM pipeline_runs
@@ -182,8 +163,6 @@ class PipelineRunRepository:
                 """,
                 (pipeline_name, execution_date.isoformat()),
             ).fetchone()
-        finally:
-            conn.close()
         return _row_to_pipeline_run(row) if row else None
 
 
@@ -195,8 +174,7 @@ class StepRunRepository:
 
     def create(self, step_run: StepRun) -> StepRun:
         """INSERT. id는 UUID 자동 생성."""
-        conn = self.database.get_connection()
-        try:
+        with self.database.connection() as conn:
             conn.execute(
                 """
                 INSERT INTO step_runs
@@ -218,8 +196,6 @@ class StepRunRepository:
                 ),
             )
             conn.commit()
-        finally:
-            conn.close()
         return step_run
 
     def update_status(self, step_id: str, status: str, **kwargs) -> None:
@@ -239,21 +215,15 @@ class StepRunRepository:
 
         params.append(step_id)
         sql = f"UPDATE step_runs SET {', '.join(sets)} WHERE id = ?"
-        conn = self.database.get_connection()
-        try:
+        with self.database.connection() as conn:
             conn.execute(sql, params)
             conn.commit()
-        finally:
-            conn.close()
 
     def find_by_pipeline_run(self, pipeline_run_id: str) -> list[StepRun]:
         """특정 파이프라인 실행의 모든 단계 조회."""
-        conn = self.database.get_connection()
-        try:
+        with self.database.connection() as conn:
             rows = conn.execute(
                 "SELECT * FROM step_runs WHERE pipeline_run_id = ? ORDER BY created_at",
                 (pipeline_run_id,),
             ).fetchall()
-        finally:
-            conn.close()
         return [_row_to_step_run(r) for r in rows]

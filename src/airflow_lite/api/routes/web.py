@@ -19,7 +19,7 @@ from airflow_lite.api.paths import (
     MONITOR_EXPORT_DELETE_JOB_PATH,
     MONITOR_PATH,
 )
-from airflow_lite.api.routes.pipelines import _build_run_response_with_steps
+from airflow_lite.api.schemas import build_run_response_with_steps
 from airflow_lite.api.webui import (
     render_analytics_dashboard_page,
     render_export_jobs_page,
@@ -131,7 +131,7 @@ def get_monitor_page(request: Request, lang: str | None = Query(default=None)):
         if run_repo is not None:
             runs = run_repo.find_by_pipeline(pipeline.name, limit=webui.recent_runs_limit)
             recent_runs = [
-                _build_run_response_with_steps(run, step_repo).model_dump(mode="json")
+                build_run_response_with_steps(run, step_repo).model_dump(mode="json")
                 for run in runs
             ]
             latest_run = recent_runs[0] if recent_runs else None
@@ -177,7 +177,7 @@ def get_run_detail_page(name: str, run_id: str, request: Request, lang: str | No
             language=language,
         )
 
-    run_dict = _build_run_response_with_steps(run_obj, step_repo).model_dump(mode="json")
+    run_dict = build_run_response_with_steps(run_obj, step_repo).model_dump(mode="json")
     pipeline_cfg = next((p for p in settings.pipelines if p.name == name), None)
     schedule = pipeline_cfg.schedule if pipeline_cfg else "-"
 

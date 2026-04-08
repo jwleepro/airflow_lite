@@ -447,6 +447,18 @@ class DuckDBAnalyticsQueryService:
         finally:
             connection.close()
 
+    @contextmanager
+    def execute_export_batches(self, sql: str, params: list, rows_per_batch: int):
+        """Export용 record batch reader를 반환한다.
+
+        export 서비스가 DuckDB 커넥션 세부사항에 직접 의존하지 않도록
+        공개 인터페이스로 제공한다.
+        """
+        with self._connect(read_only=True) as connection:
+            yield connection.execute(sql, params).fetch_record_batch(
+                rows_per_batch=rows_per_batch
+            )
+
     def _build_file_filters(
         self,
         dataset: str,

@@ -8,6 +8,13 @@ import pyarrow as pa
 from airflow_lite.engine.stage import StageContext
 
 
+def _next_month_start(year: int, month: int) -> tuple[int, int]:
+    """다음 월의 (year, month) 반환."""
+    if month == 12:
+        return year + 1, 1
+    return year, month + 1
+
+
 def _build_select_columns(context: StageContext) -> str:
     columns = getattr(context.table_config, "columns", None)
     return ", ".join(columns) if columns else "*"
@@ -20,9 +27,9 @@ class MigrationStrategy(ABC):
     def extract(self, context: StageContext) -> Iterator[pd.DataFrame]:
         """Oracle에서 청크 단위로 데이터 추출"""
 
-    @abstractmethod
     def transform(self, chunk: pd.DataFrame, context: StageContext) -> pa.Table:
-        """DataFrame을 PyArrow Table로 변환"""
+        """DataFrame을 PyArrow Table로 변환. 기본 구현: pandas → PyArrow 직변환."""
+        return pa.Table.from_pandas(chunk, preserve_index=False)
 
     @abstractmethod
     def load(self, table: pa.Table, context: StageContext) -> int:
@@ -85,10 +92,7 @@ class FullMigrationStrategy(MigrationStrategy):
         year = context.execution_date.year
         month = context.execution_date.month
 
-        if month == 12:
-            next_year, next_month = year + 1, 1
-        else:
-            next_year, next_month = year, month + 1
+        next_year, next_month = _next_month_start(year, month)
 
         selected_columns = _build_select_columns(context)
         return (
@@ -97,8 +101,7 @@ class FullMigrationStrategy(MigrationStrategy):
             f"AND {partition_col} < DATE '{next_year:04d}-{next_month:02d}-01'"
         )
 
-    def transform(self, chunk: pd.DataFrame, context: StageContext) -> pa.Table:
-        return pa.Table.from_pandas(chunk, preserve_index=False)
+    # transform()은 부모 MigrationStrategy의 기본 구현 사용
 
     def load(self, table: pa.Table, context: StageContext) -> int:
         year = context.execution_date.year
@@ -200,22 +203,8 @@ class IncrementalMigrationStrategy(MigrationStrategy):
         incremental_key = context.table_config.incremental_key
         exec_date = context.execution_date
 
-        year = exec_date.year
-        month = exec_date.month
-        day = exec_date.day
-
-        if exec_date.month == 12 and exec_date.day == 31:
-            next_date = date(year + 1, 1, 1)
-        else:
-            import calendar
-            last_day = calendar.monthrange(year, month)[1]
-            if day == last_day:
-                if month == 12:
-                    next_date = date(year + 1, 1, 1)
-                else:
-                    next_date = date(year, month + 1, 1)
-            else:
-                next_date = date(year, month, day + 1)
+        from datetime import timedelta
+        next_date = exec_date + timedelta(days=1)
 
         selected_columns = _build_select_columns(context)
         return (
@@ -224,8 +213,7 @@ class IncrementalMigrationStrategy(MigrationStrategy):
             f"AND {incremental_key} < DATE '{next_date.strftime('%Y-%m-%d')}'"
         )
 
-    def transform(self, chunk: pd.DataFrame, context: StageContext) -> pa.Table:
-        return pa.Table.from_pandas(chunk, preserve_index=False)
+    # transform()은 부모 MigrationStrategy의 기본 구현 사용
 
     def load(self, table: pa.Table, context: StageContext) -> int:
         year = context.execution_date.year
