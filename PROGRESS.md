@@ -34,9 +34,6 @@
 
 ## 검증 메모
 
-- 2026-04-08 코드 리뷰 수행. 전체 아키텍처/에러 처리/테스트 양호. webui.py 소스 누락 발견 후 즉시 복구.
-- DuckDB mart snapshot/staging/promotion 패턴 정상 구현 확인.
-- Query service 파라미터 바인딩 및 화이트리스트 검증 확인.
 - Export service cleanup_expired 매 API 호출 시 전체 파일 스캔 — 성능 개선 필요 (T-033).
 
 ## 인수인계
