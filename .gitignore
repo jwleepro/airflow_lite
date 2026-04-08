@@ -58,3 +58,6 @@ config/pipelines.yaml
 
 # Jupyter
 .ipynb_checkpoints/
+
+# claude local settings
+.claude/settings.local.json

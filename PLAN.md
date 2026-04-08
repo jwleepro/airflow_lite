@@ -78,15 +78,18 @@
   완료 조건: 운영자가 브라우저에서 dashboard KPI/차트/드릴다운 preview를 확인할 수 있고, export job 상태/만료/download 정보를 별도 화면에서 조회할 수 있으며 관련 테스트와 문서가 갱신된다.
 - `T-030` `/monitor` 계열 read-only 운영 화면을 Airflow-inspired operations console 방향으로 재설계한다.
   완료 조건: `/monitor`, `/monitor/analytics`, `/monitor/exports`가 공통 shell, dense table/listing, 상태 배지, 요약 헤더를 공유하고, 기존 read-only 동작과 테스트가 유지된다.
+- `T-031` `webui.py` 소스 파일 복구 및 Airflow-inspired 모니터링 UI 고도화.
+  완료 조건: webui.py 복구, Run Status Grid/Auto-refresh/Duration/Next Run/Error Summary/Step Timeline 반영, 테스트 통과.
 
 ### 현재
 
-- 현재 활성 작업 없음. `operations_overview` contract를 소비하는 read-only Web UI와 Airflow-inspired monitor refresh까지 반영됐다.
+- 현재 활성 작업 없음. `T-031` 완료 — `webui.py` 소스 복구 및 Airflow-inspired 모니터링 UI 개선.
 
 ### 다음
 
+- `T-032` `/health` 헬스체크 엔드포인트 추가 — DB 연결, 스케줄러 상태, 디스크 여유 확인
+- `T-033` export `cleanup_expired` 성능 개선 — 매 요청 전체 스캔 대신 쿨다운 기반 정리
 - Windows 서비스 운영 기준에서 export retention/cleanup 정책과 admin visibility를 보강한다.
-- 운영 모니터링 화면에 refresh/admin control 같은 후속 read-only/controlled action 범위를 정의한다.
 
 ## 의존 관계
 
@@ -98,8 +101,9 @@
 
 ## 우선순위
 
-1. export job 운영 정책(retention, cleanup, admin visibility)을 강화한다.
-2. 운영 모니터링 화면의 후속 admin control 범위를 정의한다.
+1. `/health` 헬스체크 엔드포인트 (T-032)
+2. export `cleanup_expired` 성능 개선 (T-033)
+3. export job 운영 정책(retention, cleanup, admin visibility)을 강화한다.
 
 ## 완료 정의
 

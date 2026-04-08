@@ -13,20 +13,28 @@
 
 ## 최근 완료 작업
 
+- `T-031` webui.py 소스 복구 및 Airflow-inspired 모니터링 UI 개선 (2026-04-08)
+  - Run Status Grid, Auto-refresh, Duration, Next Run, Error Summary, Step Timeline(Gantt) 추가
+  - `web.py`: `/monitor/pipelines/{name}/runs/{run_id}` 상세 라우트 추가, limit 5→25 변경, next_run 계산
+  - `pytest tests/test_api.py` 33개 전체 통과
+
 ## 진행 중
 
 - 현재 활성 작업 없음.
 
 ## 다음 작업
 
+- `T-032` `/health` 헬스체크 엔드포인트 추가 — DB 연결, 스케줄러 상태, 디스크 여유 확인
+- `T-033` export `cleanup_expired` 성능 개선 — 쿨다운 기반 정리
 - export retention/cleanup 정책과 admin visibility를 서비스 운영 관점에서 보강한다.
-- 운영 모니터링 화면에서 필요한 후속 admin control 범위를 정의한다.
 
 ## 블로커 및 리스크
 
-- 현재 작업 기준 활성 블로커 없음.
+- 현재 활성 블로커 없음.
 
 ## 검증 메모
+
+- Export service cleanup_expired 매 API 호출 시 전체 파일 스캔 — 성능 개선 필요 (T-033).
 
 ## 인수인계
 
