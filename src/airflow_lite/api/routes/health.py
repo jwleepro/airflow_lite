@@ -32,7 +32,7 @@ def _check_mart_db(request: Request) -> ComponentCheck:
     if query_service is None:
         return ComponentCheck(name="mart_db", status="ok", detail="not configured")
     try:
-        db_path = Path(query_service.db_path)
+        db_path = Path(query_service.database_path)
         if not db_path.exists():
             return ComponentCheck(name="mart_db", status="error", detail="database file missing")
         return ComponentCheck(name="mart_db", status="ok")

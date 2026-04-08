@@ -6,8 +6,8 @@ from airflow_lite.api.schemas import (
     PaginatedResponse,
     PipelineInfo,
     PipelineRunResponse,
-    StepRunResponse,
     TriggerRequest,
+    build_run_response_with_steps,
 )
 
 router = APIRouter(tags=["pipelines"])
@@ -19,35 +19,6 @@ def _resolve_runner(entry):
     if callable(entry):
         return entry()
     raise TypeError("runner_map 항목은 runner 또는 runner factory여야 합니다.")
-
-
-def build_run_response(run, step_runs) -> PipelineRunResponse:
-    return PipelineRunResponse(
-        id=run.id,
-        pipeline_name=run.pipeline_name,
-        execution_date=run.execution_date,
-        status=run.status,
-        started_at=run.started_at,
-        finished_at=run.finished_at,
-        trigger_type=run.trigger_type,
-        steps=[
-            StepRunResponse(
-                step_name=s.step_name,
-                status=s.status,
-                started_at=s.started_at,
-                finished_at=s.finished_at,
-                records_processed=s.records_processed,
-                error_message=s.error_message,
-                retry_count=s.retry_count,
-            )
-            for s in step_runs
-        ],
-    )
-
-
-def _build_run_response_with_steps(run, step_repo) -> PipelineRunResponse:
-    step_runs = step_repo.find_by_pipeline_run(run.id) if step_repo else []
-    return build_run_response(run, step_runs)
 
 
 @router.post("/pipelines/{name}/trigger", response_model=PipelineRunResponse)
@@ -66,7 +37,7 @@ def trigger_pipeline(name: str, body: TriggerRequest, req: Request):
     )
 
     step_repo = req.app.state.step_repo
-    return _build_run_response_with_steps(run, step_repo)
+    return build_run_response_with_steps(run, step_repo)
 
 
 @router.get("/pipelines", response_model=list[PipelineInfo])
@@ -107,7 +78,7 @@ def list_runs(name: str, req: Request, page: int = 1, page_size: int = 50):
     items, total = run_repo.find_by_pipeline_paginated(name, page=page, page_size=page_size)
     step_repo = req.app.state.step_repo
 
-    run_responses = [_build_run_response_with_steps(run, step_repo) for run in items]
+    run_responses = [build_run_response_with_steps(run, step_repo) for run in items]
 
     return PaginatedResponse(items=run_responses, total=total, page=page, page_size=page_size)
 
@@ -124,4 +95,4 @@ def get_run_detail(name: str, run_id: str, req: Request):
         raise HTTPException(status_code=404, detail=f"실행 ID '{run_id}'를 찾을 수 없습니다.")
 
     step_repo = req.app.state.step_repo
-    return _build_run_response_with_steps(run, step_repo)
+    return build_run_response_with_steps(run, step_repo)

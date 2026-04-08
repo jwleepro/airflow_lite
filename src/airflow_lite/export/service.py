@@ -276,10 +276,9 @@ class FilesystemAnalyticsExportService:
 
     def _write_artifact(self, plan: AnalyticsExportPlan, artifact_path: Path) -> int:
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
-        with self.query_service._connect(read_only=True) as connection:
-            reader = connection.execute(plan.sql, plan.params).fetch_record_batch(
-                rows_per_batch=self._rows_per_batch
-            )
+        with self.query_service.execute_export_batches(
+            plan.sql, plan.params, rows_per_batch=self._rows_per_batch
+        ) as reader:
             if plan.format is ExportFormat.PARQUET:
                 return self._write_parquet(artifact_path, reader)
             if plan.format is ExportFormat.CSV_ZIP:

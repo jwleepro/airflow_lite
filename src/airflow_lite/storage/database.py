@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 
 
@@ -12,6 +13,15 @@ class Database:
         conn.execute("PRAGMA foreign_keys = ON")
         conn.row_factory = sqlite3.Row
         return conn
+
+    @contextmanager
+    def connection(self):
+        """Context manager로 커넥션 자동 정리."""
+        conn = self.get_connection()
+        try:
+            yield conn
+        finally:
+            conn.close()
 
     def initialize(self) -> None:
         """schema.sql을 실행하여 테이블 생성."""

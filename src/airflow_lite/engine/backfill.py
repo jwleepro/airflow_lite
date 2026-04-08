@@ -3,8 +3,6 @@ from __future__ import annotations
 from datetime import date
 from typing import TYPE_CHECKING
 from dateutil.relativedelta import relativedelta
-from pathlib import Path
-import shutil
 import logging
 
 if TYPE_CHECKING:
@@ -20,7 +18,7 @@ class BackfillManager:
         parquet_base_path: str,
     ):
         self.pipeline_runner = pipeline_runner
-        self.parquet_base_path = Path(parquet_base_path)
+        self.parquet_base_path = parquet_base_path
 
     def run_backfill(
         self,
@@ -70,35 +68,3 @@ class BackfillManager:
             current += relativedelta(months=1)
 
         return months
-
-    def backup_existing(self, table_name: str, year: int, month: int) -> Path | None:
-        """기존 Parquet 파일을 .bak 확장자로 이동.
-
-        예: {TABLE_NAME}_{YYYY}_{MM}.parquet → {TABLE_NAME}_{YYYY}_{MM}.parquet.bak
-        파일이 없으면 None 반환.
-        """
-        parquet_dir = (
-            self.parquet_base_path / table_name / f"year={year:04d}" / f"month={month:02d}"
-        )
-        parquet_file = parquet_dir / f"{table_name}_{year:04d}_{month:02d}.parquet"
-
-        if not parquet_file.exists():
-            return None
-
-        bak_file = parquet_file.with_suffix(".parquet.bak")
-        shutil.move(str(parquet_file), str(bak_file))
-        logger.info(f"백업 생성: {parquet_file} → {bak_file}")
-        return bak_file
-
-    def remove_backup(self, bak_path: Path) -> None:
-        """검증(verify) 성공 시 .bak 파일 삭제."""
-        if bak_path and bak_path.exists():
-            bak_path.unlink()
-            logger.info(f"백업 삭제: {bak_path}")
-
-    def restore_backup(self, bak_path: Path) -> None:
-        """실패 시 .bak 파일을 원본 위치로 복원."""
-        if bak_path and bak_path.exists():
-            original = bak_path.with_suffix("")  # .bak 제거
-            shutil.move(str(bak_path), str(original))
-            logger.info(f"백업 복원: {bak_path} → {original}")
