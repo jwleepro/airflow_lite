@@ -169,6 +169,85 @@ def _coerce_int(value: int | str, field_name: str) -> int:
         raise ValueError(f"정수 필드 '{field_name}'의 값이 올바르지 않습니다: {value!r}") from exc
 
 
+def _coerce_int_fields(values: dict, field_names: tuple[str, ...], prefix: str) -> dict:
+    coerced = dict(values)
+    for field_name in field_names:
+        if field_name in coerced:
+            coerced[field_name] = _coerce_int(coerced[field_name], f"{prefix}.{field_name}")
+    return coerced
+
+
+def _build_optional_config(section_data, config_cls, *, prefix: str, int_fields: tuple[str, ...] = ()):
+    if not section_data:
+        return config_cls()
+    values = _coerce_int_fields(dict(section_data), int_fields, prefix)
+    return config_cls(**values)
+
+
+def _build_pipeline_configs(pipeline_items: list[dict]) -> list[PipelineConfig]:
+    pipelines: list[PipelineConfig] = []
+    for index, pipeline_data in enumerate(pipeline_items, start=1):
+        pipeline_values = dict(pipeline_data)
+        if pipeline_values.get("chunk_size") is not None:
+            pipeline_values["chunk_size"] = _coerce_int(
+                pipeline_values["chunk_size"], f"pipelines[{index}].chunk_size"
+            )
+        pipelines.append(PipelineConfig(**pipeline_values))
+    return pipelines
+
+
+def _build_alerting_config(alerting_data) -> AlertingConfig:
+    if not alerting_data:
+        return AlertingConfig()
+
+    channels = []
+    for channel_data in alerting_data.get("channels", []):
+        channel_values = dict(channel_data)
+        channel_type = channel_values.get("type")
+        if channel_type == "email":
+            channel_values = _coerce_int_fields(
+                channel_values,
+                ("smtp_port",),
+                "alerting.channels[]",
+            )
+            channels.append(EmailChannelConfig(**channel_values))
+            continue
+        if channel_type == "webhook":
+            channels.append(WebhookChannelConfig(**channel_values))
+            continue
+        raise ValueError(f"알 수 없는 알림 채널 타입: {channel_type!r}")
+
+    triggers = AlertingTriggersConfig(**alerting_data.get("triggers", {}))
+    return AlertingConfig(channels=channels, triggers=triggers)
+
+
+def _build_webui_config(webui_data) -> WebUIConfig:
+    if not webui_data:
+        return WebUIConfig()
+
+    webui_values = _coerce_int_fields(
+        dict(webui_data),
+        (
+            "monitor_refresh_seconds",
+            "analytics_refresh_seconds",
+            "exports_active_refresh_seconds",
+            "exports_idle_refresh_seconds",
+            "recent_runs_limit",
+            "detail_preview_page_size",
+            "analytics_export_jobs_limit",
+            "export_jobs_page_limit",
+            "error_message_max_length",
+        ),
+        "webui",
+    )
+    if "default_language" in webui_values:
+        webui_values["default_language"] = require_supported_language(
+            str(webui_values["default_language"]),
+            field_name="webui.default_language",
+        )
+    return WebUIConfig(**webui_values)
+
+
 class Settings:
     """YAML 설정 로더. 환경변수 ${VAR} 참조를 자동 치환한다."""
 
@@ -204,23 +283,16 @@ class Settings:
 
         data = _walk_and_substitute(raw)
 
-        oracle_data = dict(data["oracle"])
-        oracle_data["port"] = _coerce_int(oracle_data["port"], "oracle.port")
+        oracle_data = _coerce_int_fields(dict(data["oracle"]), ("port",), "oracle")
         oracle = OracleConfig(**oracle_data)
         storage = StorageConfig(**data["storage"])
 
         defaults_data = data.get("defaults", {})
-        retry_data = dict(defaults_data.get("retry", {}))
-        if "max_attempts" in retry_data:
-            retry_data["max_attempts"] = _coerce_int(retry_data["max_attempts"], "defaults.retry.max_attempts")
-        if "min_wait_seconds" in retry_data:
-            retry_data["min_wait_seconds"] = _coerce_int(
-                retry_data["min_wait_seconds"], "defaults.retry.min_wait_seconds"
-            )
-        if "max_wait_seconds" in retry_data:
-            retry_data["max_wait_seconds"] = _coerce_int(
-                retry_data["max_wait_seconds"], "defaults.retry.max_wait_seconds"
-            )
+        retry_data = _coerce_int_fields(
+            dict(defaults_data.get("retry", {})),
+            ("max_attempts", "min_wait_seconds", "max_wait_seconds"),
+            "defaults.retry",
+        )
         retry = RetryDefaults(**retry_data)
         parquet = ParquetDefaults(**defaults_data.get("parquet", {}))
         defaults = DefaultConfig(
@@ -229,107 +301,23 @@ class Settings:
             parquet=parquet,
         )
 
-        pipelines = []
-        for index, pipeline_data in enumerate(data.get("pipelines", []), start=1):
-            pipeline_values = dict(pipeline_data)
-            if pipeline_values.get("chunk_size") is not None:
-                pipeline_values["chunk_size"] = _coerce_int(
-                    pipeline_values["chunk_size"], f"pipelines[{index}].chunk_size"
-                )
-            pipelines.append(PipelineConfig(**pipeline_values))
-
-        api_data = data.get("api", {})
-        if api_data:
-            api_values = dict(api_data)
-            if "port" in api_values:
-                api_values["port"] = _coerce_int(api_values["port"], "api.port")
-            api = ApiConfig(**api_values)
-        else:
-            api = ApiConfig()
-
-        alerting_data = data.get("alerting", {})
-        if alerting_data:
-            channels = []
-            for ch_data in alerting_data.get("channels", []):
-                ch = dict(ch_data)
-                ch_type = ch.get("type")
-                if ch_type == "email":
-                    if "smtp_port" in ch:
-                        ch["smtp_port"] = _coerce_int(ch["smtp_port"], "alerting.channels[].smtp_port")
-                    channels.append(EmailChannelConfig(**ch))
-                elif ch_type == "webhook":
-                    channels.append(WebhookChannelConfig(**ch))
-                else:
-                    raise ValueError(f"알 수 없는 알림 채널 타입: {ch_type!r}")
-            triggers_data = alerting_data.get("triggers", {})
-            triggers = AlertingTriggersConfig(**triggers_data)
-            alerting = AlertingConfig(channels=channels, triggers=triggers)
-        else:
-            alerting = AlertingConfig()
-
-        mart_data = data.get("mart", {})
-        mart = MartConfig(**mart_data) if mart_data else MartConfig()
-
-        export_data = data.get("export", {})
-        if export_data:
-            export_values = dict(export_data)
-            if "retention_hours" in export_values:
-                export_values["retention_hours"] = _coerce_int(
-                    export_values["retention_hours"], "export.retention_hours"
-                )
-            if "cleanup_cooldown_seconds" in export_values:
-                export_values["cleanup_cooldown_seconds"] = _coerce_int(
-                    export_values["cleanup_cooldown_seconds"], "export.cleanup_cooldown_seconds"
-                )
-            if "max_workers" in export_values:
-                export_values["max_workers"] = _coerce_int(export_values["max_workers"], "export.max_workers")
-            if "rows_per_batch" in export_values:
-                export_values["rows_per_batch"] = _coerce_int(
-                    export_values["rows_per_batch"], "export.rows_per_batch"
-                )
-            export = ExportConfig(**export_values)
-        else:
-            export = ExportConfig()
-
-        scheduler_data = data.get("scheduler", {})
-        if scheduler_data:
-            scheduler_values = dict(scheduler_data)
-            if "max_instances" in scheduler_values:
-                scheduler_values["max_instances"] = _coerce_int(
-                    scheduler_values["max_instances"], "scheduler.max_instances"
-                )
-            if "misfire_grace_time_seconds" in scheduler_values:
-                scheduler_values["misfire_grace_time_seconds"] = _coerce_int(
-                    scheduler_values["misfire_grace_time_seconds"], "scheduler.misfire_grace_time_seconds"
-                )
-            scheduler = SchedulerConfig(**scheduler_values)
-        else:
-            scheduler = SchedulerConfig()
-
-        webui_data = data.get("webui", {})
-        if webui_data:
-            webui_values = dict(webui_data)
-            for key in (
-                "monitor_refresh_seconds",
-                "analytics_refresh_seconds",
-                "exports_active_refresh_seconds",
-                "exports_idle_refresh_seconds",
-                "recent_runs_limit",
-                "detail_preview_page_size",
-                "analytics_export_jobs_limit",
-                "export_jobs_page_limit",
-                "error_message_max_length",
-            ):
-                if key in webui_values:
-                    webui_values[key] = _coerce_int(webui_values[key], f"webui.{key}")
-            if "default_language" in webui_values:
-                webui_values["default_language"] = require_supported_language(
-                    str(webui_values["default_language"]),
-                    field_name="webui.default_language",
-                )
-            webui = WebUIConfig(**webui_values)
-        else:
-            webui = WebUIConfig()
+        pipelines = _build_pipeline_configs(data.get("pipelines", []))
+        api = _build_optional_config(data.get("api", {}), ApiConfig, prefix="api", int_fields=("port",))
+        alerting = _build_alerting_config(data.get("alerting", {}))
+        mart = _build_optional_config(data.get("mart", {}), MartConfig, prefix="mart")
+        export = _build_optional_config(
+            data.get("export", {}),
+            ExportConfig,
+            prefix="export",
+            int_fields=("retention_hours", "cleanup_cooldown_seconds", "max_workers", "rows_per_batch"),
+        )
+        scheduler = _build_optional_config(
+            data.get("scheduler", {}),
+            SchedulerConfig,
+            prefix="scheduler",
+            int_fields=("max_instances", "misfire_grace_time_seconds"),
+        )
+        webui = _build_webui_config(data.get("webui", {}))
 
         return cls(
             oracle=oracle,

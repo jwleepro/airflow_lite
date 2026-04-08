@@ -180,6 +180,17 @@ def test_root_redirects_to_monitor():
     assert response.headers["location"] == "/monitor"
 
 
+def test_root_redirects_to_monitor_with_non_default_language():
+    settings = _make_settings()
+    app = create_app(settings)
+    client = TestClient(app)
+
+    response = client.get("/?lang=ko", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/monitor?lang=ko"
+
+
 def test_monitor_page_renders_html_with_pipeline_summary(client):
     response = client.get("/monitor")
 
@@ -378,6 +389,46 @@ def test_monitor_export_page_creates_and_lists_jobs(
     assert job_id in body
     assert "completed" in body
     assert f"/api/v1/analytics/exports/{job_id}/download" in body
+
+
+def test_monitor_export_delete_redirect_preserves_dataset_and_language(
+    tmp_path,
+    mock_run_repo,
+    mock_step_repo,
+    analytics_mart_builder,
+):
+    settings = _make_settings()
+    database_path = tmp_path / "analytics.duckdb"
+    analytics_mart_builder(database_path)
+    query_service = DuckDBAnalyticsQueryService(database_path)
+    export_service = FilesystemAnalyticsExportService(tmp_path / "exports", query_service)
+    app = create_app(
+        settings=settings,
+        run_repo=mock_run_repo,
+        step_repo=mock_step_repo,
+        analytics_query_service=query_service,
+        analytics_export_service=export_service,
+    )
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/monitor/analytics/exports?lang=ko",
+        content="dataset=mes_ops&dashboard_id=operations_overview&action_key=csv_zip_export&format=csv.zip&source=OPS_TABLE&lang=ko",
+        headers={"content-type": "application/x-www-form-urlencoded"},
+        follow_redirects=False,
+    )
+    location = create_response.headers["location"]
+    job_id = parse_qs(urlparse(location).query)["job_id"][0]
+
+    delete_response = client.post(
+        "/monitor/exports/delete-job?lang=ko",
+        content=f"job_id={job_id}&dataset=mes_ops&lang=ko",
+        headers={"content-type": "application/x-www-form-urlencoded"},
+        follow_redirects=False,
+    )
+
+    assert delete_response.status_code == 303
+    assert delete_response.headers["location"] == "/monitor/exports?dataset=mes_ops&lang=ko"
 
 
 # ── GET /api/v1/pipelines ─────────────────────────────────────────────────────

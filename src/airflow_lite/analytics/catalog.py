@@ -5,7 +5,8 @@ from airflow_lite.api.paths import (
     chart_query_path,
     detail_query_path,
 )
-from airflow_lite.api.analytics_contracts import (
+from airflow_lite.api.paths import ANALYTICS_SUMMARY_PATH
+from airflow_lite.query.contracts import (
     AnalyticsFilterType,
     DashboardActionScope,
     DashboardActionStatus,
@@ -83,6 +84,7 @@ def build_dashboard_definition(
                 label=translate("analytics.dashboard.card.rows_loaded.label", language),
                 metric_key="rows_loaded",
                 description=translate("analytics.dashboard.card.rows_loaded.description", language),
+                summary_endpoint=ANALYTICS_SUMMARY_PATH,
                 request_method=DashboardRequestMethod.POST,
                 filter_keys=COMMON_FILTER_KEYS,
                 span=DashboardLayoutSpan.SMALL,
@@ -92,6 +94,7 @@ def build_dashboard_definition(
                 label=translate("analytics.dashboard.card.source_files.label", language),
                 metric_key="source_files",
                 description=translate("analytics.dashboard.card.source_files.description", language),
+                summary_endpoint=ANALYTICS_SUMMARY_PATH,
                 request_method=DashboardRequestMethod.POST,
                 filter_keys=COMMON_FILTER_KEYS,
                 span=DashboardLayoutSpan.SMALL,
@@ -101,6 +104,7 @@ def build_dashboard_definition(
                 label=translate("analytics.dashboard.card.source_tables.label", language),
                 metric_key="source_tables",
                 description=translate("analytics.dashboard.card.source_tables.description", language),
+                summary_endpoint=ANALYTICS_SUMMARY_PATH,
                 request_method=DashboardRequestMethod.POST,
                 filter_keys=COMMON_FILTER_KEYS,
                 span=DashboardLayoutSpan.SMALL,
@@ -110,6 +114,7 @@ def build_dashboard_definition(
                 label=translate("analytics.dashboard.card.covered_months.label", language),
                 metric_key="covered_months",
                 description=translate("analytics.dashboard.card.covered_months.description", language),
+                summary_endpoint=ANALYTICS_SUMMARY_PATH,
                 request_method=DashboardRequestMethod.POST,
                 filter_keys=COMMON_FILTER_KEYS,
                 span=DashboardLayoutSpan.SMALL,
@@ -119,6 +124,7 @@ def build_dashboard_definition(
                 label=translate("analytics.dashboard.card.avg_rows_per_file.label", language),
                 metric_key="avg_rows_per_file",
                 description=translate("analytics.dashboard.card.avg_rows_per_file.description", language),
+                summary_endpoint=ANALYTICS_SUMMARY_PATH,
                 request_method=DashboardRequestMethod.POST,
                 filter_keys=COMMON_FILTER_KEYS,
                 span=DashboardLayoutSpan.SMALL,
