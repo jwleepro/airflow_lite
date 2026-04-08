@@ -12,6 +12,7 @@ def _run_foreground():
 
     from airflow_lite.config.settings import Settings
     from airflow_lite.logging_config.setup import setup_logging
+    from airflow_lite.runtime import create_runner_factory
     from airflow_lite.storage.database import Database
     from airflow_lite.storage.repository import PipelineRunRepository, StepRunRepository
 
@@ -25,13 +26,10 @@ def _run_foreground():
     run_repo = PipelineRunRepository(db)
     step_repo = StepRunRepository(db)
 
-    # win_service와 동일한 runner factory 사용
-    from airflow_lite.service.win_service import AirflowLiteService
-    factory_fn = AirflowLiteService._create_runner_factory
-    runner_factory = factory_fn(None, settings, run_repo, step_repo)
+    runner_factory = create_runner_factory(settings, run_repo, step_repo)
 
     from airflow_lite.scheduler.scheduler import PipelineScheduler
-    scheduler = PipelineScheduler(settings, runner_factory)
+    scheduler = PipelineScheduler(settings, runner_factory, config_path=config_path)
     scheduler.register_pipelines()
     scheduler.start()
 

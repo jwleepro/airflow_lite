@@ -67,10 +67,12 @@ def create_app(
     )
 
     # 라우터 등록
+    from airflow_lite.api.routes.web import router as web_router
     from airflow_lite.api.routes.pipelines import router as pipelines_router
     from airflow_lite.api.routes.analytics import router as analytics_router
     from airflow_lite.api.routes.backfill import router as backfill_router
 
+    app.include_router(web_router)
     app.include_router(pipelines_router, prefix="/api/v1")
     app.include_router(backfill_router, prefix="/api/v1")
     app.include_router(analytics_router, prefix="/api/v1")

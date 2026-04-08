@@ -26,7 +26,7 @@
 - `M1. 협업 및 분석 기초`: 완료
 - `M2. DuckDB mart 골격`: 완료
 - `M3. 조회 및 다운로드 API 확장`: 완료
-- `M4. 대시보드 및 시각화 계층`: 진행 중 (`T-025`~`T-028` 완료; Web UI 후속 범위 남음)
+- `M4. 대시보드 및 시각화 계층`: 진행 중 (`T-025`~`T-030` 완료; 운영 정책/admin control 후속 범위 남음)
 
 ## 작업 목록
 
@@ -74,15 +74,19 @@
   완료 조건: `mes_ops` dataset용 KPI 계산 로직이 summary 응답과 dashboard card 구성에 반영되고, `POST /api/v1/analytics/details/source-files/query`가 서버 측 pagination/sort로 동작하며 관련 테스트가 존재한다.
 - `T-028` async export workflow와 `export/` 모듈을 추가한다.
   완료 조건: `POST /api/v1/analytics/exports`, `GET /api/v1/analytics/exports/{job_id}`, `GET /api/v1/analytics/exports/{job_id}/download`가 동작하고, csv.zip/parquet artifact 생성 및 상태 추적이 파일 시스템 기반으로 구현되며 관련 테스트가 존재한다.
+- `T-029` `operations_overview` dashboard contract를 소비하는 read-only analytics Web UI와 export admin visibility를 추가한다.
+  완료 조건: 운영자가 브라우저에서 dashboard KPI/차트/드릴다운 preview를 확인할 수 있고, export job 상태/만료/download 정보를 별도 화면에서 조회할 수 있으며 관련 테스트와 문서가 갱신된다.
+- `T-030` `/monitor` 계열 read-only 운영 화면을 Airflow-inspired operations console 방향으로 재설계한다.
+  완료 조건: `/monitor`, `/monitor/analytics`, `/monitor/exports`가 공통 shell, dense table/listing, 상태 배지, 요약 헤더를 공유하고, 기존 read-only 동작과 테스트가 유지된다.
 
 ### 현재
 
-- 현재 활성 작업 없음. analytics backend 빈칸은 detail/export까지 구현됐다.
+- 현재 활성 작업 없음. `operations_overview` contract를 소비하는 read-only Web UI와 Airflow-inspired monitor refresh까지 반영됐다.
 
 ### 다음
 
-- Web UI 범위를 별도 작업으로 쪼개고 dashboard contract를 소비하는 화면 뼈대를 구현한다.
 - Windows 서비스 운영 기준에서 export retention/cleanup 정책과 admin visibility를 보강한다.
+- 운영 모니터링 화면에 refresh/admin control 같은 후속 read-only/controlled action 범위를 정의한다.
 
 ## 의존 관계
 
@@ -94,8 +98,8 @@
 
 ## 우선순위
 
-1. Web UI 범위를 별도 milestone/task로 쪼개고 dashboard contract 소비 경로를 정한다.
-2. export job 운영 정책(retention, cleanup, admin visibility)을 강화한다.
+1. export job 운영 정책(retention, cleanup, admin visibility)을 강화한다.
+2. 운영 모니터링 화면의 후속 admin control 범위를 정의한다.
 
 ## 완료 정의
 
@@ -108,4 +112,4 @@
 
 ## 다음 추천 작업
 
-`operations_overview` dashboard contract를 실제로 소비하는 Web UI 뼈대를 추가하고, export job 운영 상태를 admin 관점에서 조회하는 후속 경로를 설계한다.
+Windows 서비스 운영 기준의 export retention/cleanup 정책을 구체화하고, 운영 모니터링 화면에서 필요한 후속 admin control 범위를 설계한다.
