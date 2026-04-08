@@ -18,7 +18,7 @@ from airflow_lite.api.analytics_contracts import (
 )
 from airflow_lite.query import DuckDBAnalyticsQueryService
 from airflow_lite.export import FilesystemAnalyticsExportService
-from airflow_lite.config.settings import ApiConfig, PipelineConfig
+from airflow_lite.config.settings import ApiConfig, PipelineConfig, WebUIConfig
 from airflow_lite.storage.models import PipelineRun, StepRun
 
 
@@ -39,6 +39,7 @@ def _make_settings(pipeline_names=("test_pipeline",)):
     settings = MagicMock()
     settings.pipelines = pipelines
     settings.api = ApiConfig(allowed_origins=["http://10.0.0.1"])
+    settings.webui = WebUIConfig()
     return settings
 
 
@@ -195,6 +196,18 @@ def test_monitor_page_renders_html_with_pipeline_summary(client):
     assert "success" in body
 
 
+def test_monitor_page_uses_webui_refresh_setting(mock_run_repo, mock_step_repo):
+    settings = _make_settings()
+    settings.webui = WebUIConfig(monitor_refresh_seconds=15)
+    app = create_app(settings=settings, run_repo=mock_run_repo, step_repo=mock_step_repo)
+    client = TestClient(app)
+
+    response = client.get("/monitor")
+
+    assert response.status_code == 200
+    assert 'content="15"' in response.text
+
+
 def test_monitor_analytics_page_renders_dashboard_view(
     tmp_path,
     mock_run_repo,
@@ -227,6 +240,38 @@ def test_monitor_analytics_page_renders_dashboard_view(
     assert "Queue Export" in body
     assert "source: OPS_TABLE" in body
     assert "/monitor/exports?dataset=mes_ops" in body
+
+
+def test_monitor_analytics_page_uses_webui_defaults(
+    tmp_path,
+    mock_run_repo,
+    mock_step_repo,
+    analytics_mart_builder,
+):
+    settings = _make_settings()
+    settings.webui = WebUIConfig(
+        analytics_refresh_seconds=45,
+        default_dataset="mes_ops",
+        default_dashboard_id="operations_overview",
+    )
+    database_path = tmp_path / "analytics.duckdb"
+    analytics_mart_builder(database_path)
+    query_service = DuckDBAnalyticsQueryService(database_path)
+    export_service = FilesystemAnalyticsExportService(tmp_path / "exports", query_service)
+    app = create_app(
+        settings=settings,
+        run_repo=mock_run_repo,
+        step_repo=mock_step_repo,
+        analytics_query_service=query_service,
+        analytics_export_service=export_service,
+    )
+    client = TestClient(app)
+
+    response = client.get("/monitor/analytics")
+
+    assert response.status_code == 200
+    assert 'content="45"' in response.text
+    assert "Operations Overview" in response.text
 
 
 def test_monitor_export_page_creates_and_lists_jobs(

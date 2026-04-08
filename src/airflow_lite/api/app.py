@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from airflow_lite.api.paths import API_PREFIX
+
 if TYPE_CHECKING:
     from airflow_lite.config.settings import Settings
     from airflow_lite.storage.repository import PipelineRunRepository, StepRunRepository
@@ -71,10 +73,12 @@ def create_app(
     from airflow_lite.api.routes.pipelines import router as pipelines_router
     from airflow_lite.api.routes.analytics import router as analytics_router
     from airflow_lite.api.routes.backfill import router as backfill_router
+    from airflow_lite.api.routes.health import router as health_router
 
     app.include_router(web_router)
-    app.include_router(pipelines_router, prefix="/api/v1")
-    app.include_router(backfill_router, prefix="/api/v1")
-    app.include_router(analytics_router, prefix="/api/v1")
+    app.include_router(health_router, prefix=API_PREFIX)
+    app.include_router(pipelines_router, prefix=API_PREFIX)
+    app.include_router(backfill_router, prefix=API_PREFIX)
+    app.include_router(analytics_router, prefix=API_PREFIX)
 
     return app

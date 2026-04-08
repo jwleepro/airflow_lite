@@ -118,6 +118,39 @@ class AlertingConfig:
 
 
 @dataclass
+class ExportConfig:
+    retention_hours: int = 72
+    cleanup_cooldown_seconds: int = 300
+    root_path: str = "data/exports"
+    max_workers: int = 2
+    rows_per_batch: int = 10000
+    parquet_compression: str = "snappy"
+    zip_compression: str = "deflated"
+
+
+@dataclass
+class SchedulerConfig:
+    coalesce: bool = True
+    max_instances: int = 1
+    misfire_grace_time_seconds: int = 3600
+
+
+@dataclass
+class WebUIConfig:
+    monitor_refresh_seconds: int = 30
+    analytics_refresh_seconds: int = 60
+    exports_active_refresh_seconds: int = 10
+    exports_idle_refresh_seconds: int = 30
+    recent_runs_limit: int = 25
+    detail_preview_page_size: int = 8
+    analytics_export_jobs_limit: int = 8
+    export_jobs_page_limit: int = 50
+    error_message_max_length: int = 120
+    default_dataset: str = "mes_ops"
+    default_dashboard_id: str = "operations_overview"
+
+
+@dataclass
 class MartConfig:
     enabled: bool = False
     root_path: str = "data/mart"
@@ -136,7 +169,19 @@ def _coerce_int(value: int | str, field_name: str) -> int:
 class Settings:
     """YAML 설정 로더. 환경변수 ${VAR} 참조를 자동 치환한다."""
 
-    def __init__(self, oracle, storage, defaults, pipelines, api=None, alerting=None, mart=None):
+    def __init__(
+        self,
+        oracle,
+        storage,
+        defaults,
+        pipelines,
+        api=None,
+        alerting=None,
+        mart=None,
+        export=None,
+        scheduler=None,
+        webui=None,
+    ):
         self.oracle = oracle
         self.storage = storage
         self.defaults = defaults
@@ -144,6 +189,9 @@ class Settings:
         self.api = api or ApiConfig()
         self.alerting = alerting or AlertingConfig()
         self.mart = mart or MartConfig()
+        self.export = export or ExportConfig()
+        self.scheduler = scheduler or SchedulerConfig()
+        self.webui = webui or WebUIConfig()
 
     @classmethod
     def load(cls, config_path: str) -> "Settings":
@@ -219,6 +267,62 @@ class Settings:
         mart_data = data.get("mart", {})
         mart = MartConfig(**mart_data) if mart_data else MartConfig()
 
+        export_data = data.get("export", {})
+        if export_data:
+            export_values = dict(export_data)
+            if "retention_hours" in export_values:
+                export_values["retention_hours"] = _coerce_int(
+                    export_values["retention_hours"], "export.retention_hours"
+                )
+            if "cleanup_cooldown_seconds" in export_values:
+                export_values["cleanup_cooldown_seconds"] = _coerce_int(
+                    export_values["cleanup_cooldown_seconds"], "export.cleanup_cooldown_seconds"
+                )
+            if "max_workers" in export_values:
+                export_values["max_workers"] = _coerce_int(export_values["max_workers"], "export.max_workers")
+            if "rows_per_batch" in export_values:
+                export_values["rows_per_batch"] = _coerce_int(
+                    export_values["rows_per_batch"], "export.rows_per_batch"
+                )
+            export = ExportConfig(**export_values)
+        else:
+            export = ExportConfig()
+
+        scheduler_data = data.get("scheduler", {})
+        if scheduler_data:
+            scheduler_values = dict(scheduler_data)
+            if "max_instances" in scheduler_values:
+                scheduler_values["max_instances"] = _coerce_int(
+                    scheduler_values["max_instances"], "scheduler.max_instances"
+                )
+            if "misfire_grace_time_seconds" in scheduler_values:
+                scheduler_values["misfire_grace_time_seconds"] = _coerce_int(
+                    scheduler_values["misfire_grace_time_seconds"], "scheduler.misfire_grace_time_seconds"
+                )
+            scheduler = SchedulerConfig(**scheduler_values)
+        else:
+            scheduler = SchedulerConfig()
+
+        webui_data = data.get("webui", {})
+        if webui_data:
+            webui_values = dict(webui_data)
+            for key in (
+                "monitor_refresh_seconds",
+                "analytics_refresh_seconds",
+                "exports_active_refresh_seconds",
+                "exports_idle_refresh_seconds",
+                "recent_runs_limit",
+                "detail_preview_page_size",
+                "analytics_export_jobs_limit",
+                "export_jobs_page_limit",
+                "error_message_max_length",
+            ):
+                if key in webui_values:
+                    webui_values[key] = _coerce_int(webui_values[key], f"webui.{key}")
+            webui = WebUIConfig(**webui_values)
+        else:
+            webui = WebUIConfig()
+
         return cls(
             oracle=oracle,
             storage=storage,
@@ -227,4 +331,7 @@ class Settings:
             api=api,
             alerting=alerting,
             mart=mart,
+            export=export,
+            scheduler=scheduler,
+            webui=webui,
         )

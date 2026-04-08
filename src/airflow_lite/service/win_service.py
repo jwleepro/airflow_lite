@@ -1,6 +1,5 @@
 import threading
 import logging
-from pathlib import Path
 
 import win32serviceutil
 import win32service
@@ -8,6 +7,7 @@ import win32event
 import servicemanager
 import uvicorn
 
+from airflow_lite.bootstrap import build_runtime_services, get_api_bind, load_settings
 from airflow_lite.runtime import create_runner_factory
 
 logger = logging.getLogger("airflow_lite.service")
@@ -43,73 +43,44 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
             )
 
             # 1. Settings 로드
-            from airflow_lite.config.settings import Settings
-            settings = Settings.load("config/pipelines.yaml")
+            config_path, settings = load_settings()
 
             # 2. 로깅 설정
             from airflow_lite.logging_config.setup import setup_logging
             setup_logging(settings.storage.log_path)
 
-            # 3. DB 초기화 및 Repository 생성
-            from airflow_lite.storage.database import Database
-            from airflow_lite.storage.repository import PipelineRunRepository, StepRunRepository
-            db = Database(settings.storage.sqlite_path)
-            db.initialize()
-            run_repo = PipelineRunRepository(db)
-            step_repo = StepRunRepository(db)
-
-            # 4. PipelineScheduler 시작
-            runner_factory = self._create_runner_factory(settings, run_repo, step_repo)
+            # 3. 런타임 구성 생성
+            runtime = build_runtime_services(
+                settings,
+                runner_factory_builder=self._create_runner_factory,
+            )
 
             from airflow_lite.scheduler.scheduler import PipelineScheduler
-            self.scheduler = PipelineScheduler(settings, runner_factory)
+            self.scheduler = PipelineScheduler(
+                settings,
+                runtime.runner_factory,
+                config_path=config_path,
+            )
             self.scheduler.register_pipelines()
             self.scheduler.start()
 
-            # 5. uvicorn을 별도 스레드에서 실행
-            runner_map = {
-                p.name: (lambda pipeline_name=p.name: runner_factory(pipeline_name))
-                for p in settings.pipelines
-            }
-            from airflow_lite.engine.backfill import BackfillManager
-            backfill_map = {
-                p.name: (
-                    lambda pipeline_name=p.name: BackfillManager(
-                        pipeline_runner=runner_factory(pipeline_name),
-                        parquet_base_path=settings.storage.parquet_base_path,
-                    )
-                )
-                for p in settings.pipelines
-            }
-
+            # 4. uvicorn을 별도 스레드에서 실행
             from airflow_lite.api.app import create_app
-            from airflow_lite.export import FilesystemAnalyticsExportService
-            from airflow_lite.query import DuckDBAnalyticsQueryService
-
-            mart_database_path = (
-                Path(settings.mart.root_path)
-                / "current"
-                / settings.mart.database_filename
-            )
-            analytics_query_service = DuckDBAnalyticsQueryService(mart_database_path)
-            analytics_export_service = FilesystemAnalyticsExportService(
-                root_path=Path(settings.mart.root_path).parent / "exports",
-                query_service=analytics_query_service,
-            )
             app = create_app(
                 settings,
-                runner_map=runner_map,
-                backfill_map=backfill_map,
-                run_repo=run_repo,
-                step_repo=step_repo,
-                analytics_query_service=analytics_query_service,
-                analytics_export_service=analytics_export_service,
+                runner_map=runtime.runner_map,
+                backfill_map=runtime.backfill_map,
+                run_repo=runtime.run_repo,
+                step_repo=runtime.step_repo,
+                analytics_query_service=runtime.analytics_query_service,
+                analytics_export_service=runtime.analytics_export_service,
             )
+            host, port = get_api_bind(settings)
 
             config = uvicorn.Config(
                 app=app,
-                host=getattr(settings.api, "host", "0.0.0.0"),
-                port=getattr(settings.api, "port", 8000),
+                host=host,
+                port=port,
                 log_level="info",
             )
             self.uvicorn_server = uvicorn.Server(config)

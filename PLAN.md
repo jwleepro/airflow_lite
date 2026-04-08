@@ -82,16 +82,23 @@
   완료 조건: webui.py 복구, Run Status Grid/Auto-refresh/Duration/Next Run/Error Summary/Step Timeline 반영, 테스트 통과.
 - `T-034` 운영 모니터링 UI 및 API 주변 dead code 정리와 경량 리팩토링.
   완료 조건: `/monitor` 계열 구현에서 실제로 쓰이지 않는 코드/중복 경로가 제거되고, 관련 테스트 및 정적 검사가 통과한다.
+- `T-032` `/health` 헬스체크 엔드포인트 추가 — DB 연결, 스케줄러 상태, 디스크 여유 확인.
+  완료 조건: `GET /api/v1/health`가 scheduler, mart_db, disk 상태를 반환하고 테스트가 존재한다.
+- `T-033` export `cleanup_expired` 성능 개선 — 매 요청 전체 스캔 대신 쿨다운 기반 정리.
+  완료 조건: `cleanup_cooldown_seconds` 파라미터로 쿨다운 주기를 제어하고, 쿨다운 내 중복 스캔이 방지되며 테스트가 존재한다.
+
+- `T-035` Windows 서비스 운영 기준 export retention/cleanup 정책과 admin visibility 보강.
+  완료 조건: YAML에서 retention_hours/cleanup_cooldown_seconds 설정 가능, admin 삭제 API/UI 동작, 관련 테스트 존재.
+- `T-036` 런타임 부트스트랩/설정 외부화/운영 UI 상수 정리.
+  완료 조건: `__main__.py`와 `win_service.py`의 부트스트랩 중복이 제거되고, export/scheduler/web UI 운영 상수가 YAML 설정을 통해 제어되며, 관련 테스트가 갱신된다.
 
 ### 현재
 
-- 현재 활성 작업 없음. `T-034` 완료 — 운영 모니터링 UI 및 API 주변 dead code 정리와 경량 리팩토링.
+- 현재 활성 작업 없음. `T-036` 완료.
 
 ### 다음
 
-- `T-032` `/health` 헬스체크 엔드포인트 추가 — DB 연결, 스케줄러 상태, 디스크 여유 확인
-- `T-033` export `cleanup_expired` 성능 개선 — 매 요청 전체 스캔 대신 쿨다운 기반 정리
-- Windows 서비스 운영 기준에서 export retention/cleanup 정책과 admin visibility를 보강한다.
+- M4 마일스톤 후속 범위 검토 및 M5 정의.
 
 ## 의존 관계
 
@@ -103,9 +110,7 @@
 
 ## 우선순위
 
-1. `/health` 헬스체크 엔드포인트 (T-032)
-2. export `cleanup_expired` 성능 개선 (T-033)
-3. export job 운영 정책(retention, cleanup, admin visibility)을 강화한다.
+1. M4 마일스톤 후속 범위 검토 및 M5 정의.
 
 ## 완료 정의
 
@@ -118,4 +123,4 @@
 
 ## 다음 추천 작업
 
-Windows 서비스 운영 기준의 export retention/cleanup 정책을 구체화하고, 운영 모니터링 화면에서 필요한 후속 admin control 범위를 설계한다.
+M4 마일스톤의 남은 후속 범위를 검토하고, 다음 마일스톤(M5)의 방향을 정의한다.

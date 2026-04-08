@@ -76,8 +76,42 @@ def _make_settings(pipelines=None):
     s.mart.root_path = "/tmp/mart"
     s.mart.database_filename = "analytics.duckdb"
     s.mart.pipeline_datasets = {}
+    s.export.root_path = "/tmp/exports"
+    s.export.retention_hours = 72
+    s.export.cleanup_cooldown_seconds = 300
+    s.export.max_workers = 2
+    s.export.rows_per_batch = 10000
+    s.export.parquet_compression = "snappy"
+    s.export.zip_compression = "deflated"
+    s.scheduler.coalesce = True
+    s.scheduler.max_instances = 1
+    s.scheduler.misfire_grace_time_seconds = 3600
+    s.webui.monitor_refresh_seconds = 30
+    s.webui.analytics_refresh_seconds = 60
+    s.webui.exports_active_refresh_seconds = 10
+    s.webui.exports_idle_refresh_seconds = 30
+    s.webui.recent_runs_limit = 25
+    s.webui.detail_preview_page_size = 8
+    s.webui.analytics_export_jobs_limit = 8
+    s.webui.export_jobs_page_limit = 50
+    s.webui.error_message_max_length = 120
+    s.webui.default_dataset = "mes_ops"
+    s.webui.default_dashboard_id = "operations_overview"
     s.pipelines = pipelines if pipelines is not None else []
     return s
+
+
+def _make_runtime(settings):
+    runtime = MagicMock(name="runtime")
+    runtime.settings = settings
+    runtime.run_repo = MagicMock(name="run_repo")
+    runtime.step_repo = MagicMock(name="step_repo")
+    runtime.runner_factory = MagicMock(name="runner_factory")
+    runtime.runner_map = {}
+    runtime.backfill_map = {}
+    runtime.analytics_query_service = MagicMock(name="analytics_query_service")
+    runtime.analytics_export_service = MagicMock(name="analytics_export_service")
+    return runtime
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -142,52 +176,51 @@ class TestSvcDoRun:
     def run_ctx(self, svc):
         """모든 의존성을 mock 하고 SvcDoRun() 을 한 번 실행, mock 딕셔너리를 yield."""
         mock_settings = _make_settings()
+        mock_runtime = _make_runtime(mock_settings)
         mock_scheduler = MagicMock(name="scheduler")
         mock_uvicorn_server = MagicMock(name="uvicorn_server")
         mock_api_thread = MagicMock(name="api_thread")
 
-        with patch("airflow_lite.config.settings.Settings") as MockSettings, \
+        with patch("airflow_lite.service.win_service.load_settings") as mock_load_settings, \
+             patch("airflow_lite.service.win_service.build_runtime_services", return_value=mock_runtime) as mock_build_runtime, \
              patch("airflow_lite.logging_config.setup.setup_logging") as mock_logging, \
-             patch("airflow_lite.storage.database.Database") as MockDatabase, \
-             patch("airflow_lite.storage.repository.PipelineRunRepository"), \
-             patch("airflow_lite.storage.repository.StepRunRepository"), \
              patch("airflow_lite.scheduler.scheduler.PipelineScheduler",
                    return_value=mock_scheduler), \
              patch("airflow_lite.api.app.create_app"), \
-             patch("airflow_lite.export.FilesystemAnalyticsExportService"), \
-             patch.object(svc, "_create_runner_factory", return_value=MagicMock()), \
              patch("airflow_lite.service.win_service.uvicorn") as mock_uvicorn_mod, \
              patch("airflow_lite.service.win_service.threading") as mock_threading_mod, \
              patch("airflow_lite.service.win_service.servicemanager"), \
              patch.object(win32event, "WaitForSingleObject"):
 
-            MockSettings.load.return_value = mock_settings
+            mock_load_settings.return_value = ("config/pipelines.yaml", mock_settings)
             mock_uvicorn_mod.Server.return_value = mock_uvicorn_server
             mock_threading_mod.Thread.return_value = mock_api_thread
 
             svc.SvcDoRun()
 
             yield {
-                "MockSettings": MockSettings,
+                "load_settings": mock_load_settings,
+                "build_runtime_services": mock_build_runtime,
                 "setup_logging": mock_logging,
-                "MockDatabase": MockDatabase,
                 "scheduler": mock_scheduler,
                 "uvicorn_server": mock_uvicorn_server,
                 "api_thread": mock_api_thread,
                 "settings": mock_settings,
+                "runtime": mock_runtime,
                 "threading": mock_threading_mod,
             }
 
     def test_loads_settings_from_yaml(self, run_ctx):
-        run_ctx["MockSettings"].load.assert_called_once_with("config/pipelines.yaml")
+        run_ctx["load_settings"].assert_called_once_with()
 
     def test_calls_setup_logging_with_log_path(self, run_ctx):
         run_ctx["setup_logging"].assert_called_once_with(
             run_ctx["settings"].storage.log_path
         )
 
-    def test_initializes_database(self, run_ctx):
-        run_ctx["MockDatabase"].return_value.initialize.assert_called_once()
+    def test_builds_runtime_services(self, run_ctx):
+        run_ctx["build_runtime_services"].assert_called_once()
+        assert "runner_factory_builder" in run_ctx["build_runtime_services"].call_args.kwargs
 
     def test_registers_pipelines(self, run_ctx):
         run_ctx["scheduler"].register_pipelines.assert_called_once()
@@ -207,23 +240,22 @@ class TestSvcDoRun:
         pipeline = MagicMock(name="pipeline")
         pipeline.name = "test_pipeline"
         mock_settings = _make_settings(pipelines=[pipeline])
+        mock_runtime = _make_runtime(mock_settings)
+        mock_runtime.runner_map = {"test_pipeline": MagicMock(name="runner_entry")}
+        mock_runtime.backfill_map = {"test_pipeline": MagicMock(name="backfill_entry")}
         create_app_mock = MagicMock()
 
-        with patch("airflow_lite.config.settings.Settings") as MockSettings, \
+        with patch("airflow_lite.service.win_service.load_settings") as mock_load_settings, \
+             patch("airflow_lite.service.win_service.build_runtime_services", return_value=mock_runtime), \
              patch("airflow_lite.logging_config.setup.setup_logging"), \
-             patch("airflow_lite.storage.database.Database"), \
-             patch("airflow_lite.storage.repository.PipelineRunRepository"), \
-             patch("airflow_lite.storage.repository.StepRunRepository"), \
              patch("airflow_lite.scheduler.scheduler.PipelineScheduler"), \
              patch("airflow_lite.api.app.create_app", create_app_mock), \
-             patch("airflow_lite.export.FilesystemAnalyticsExportService"), \
-             patch.object(svc, "_create_runner_factory", return_value=MagicMock()), \
              patch("airflow_lite.service.win_service.uvicorn"), \
              patch("airflow_lite.service.win_service.threading"), \
              patch("airflow_lite.service.win_service.servicemanager"), \
              patch.object(win32event, "WaitForSingleObject"):
 
-            MockSettings.load.return_value = mock_settings
+            mock_load_settings.return_value = ("config/pipelines.yaml", mock_settings)
             svc.SvcDoRun()
 
         _, kwargs = create_app_mock.call_args
@@ -235,31 +267,28 @@ class TestSvcDoRun:
     def test_waits_for_stop_event_with_infinite_timeout(self, svc):
         """WaitForSingleObject(stop_event, INFINITE) 로 종료 이벤트를 대기해야 한다."""
         mock_settings = _make_settings()
-        with patch("airflow_lite.config.settings.Settings") as MockSettings, \
+        mock_runtime = _make_runtime(mock_settings)
+        with patch("airflow_lite.service.win_service.load_settings") as mock_load_settings, \
+             patch("airflow_lite.service.win_service.build_runtime_services", return_value=mock_runtime), \
              patch("airflow_lite.logging_config.setup.setup_logging"), \
-             patch("airflow_lite.storage.database.Database"), \
-             patch("airflow_lite.storage.repository.PipelineRunRepository"), \
-             patch("airflow_lite.storage.repository.StepRunRepository"), \
              patch("airflow_lite.scheduler.scheduler.PipelineScheduler"), \
              patch("airflow_lite.api.app.create_app"), \
-             patch("airflow_lite.export.FilesystemAnalyticsExportService"), \
-             patch.object(svc, "_create_runner_factory", return_value=MagicMock()), \
              patch("airflow_lite.service.win_service.uvicorn"), \
              patch("airflow_lite.service.win_service.threading"), \
              patch("airflow_lite.service.win_service.servicemanager"), \
              patch.object(win32event, "WaitForSingleObject") as mock_wait:
 
-            MockSettings.load.return_value = mock_settings
+            mock_load_settings.return_value = ("config/pipelines.yaml", mock_settings)
             svc.SvcDoRun()
 
         mock_wait.assert_called_once_with(svc.stop_event, win32event.INFINITE)
 
     def test_startup_failure_does_not_propagate_exception(self, svc):
         """Settings.load() 실패 시 예외가 밖으로 전파되지 않아야 한다."""
-        with patch("airflow_lite.config.settings.Settings") as MockSettings, \
+        with patch("airflow_lite.service.win_service.load_settings") as mock_load_settings, \
              patch("airflow_lite.service.win_service.servicemanager"), \
              patch.object(win32event, "WaitForSingleObject"):
-            MockSettings.load.side_effect = FileNotFoundError("config not found")
+            mock_load_settings.side_effect = FileNotFoundError("config not found")
             svc.SvcDoRun()  # should not raise
 
 

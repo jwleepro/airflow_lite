@@ -5,8 +5,11 @@ from airflow_lite.config.settings import (
     _walk_and_substitute,
     AlertingConfig,
     EmailChannelConfig,
+    ExportConfig,
     MartConfig,
+    SchedulerConfig,
     WebhookChannelConfig,
+    WebUIConfig,
     Settings,
 )
 
@@ -294,3 +297,141 @@ mart:
         assert settings.mart.enabled is True
         assert settings.mart.root_path == "/tmp/mart"
         assert settings.mart.pipeline_datasets["production_log"] == "mes_ops"
+
+    def test_load_export_config(self):
+        config_text = """\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines: []
+
+export:
+  retention_hours: 48
+  cleanup_cooldown_seconds: 120
+  root_path: "/tmp/exports"
+"""
+
+        with patch("builtins.open", mock_open(read_data=config_text)):
+            settings = Settings.load("pipelines.yaml")
+
+        assert isinstance(settings.export, ExportConfig)
+        assert settings.export.retention_hours == 48
+        assert settings.export.cleanup_cooldown_seconds == 120
+        assert settings.export.root_path == "/tmp/exports"
+
+    def test_export_config_defaults(self):
+        config_text = """\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines: []
+"""
+
+        with patch("builtins.open", mock_open(read_data=config_text)):
+            settings = Settings.load("pipelines.yaml")
+
+        assert isinstance(settings.export, ExportConfig)
+        assert settings.export.retention_hours == 72
+        assert settings.export.cleanup_cooldown_seconds == 300
+
+    def test_load_extended_export_scheduler_and_webui_config(self):
+        config_text = """\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines: []
+
+export:
+  root_path: "/tmp/exports"
+  max_workers: 4
+  rows_per_batch: 4096
+  parquet_compression: "zstd"
+  zip_compression: "stored"
+
+scheduler:
+  coalesce: false
+  max_instances: 2
+  misfire_grace_time_seconds: 120
+
+webui:
+  monitor_refresh_seconds: 15
+  analytics_refresh_seconds: 45
+  exports_active_refresh_seconds: 5
+  exports_idle_refresh_seconds: 25
+  recent_runs_limit: 12
+  detail_preview_page_size: 6
+  analytics_export_jobs_limit: 4
+  export_jobs_page_limit: 20
+  error_message_max_length: 80
+  default_dataset: "custom_ops"
+  default_dashboard_id: "operations_overview"
+"""
+
+        with patch("builtins.open", mock_open(read_data=config_text)):
+            settings = Settings.load("pipelines.yaml")
+
+        assert settings.export.max_workers == 4
+        assert settings.export.rows_per_batch == 4096
+        assert settings.export.parquet_compression == "zstd"
+        assert settings.export.zip_compression == "stored"
+        assert isinstance(settings.scheduler, SchedulerConfig)
+        assert settings.scheduler.coalesce is False
+        assert settings.scheduler.max_instances == 2
+        assert settings.scheduler.misfire_grace_time_seconds == 120
+        assert isinstance(settings.webui, WebUIConfig)
+        assert settings.webui.monitor_refresh_seconds == 15
+        assert settings.webui.analytics_refresh_seconds == 45
+        assert settings.webui.default_dataset == "custom_ops"
+
+    def test_scheduler_and_webui_config_defaults(self):
+        config_text = """\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines: []
+"""
+
+        with patch("builtins.open", mock_open(read_data=config_text)):
+            settings = Settings.load("pipelines.yaml")
+
+        assert isinstance(settings.scheduler, SchedulerConfig)
+        assert settings.scheduler.max_instances == 1
+        assert isinstance(settings.webui, WebUIConfig)
+        assert settings.webui.default_dataset == "mes_ops"
+        assert settings.webui.export_jobs_page_limit == 50

@@ -5,6 +5,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+from airflow_lite.api.paths import ANALYTICS_SUMMARY_PATH
+
 
 class AnalyticsFilterType(str, Enum):
     DATE_RANGE = "date_range"
@@ -199,7 +201,7 @@ class DashboardCardDefinition(BaseModel):
     label: str
     metric_key: str
     description: str | None = None
-    summary_endpoint: str = "/api/v1/analytics/summary"
+    summary_endpoint: str = ANALYTICS_SUMMARY_PATH
     request_method: DashboardRequestMethod = DashboardRequestMethod.POST
     filter_keys: list[str] = Field(default_factory=list)
     span: DashboardLayoutSpan = DashboardLayoutSpan.SMALL
