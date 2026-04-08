@@ -7,8 +7,6 @@ from datetime import date
 import pytest
 
 from airflow_lite.engine.stage import StageContext
-from airflow_lite.engine.strategy import IncrementalMigrationStrategy
-from airflow_lite.extract.chunked_reader import ChunkedReader
 from .conftest import INCR_ROWS_BY_DAY, TEST_INCR_TABLE
 
 
