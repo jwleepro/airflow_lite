@@ -1,6 +1,8 @@
-from abc import ABC, abstractmethod
-from typing import Iterator
 from datetime import date
+from pathlib import Path
+from abc import ABC, abstractmethod
+from datetime import timedelta
+from typing import Iterator
 
 import pandas as pd
 import pyarrow as pa
@@ -43,7 +45,30 @@ class MigrationStrategy(ABC):
         """실행 완료 후 정리/복구 훅."""
 
 
-class FullMigrationStrategy(MigrationStrategy):
+class OracleParquetMigrationStrategy(MigrationStrategy, ABC):
+    def __init__(self, oracle_client, chunked_reader, parquet_writer):
+        self.oracle_client = oracle_client
+        self.chunked_reader = chunked_reader
+        self.parquet_writer = parquet_writer
+
+    def _configure_chunk_reader(self, context: StageContext) -> None:
+        self.chunked_reader.connection = self.oracle_client.get_connection()
+        self.chunked_reader.chunk_size = context.chunk_size
+
+    @staticmethod
+    def _partition_target(context: StageContext) -> tuple[str, int, int]:
+        return (
+            context.table_config.table,
+            context.execution_date.year,
+            context.execution_date.month,
+        )
+
+    @staticmethod
+    def _select_prefix(context: StageContext) -> str:
+        return f"SELECT {_build_select_columns(context)} FROM {context.table_config.table}"
+
+
+class FullMigrationStrategy(OracleParquetMigrationStrategy):
     """전체 이관: 월별 파티션 전체를 덮어쓰기.
 
     extract: partition_column 기반 WHERE절로 해당 월 전체 데이터 추출
@@ -52,32 +77,22 @@ class FullMigrationStrategy(MigrationStrategy):
     """
 
     def __init__(self, oracle_client, chunked_reader, parquet_writer):
-        self.oracle_client = oracle_client
-        self.chunked_reader = chunked_reader
-        self.parquet_writer = parquet_writer
+        super().__init__(oracle_client, chunked_reader, parquet_writer)
         self._is_first_chunk = True
         self._had_backup = False
 
     def extract(self, context: StageContext) -> Iterator[pd.DataFrame]:
         query = self._build_full_query(context)
-        self.chunked_reader.connection = self.oracle_client.get_connection()
-        self.chunked_reader.chunk_size = context.chunk_size
+        self._configure_chunk_reader(context)
         self._is_first_chunk = True
-        self.parquet_writer.finalize_partition(
-            context.table_config.table,
-            context.execution_date.year,
-            context.execution_date.month,
-        )
+        table_name, year, month = self._partition_target(context)
+        self.parquet_writer.finalize_partition(table_name, year, month)
 
         def _iter_chunks() -> Iterator[pd.DataFrame]:
             try:
                 yield from self.chunked_reader.read_chunks(query)
             finally:
-                self.parquet_writer.finalize_partition(
-                    context.table_config.table,
-                    context.execution_date.year,
-                    context.execution_date.month,
-                )
+                self.parquet_writer.finalize_partition(table_name, year, month)
 
         return _iter_chunks()
 
@@ -87,16 +102,13 @@ class FullMigrationStrategy(MigrationStrategy):
             WHERE LOG_DATE >= DATE '2026-03-01'
               AND LOG_DATE < DATE '2026-04-01'
         """
-        table = context.table_config.table
         partition_col = context.table_config.partition_column
         year = context.execution_date.year
         month = context.execution_date.month
 
         next_year, next_month = _next_month_start(year, month)
-
-        selected_columns = _build_select_columns(context)
         return (
-            f"SELECT {selected_columns} FROM {table} "
+            f"{self._select_prefix(context)} "
             f"WHERE {partition_col} >= DATE '{year:04d}-{month:02d}-01' "
             f"AND {partition_col} < DATE '{next_year:04d}-{next_month:02d}-01'"
         )
@@ -104,12 +116,9 @@ class FullMigrationStrategy(MigrationStrategy):
     # transform()은 부모 MigrationStrategy의 기본 구현 사용
 
     def load(self, table: pa.Table, context: StageContext) -> int:
-        year = context.execution_date.year
-        month = context.execution_date.month
-        table_name = context.table_config.table
+        table_name, year, month = self._partition_target(context)
 
         if self._is_first_chunk:
-            # 기존 파일 .bak으로 백업 후 새 파일 생성
             self._had_backup = self.parquet_writer.backup_existing(table_name, year, month)
             self._is_first_chunk = False
             append = False
@@ -137,16 +146,12 @@ class FullMigrationStrategy(MigrationStrategy):
         finally:
             cursor.close()
 
-        year = context.execution_date.year
-        month = context.execution_date.month
-        table_name = context.table_config.table
+        table_name, year, month = self._partition_target(context)
         parquet_count = self.parquet_writer.count_rows(table_name, year, month)
         return oracle_count == parquet_count
 
     def finalize_run(self, context: StageContext, succeeded: bool) -> None:
-        year = context.execution_date.year
-        month = context.execution_date.month
-        table_name = context.table_config.table
+        table_name, year, month = self._partition_target(context)
 
         self.parquet_writer.finalize_partition(table_name, year, month)
         if succeeded:
@@ -160,7 +165,7 @@ class FullMigrationStrategy(MigrationStrategy):
         self._had_backup = False
 
 
-class IncrementalMigrationStrategy(MigrationStrategy):
+class IncrementalMigrationStrategy(OracleParquetMigrationStrategy):
     """증분 이관: 마지막 이관 이후 변경분만 처리.
 
     extract: incremental_key 기반 WHERE절로 변경분 추출
@@ -169,9 +174,7 @@ class IncrementalMigrationStrategy(MigrationStrategy):
     """
 
     def __init__(self, oracle_client, chunked_reader, parquet_writer):
-        self.oracle_client = oracle_client
-        self.chunked_reader = chunked_reader
-        self.parquet_writer = parquet_writer
+        super().__init__(oracle_client, chunked_reader, parquet_writer)
         self._extract_count = 0
         self._loaded_count = 0
         self._initial_partition_rows = 0
@@ -179,14 +182,14 @@ class IncrementalMigrationStrategy(MigrationStrategy):
 
     def extract(self, context: StageContext) -> Iterator[pd.DataFrame]:
         query = self._build_incremental_query(context)
-        self.chunked_reader.connection = self.oracle_client.get_connection()
-        self.chunked_reader.chunk_size = context.chunk_size
+        self._configure_chunk_reader(context)
         self._extract_count = 0
         self._loaded_count = 0
+        table_name, year, month = self._partition_target(context)
         self._initial_partition_rows = self.parquet_writer.count_rows(
-            context.table_config.table,
-            context.execution_date.year,
-            context.execution_date.month,
+            table_name,
+            year,
+            month,
         )
         self._written_files = []
 
@@ -199,16 +202,11 @@ class IncrementalMigrationStrategy(MigrationStrategy):
 
     def _build_incremental_query(self, context: StageContext) -> str:
         """incremental_key 기반 WHERE절 생성 (execution_date 당일 변경분)."""
-        table = context.table_config.table
         incremental_key = context.table_config.incremental_key
         exec_date = context.execution_date
-
-        from datetime import timedelta
         next_date = exec_date + timedelta(days=1)
-
-        selected_columns = _build_select_columns(context)
         return (
-            f"SELECT {selected_columns} FROM {table} "
+            f"{self._select_prefix(context)} "
             f"WHERE {incremental_key} >= DATE '{exec_date.strftime('%Y-%m-%d')}' "
             f"AND {incremental_key} < DATE '{next_date.strftime('%Y-%m-%d')}'"
         )
@@ -216,9 +214,7 @@ class IncrementalMigrationStrategy(MigrationStrategy):
     # transform()은 부모 MigrationStrategy의 기본 구현 사용
 
     def load(self, table: pa.Table, context: StageContext) -> int:
-        year = context.execution_date.year
-        month = context.execution_date.month
-        table_name = context.table_config.table
+        table_name, year, month = self._partition_target(context)
 
         output_path = self.parquet_writer.write_chunk(table, table_name, year, month, append=True)
         self._written_files.append(str(output_path))
@@ -228,9 +224,7 @@ class IncrementalMigrationStrategy(MigrationStrategy):
 
     def verify(self, context: StageContext) -> bool:
         """추출 건수와 실제 파티션 증가분이 모두 기대값과 일치하는지 확인한다."""
-        year = context.execution_date.year
-        month = context.execution_date.month
-        table_name = context.table_config.table
+        table_name, year, month = self._partition_target(context)
         current_partition_rows = self.parquet_writer.count_rows(table_name, year, month)
         expected_partition_rows = self._initial_partition_rows + self._loaded_count
 
@@ -242,8 +236,6 @@ class IncrementalMigrationStrategy(MigrationStrategy):
     def finalize_run(self, context: StageContext, succeeded: bool) -> None:
         if not succeeded:
             for output_path in self._written_files:
-                from pathlib import Path
-
                 path = Path(output_path)
                 if path.exists():
                     path.unlink()

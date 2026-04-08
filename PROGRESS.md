@@ -13,6 +13,17 @@
 
 ## 최근 완료 작업
 
+- `T-039` webui/settings/strategy/web route 리팩토링 정리 (2026-04-08)
+  - `src/airflow_lite/api/webui.py`를 backward-compatible facade로 축소하고 페이지별 렌더러를 `webui_monitor.py`, `webui_run_detail.py`, `webui_analytics.py`, `webui_exports.py`로 분리
+  - `src/airflow_lite/config/settings.py`에 section/int coercion helper를 추가해 `Settings.load()` 반복 패턴 축소
+  - `src/airflow_lite/engine/strategy.py`에 `OracleParquetMigrationStrategy` 공통 베이스를 도입해 reader/partition/select 중복 제거
+  - `src/airflow_lite/api/routes/web.py`에 redirect/form helper를 추가해 monitor export 관련 form 파싱과 redirect query 조립 중복 제거
+  - 테스트 갱신: `tests/test_api.py`
+
+- `T-038` 프로젝트 로컬 `.venv`를 `Python 3.12`로 고정 (2026-04-08)
+  - 프로젝트 루트 `.venv/`를 Python 3.12 인터프리터로 생성
+  - 로컬 개발/검증 시 system Python 대신 저장소 가상환경을 우선 사용하도록 정리
+
 - `T-037` Web UI/Analytics 영어·한글(i18n) 구조화 지원 (2026-04-08)
   - `src/airflow_lite/i18n.py` 추가 — `en/ko` 메시지 카탈로그, `resolve_language`(`query > webui.default_language > Accept-Language`) 구현
   - `src/airflow_lite/config/settings.py` 확장 — `webui.default_language`(`en` 기본, `en|ko` 검증) 추가
@@ -62,6 +73,10 @@
 ## 블로커 및 리스크
 
 ## 검증 메모
+
+- 프로젝트 로컬 `.venv` 인터프리터 버전 확인: `Python 3.12.12`
+- `./.venv/bin/python -m pytest tests/test_api.py tests/test_settings.py tests/test_extract.py -q --maxfail=1 --basetemp .tmp_pytest_refactor` -> `121 passed`
+- `./.venv/bin/python -m pytest tests/test_query_service.py tests/test_service.py -q --maxfail=1 --basetemp .tmp_pytest_query_refactor` -> `50 passed`
 
 ## 인수인계
 

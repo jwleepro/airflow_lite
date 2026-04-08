@@ -153,3 +153,5 @@ pytest tests/
 # 패키지 설치 (개발 모드)
 pip install -e ".[dev]"
 ```
+
+- 로컬 agent는 저장소에 `.venv`가 있으면 해당 가상환경의 Python 인터프리터를 우선 사용해 설치·테스트를 실행한다.

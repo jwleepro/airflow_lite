@@ -55,6 +55,25 @@ def _read_form_values(body: bytes) -> dict[str, list[str]]:
     return parse_qs(body.decode("utf-8"), keep_blank_values=False)
 
 
+async def _read_form_data(request: Request) -> dict[str, list[str]]:
+    return _read_form_values(await request.body())
+
+
+def _first_value(values: dict[str, list[str]], key: str, default: str | None = None) -> str | None:
+    items = values.get(key)
+    if not items:
+        return default
+    return items[0]
+
+
+def _redirect(path: str, *, language: str = "en", **query_params) -> RedirectResponse:
+    query_data = {key: value for key, value in query_params.items() if value}
+    if language != "en":
+        query_data["lang"] = language
+    query = urlencode(query_data)
+    return RedirectResponse(url=f"{path}{'?' + query if query else ''}", status_code=303)
+
+
 def _calc_next_run(schedule_cron: str) -> str | None:
     """APScheduler CronTrigger를 사용해 다음 예정 실행 시각을 계산한다."""
     try:
@@ -98,22 +117,16 @@ def _extract_detail_key(endpoint: str | None) -> str | None:
 
 
 def _redirect_to_exports(job_id: str, dataset: str, language: str) -> RedirectResponse:
-    query_data = {"job_id": job_id, "dataset": dataset}
-    if language != "en":
-        query_data["lang"] = language
-    query = urlencode(query_data)
-    return RedirectResponse(url=f"{MONITOR_EXPORTS_PATH}?{query}", status_code=303)
+    return _redirect(MONITOR_EXPORTS_PATH, language=language, job_id=job_id, dataset=dataset)
 
 
 @router.get("/")
 def redirect_root(request: Request):
     requested_lang = request.query_params.get("lang")
     if requested_lang is None:
-        return RedirectResponse(url=MONITOR_PATH, status_code=303)
+        return _redirect(MONITOR_PATH)
     language = resolve_request_language(request, requested_lang)
-    query_data = {"lang": language} if language != "en" else {}
-    query = urlencode(query_data)
-    return RedirectResponse(url=f"{MONITOR_PATH}{'?' + query if query else ''}", status_code=303)
+    return _redirect(MONITOR_PATH, language=language)
 
 
 @router.get(MONITOR_PATH, response_class=HTMLResponse)
@@ -307,15 +320,10 @@ async def create_analytics_export_from_monitor(request: Request):
             language=request_language,
         )
 
-    form_data = _read_form_values(await request.body())
-
-    def _first(name: str, default: str = "") -> str:
-        values = form_data.get(name)
-        return values[0] if values else default
-
-    dataset = _first("dataset", webui.default_dataset)
-    dashboard_id = _first("dashboard_id", webui.default_dashboard_id)
-    language = resolve_request_language(request, _first("lang") or None)
+    form_data = await _read_form_data(request)
+    dataset = _first_value(form_data, "dataset", webui.default_dataset) or webui.default_dataset
+    dashboard_id = _first_value(form_data, "dashboard_id", webui.default_dashboard_id) or webui.default_dashboard_id
+    language = resolve_request_language(request, _first_value(form_data, "lang"))
 
     try:
         dashboard = query_service.get_dashboard_definition(
@@ -327,8 +335,8 @@ async def create_analytics_export_from_monitor(request: Request):
         create_response = export_service.create_export(
             ExportCreateRequest(
                 dataset=dataset,
-                action_key=_first("action_key"),
-                format=ExportFormat(_first("format")),
+                action_key=_first_value(form_data, "action_key", "") or "",
+                format=ExportFormat(_first_value(form_data, "format", "") or ""),
                 filters=selected_filters,
             )
         )
@@ -357,21 +365,17 @@ async def delete_export_job_from_monitor(request: Request):
             language=request_language,
         )
 
-    form_data = _read_form_values(await request.body())
-    job_id = (form_data.get("job_id") or [None])[0]
-    dataset = (form_data.get("dataset") or [None])[0]
-    language = resolve_request_language(request, (form_data.get("lang") or [None])[0])
+    form_data = await _read_form_data(request)
+    job_id = _first_value(form_data, "job_id")
+    dataset = _first_value(form_data, "dataset")
+    language = resolve_request_language(request, _first_value(form_data, "lang"))
     if job_id:
         try:
             export_service.delete_job(job_id)
         except AnalyticsExportJobNotFoundError:
             pass
 
-    redirect_query = {"dataset": dataset}
-    if language != "en":
-        redirect_query["lang"] = language
-    query = urlencode({k: v for k, v in redirect_query.items() if v})
-    return RedirectResponse(url=f"{MONITOR_EXPORTS_PATH}{'?' + query if query else ''}", status_code=303)
+    return _redirect(MONITOR_EXPORTS_PATH, language=language, dataset=dataset)
 
 
 @router.post(MONITOR_EXPORT_DELETE_COMPLETED_PATH)
@@ -387,16 +391,12 @@ async def delete_completed_exports_from_monitor(request: Request):
             language=request_language,
         )
 
-    form_data = _read_form_values(await request.body())
-    dataset = (form_data.get("dataset") or [None])[0]
-    language = resolve_request_language(request, (form_data.get("lang") or [None])[0])
+    form_data = await _read_form_data(request)
+    dataset = _first_value(form_data, "dataset")
+    language = resolve_request_language(request, _first_value(form_data, "lang"))
     export_service.delete_all_completed()
 
-    redirect_query = {"dataset": dataset}
-    if language != "en":
-        redirect_query["lang"] = language
-    query = urlencode({k: v for k, v in redirect_query.items() if v})
-    return RedirectResponse(url=f"{MONITOR_EXPORTS_PATH}{'?' + query if query else ''}", status_code=303)
+    return _redirect(MONITOR_EXPORTS_PATH, language=language, dataset=dataset)
 
 
 @router.get(MONITOR_EXPORTS_PATH, response_class=HTMLResponse)

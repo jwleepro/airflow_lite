@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from airflow_lite.api.analytics_contracts import SummaryMetricCard, SummaryPrecision
+from airflow_lite.query.contracts import SummaryMetricCard, SummaryPrecision
 from airflow_lite.i18n import DEFAULT_LANGUAGE, translate
 
 

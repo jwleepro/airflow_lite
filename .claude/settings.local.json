@@ -6,7 +6,10 @@
       "Bash(find /d/00_TestProject/airflow_lite/tests -name \"test_*.py\" -exec wc -l {} \\\\;)",
       "Bash(grep -v \"^$\")",
       "Bash(find /d/00_TestProject/airflow_lite/src/airflow_lite/api/routes -type f -name \"*.py\" -exec wc -l {} +)",
-      "Bash(xargs wc:*)"
+      "Bash(xargs wc:*)",
+      "Bash(.venv/bin/pip install:*)",
+      "Bash(.venv/bin/python -m pytest tests/ -x -q)",
+      "Bash(.venv/bin/python -m pytest tests/ -x -q --ignore=tests/test_backfill.py)"
     ]
   }
 }

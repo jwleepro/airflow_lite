@@ -12,7 +12,7 @@ import pyarrow as pa
 import pyarrow.csv as pacsv
 import pyarrow.parquet as papq
 
-from airflow_lite.api.analytics_contracts import (
+from airflow_lite.query.contracts import (
     ExportCreateRequest,
     ExportCreateResponse,
     ExportFormat,
@@ -20,7 +20,8 @@ from airflow_lite.api.analytics_contracts import (
     ExportJobStatus,
 )
 from airflow_lite.api.paths import export_download_path
-from airflow_lite.query.service import AnalyticsExportPlan, DuckDBAnalyticsQueryService
+from airflow_lite.export.protocols import ExportQueryProvider
+from airflow_lite.query.service import AnalyticsExportPlan
 
 
 class AnalyticsExportJobNotFoundError(LookupError):
@@ -111,7 +112,7 @@ class FilesystemAnalyticsExportService:
     def __init__(
         self,
         root_path: str | Path,
-        query_service: DuckDBAnalyticsQueryService,
+        query_service: ExportQueryProvider,
         retention_hours: int = 72,
         max_workers: int = 2,
         cleanup_cooldown_seconds: int = 300,
