@@ -1,5 +1,4 @@
 from datetime import date, datetime
-from typing import Optional
 
 from .database import Database
 from .models import PipelineRun, StepRun

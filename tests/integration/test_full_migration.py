@@ -3,7 +3,6 @@
 Oracle → ChunkedReader → PyArrow → ParquetWriter의 전체 흐름을 검증한다.
 """
 from datetime import date
-from pathlib import Path
 
 import pyarrow.parquet as pq
 import pytest
@@ -12,7 +11,6 @@ from airflow_lite.engine.stage import StageContext
 from .conftest import (
     FEBRUARY_ROWS,
     JANUARY_ROWS,
-    MARCH_ROWS,
     TEST_FULL_TABLE,
 )
 

@@ -4,7 +4,7 @@ oracledb는 실제 Oracle 서버 없이는 동작하지 않으므로 연결 부�
 """
 from datetime import date
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pyarrow as pa
@@ -19,7 +19,6 @@ from airflow_lite.engine.stage import (
 from airflow_lite.engine.strategy import (
     FullMigrationStrategy,
     IncrementalMigrationStrategy,
-    MigrationStrategy,
 )
 from airflow_lite.extract.chunked_reader import ChunkedReader
 from airflow_lite.extract.oracle_client import OracleClient

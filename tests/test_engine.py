@@ -1,5 +1,5 @@
 import pytest
-from datetime import date, datetime
+from datetime import date
 
 from airflow_lite.engine.stage import (
     RetryConfig,

@@ -80,10 +80,12 @@
   완료 조건: `/monitor`, `/monitor/analytics`, `/monitor/exports`가 공통 shell, dense table/listing, 상태 배지, 요약 헤더를 공유하고, 기존 read-only 동작과 테스트가 유지된다.
 - `T-031` `webui.py` 소스 파일 복구 및 Airflow-inspired 모니터링 UI 고도화.
   완료 조건: webui.py 복구, Run Status Grid/Auto-refresh/Duration/Next Run/Error Summary/Step Timeline 반영, 테스트 통과.
+- `T-034` 운영 모니터링 UI 및 API 주변 dead code 정리와 경량 리팩토링.
+  완료 조건: `/monitor` 계열 구현에서 실제로 쓰이지 않는 코드/중복 경로가 제거되고, 관련 테스트 및 정적 검사가 통과한다.
 
 ### 현재
 
-- 현재 활성 작업 없음. `T-031` 완료 — `webui.py` 소스 복구 및 Airflow-inspired 모니터링 UI 개선.
+- 현재 활성 작업 없음. `T-034` 완료 — 운영 모니터링 UI 및 API 주변 dead code 정리와 경량 리팩토링.
 
 ### 다음
 

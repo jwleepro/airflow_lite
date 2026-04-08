@@ -17,6 +17,10 @@
   - Run Status Grid, Auto-refresh, Duration, Next Run, Error Summary, Step Timeline(Gantt) 추가
   - `web.py`: `/monitor/pipelines/{name}/runs/{run_id}` 상세 라우트 추가, limit 5→25 변경, next_run 계산
   - `pytest tests/test_api.py` 33개 전체 통과
+- `T-034` 운영 모니터링 UI 및 API 주변 dead code 정리와 경량 리팩토링 (2026-04-08)
+  - `src/airflow_lite/api/dependencies.py` 추가로 analytics/web 라우트의 query/export service 접근 중복 제거
+  - 운영 UI 주변과 저장소 전반의 unused import, 타입 annotation 잔여물, 테스트 dead code 제거
+  - `python -m ruff check src tests`, `pytest tests/test_api.py tests/test_backfill.py tests/test_engine.py tests/test_extract.py tests/test_settings.py -q --basetemp .tmp_pytest`, `pytest tests -q --basetemp .tmp_pytest_unit -m "not integration"` 통과
 
 ## 진행 중
 
@@ -35,6 +39,7 @@
 ## 검증 메모
 
 - Export service cleanup_expired 매 API 호출 시 전체 파일 스캔 — 성능 개선 필요 (T-033).
+- 운영 UI(`webui.py`) 내부에는 고립된 top-level dead function은 없었고, 실제 정리 가치는 `api/routes` 서비스 접근 중복과 저장소 전반의 unused import/test residue 제거에 있었다.
 
 ## 인수인계
 

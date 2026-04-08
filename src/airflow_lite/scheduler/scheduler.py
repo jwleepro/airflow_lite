@@ -1,4 +1,5 @@
 from datetime import date
+from typing import TYPE_CHECKING
 import re
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -8,6 +9,10 @@ from apscheduler.triggers.interval import IntervalTrigger
 import logging
 
 from airflow_lite.runtime import run_scheduled_pipeline
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from airflow_lite.config.settings import Settings
 
 logger = logging.getLogger("airflow_lite.scheduler")
 INTERVAL_PATTERN = re.compile(r"^interval:(\d+)([smhd]?)$", re.IGNORECASE)

@@ -112,7 +112,7 @@ def test_backup_existing_bak_path_is_correct(manager, tmp_path):
 # ── remove_backup ─────────────────────────────────────────────────────────────
 
 def test_remove_backup_deletes_bak_file(manager, tmp_path):
-    parquet_file = _make_parquet_file(tmp_path, "MY_TABLE", 2026, 2)
+    _make_parquet_file(tmp_path, "MY_TABLE", 2026, 2)
     bak_path = manager.backup_existing("MY_TABLE", 2026, 2)
     assert bak_path.exists()
 

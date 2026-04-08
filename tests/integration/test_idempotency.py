@@ -3,12 +3,11 @@
 동일 execution_date 재실행 시 Oracle 재쿼리 없이 기존 결과를 반환하는지 검증한다.
 """
 from datetime import date
-from unittest.mock import patch
 
 import pytest
 
 from airflow_lite.config.settings import PipelineConfig
-from .conftest import JANUARY_ROWS, TEST_FULL_TABLE
+from .conftest import TEST_FULL_TABLE
 
 
 @pytest.mark.integration

@@ -10,6 +10,7 @@ from airflow_lite.api.analytics_contracts import (
     ExportFormat,
     SummaryQueryRequest,
 )
+from airflow_lite.api.dependencies import get_export_service, get_query_service
 from airflow_lite.api.routes.pipelines import _build_run_response_with_steps
 from airflow_lite.api.webui import (
     render_analytics_dashboard_page,
@@ -26,14 +27,6 @@ from airflow_lite.query import (
 )
 
 router = APIRouter(include_in_schema=False)
-
-
-def _get_query_service(request: Request):
-    return getattr(request.app.state, "analytics_query_service", None)
-
-
-def _get_export_service(request: Request):
-    return getattr(request.app.state, "analytics_export_service", None)
 
 
 def _calc_next_run(schedule_cron: str) -> str | None:
@@ -163,9 +156,9 @@ def get_analytics_monitor_page(
     dataset: str = Query(default="mes_ops"),
     dashboard_id: str = Query(default="operations_overview"),
 ):
-    query_service = _get_query_service(request)
-    export_service = _get_export_service(request)
-    if query_service is None:
+    try:
+        query_service = get_query_service(request)
+    except Exception:
         return HTMLResponse(
             render_unavailable_page(
                 "Analytics Dashboard",
@@ -174,6 +167,10 @@ def get_analytics_monitor_page(
             ),
             status_code=503,
         )
+    try:
+        export_service = get_export_service(request)
+    except Exception:
+        export_service = None
 
     try:
         dashboard = query_service.get_dashboard_definition(
@@ -247,9 +244,10 @@ def get_analytics_monitor_page(
 
 @router.post("/monitor/analytics/exports")
 async def create_analytics_export_from_monitor(request: Request):
-    query_service = _get_query_service(request)
-    export_service = _get_export_service(request)
-    if query_service is None or export_service is None:
+    try:
+        query_service = get_query_service(request)
+        export_service = get_export_service(request)
+    except Exception:
         return HTMLResponse(
             render_unavailable_page(
                 "Export Jobs",
@@ -301,8 +299,9 @@ def get_export_monitor_page(
     dataset: str | None = Query(default=None),
     job_id: str | None = Query(default=None),
 ):
-    export_service = _get_export_service(request)
-    if export_service is None:
+    try:
+        export_service = get_export_service(request)
+    except Exception:
         return HTMLResponse(
             render_unavailable_page(
                 "Export Jobs",

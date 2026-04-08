@@ -5,7 +5,7 @@ from datetime import date
 import pandas as pd
 import pyarrow as pa
 
-from airflow_lite.engine.stage import StageContext, StageResult
+from airflow_lite.engine.stage import StageContext
 
 
 def _build_select_columns(context: StageContext) -> str:

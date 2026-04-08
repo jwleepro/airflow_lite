@@ -1,11 +1,9 @@
 import pytest
-import os
 from unittest.mock import mock_open, patch
 from airflow_lite.config.settings import (
     _substitute_env_vars,
     _walk_and_substitute,
     AlertingConfig,
-    AlertingTriggersConfig,
     EmailChannelConfig,
     MartConfig,
     WebhookChannelConfig,

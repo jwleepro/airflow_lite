@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Optional
 import uuid
 
 

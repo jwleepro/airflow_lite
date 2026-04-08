@@ -1,8 +1,14 @@
+from __future__ import annotations
+
 from datetime import date
+from typing import TYPE_CHECKING
 from dateutil.relativedelta import relativedelta
 from pathlib import Path
 import shutil
 import logging
+
+if TYPE_CHECKING:
+    from airflow_lite.engine.pipeline import PipelineRunner
 
 logger = logging.getLogger("airflow_lite.engine.backfill")
 
@@ -10,7 +16,7 @@ logger = logging.getLogger("airflow_lite.engine.backfill")
 class BackfillManager:
     def __init__(
         self,
-        pipeline_runner: "PipelineRunner",
+        pipeline_runner: PipelineRunner,
         parquet_base_path: str,
     ):
         self.pipeline_runner = pipeline_runner
