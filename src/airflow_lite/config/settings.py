@@ -4,6 +4,8 @@ import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from airflow_lite.i18n import require_supported_language
+
 # 환경변수 치환 패턴: ${VAR_NAME}
 ENV_VAR_PATTERN = re.compile(r"\$\{(\w+)\}")
 
@@ -148,6 +150,7 @@ class WebUIConfig:
     error_message_max_length: int = 120
     default_dataset: str = "mes_ops"
     default_dashboard_id: str = "operations_overview"
+    default_language: str = "en"
 
 
 @dataclass
@@ -319,6 +322,11 @@ class Settings:
             ):
                 if key in webui_values:
                     webui_values[key] = _coerce_int(webui_values[key], f"webui.{key}")
+            if "default_language" in webui_values:
+                webui_values["default_language"] = require_supported_language(
+                    str(webui_values["default_language"]),
+                    field_name="webui.default_language",
+                )
             webui = WebUIConfig(**webui_values)
         else:
             webui = WebUIConfig()

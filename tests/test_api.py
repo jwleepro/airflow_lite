@@ -208,6 +208,34 @@ def test_monitor_page_uses_webui_refresh_setting(mock_run_repo, mock_step_repo):
     assert 'content="15"' in response.text
 
 
+def test_monitor_page_supports_korean_language_query(client):
+    response = client.get("/monitor?lang=ko")
+
+    assert response.status_code == 200
+    body = response.text
+    assert '<html lang="ko">' in body
+    assert "운영 콘솔" in body
+    assert "파이프라인 인벤토리" in body
+    assert "/monitor/analytics?lang=ko" in body
+
+
+def test_monitor_page_language_precedence_query_over_default_and_header(mock_run_repo, mock_step_repo):
+    settings = _make_settings()
+    settings.webui = WebUIConfig(default_language="ko")
+    app = create_app(settings=settings, run_repo=mock_run_repo, step_repo=mock_step_repo)
+    client = TestClient(app)
+
+    default_response = client.get("/monitor", headers={"Accept-Language": "en-US,en;q=0.8"})
+    assert default_response.status_code == 200
+    assert '<html lang="ko">' in default_response.text
+    assert "파이프라인 인벤토리" in default_response.text
+
+    override_response = client.get("/monitor?lang=en", headers={"Accept-Language": "ko-KR,ko;q=0.9"})
+    assert override_response.status_code == 200
+    assert '<html lang="en">' in override_response.text
+    assert "Pipeline Inventory" in override_response.text
+
+
 def test_monitor_analytics_page_renders_dashboard_view(
     tmp_path,
     mock_run_repo,
@@ -238,8 +266,39 @@ def test_monitor_analytics_page_renders_dashboard_view(
     assert "Dataset Overview" in body
     assert "Rows by Month" in body
     assert "Queue Export" in body
-    assert "source: OPS_TABLE" in body
+    assert "Source Table: OPS_TABLE" in body
     assert "/monitor/exports?dataset=mes_ops" in body
+
+
+def test_monitor_analytics_page_renders_korean_labels(
+    tmp_path,
+    mock_run_repo,
+    mock_step_repo,
+    analytics_mart_builder,
+):
+    settings = _make_settings()
+    database_path = tmp_path / "analytics.duckdb"
+    analytics_mart_builder(database_path)
+    query_service = DuckDBAnalyticsQueryService(database_path)
+    export_service = FilesystemAnalyticsExportService(tmp_path / "exports", query_service)
+    app = create_app(
+        settings=settings,
+        run_repo=mock_run_repo,
+        step_repo=mock_step_repo,
+        analytics_query_service=query_service,
+        analytics_export_service=export_service,
+    )
+    client = TestClient(app)
+
+    response = client.get("/monitor/analytics?dataset=mes_ops&source=OPS_TABLE&lang=ko")
+
+    assert response.status_code == 200
+    body = response.text
+    assert '<html lang="ko">' in body
+    assert "분석 대시보드" in body
+    assert "필터 바" in body
+    assert "월별 적재 행 수" in body
+    assert "/monitor/exports?dataset=mes_ops&amp;lang=ko" in body
 
 
 def test_monitor_analytics_page_uses_webui_defaults(
@@ -761,6 +820,78 @@ def test_analytics_dashboard_endpoint_returns_dashboard_definition(
     assert body["export_actions"][0]["status"] == "available"
     assert body["export_actions"][0]["endpoint"] == "/api/v1/analytics/exports"
     assert body["warnings"] == []
+
+
+def test_analytics_endpoints_localize_labels_with_lang_query(
+    tmp_path,
+    mock_run_repo,
+    mock_step_repo,
+    analytics_mart_builder,
+):
+    settings = _make_settings()
+    database_path = tmp_path / "analytics.duckdb"
+    analytics_mart_builder(database_path)
+    app = create_app(
+        settings=settings,
+        run_repo=mock_run_repo,
+        step_repo=mock_step_repo,
+        analytics_query_service=DuckDBAnalyticsQueryService(database_path),
+    )
+    client = TestClient(app)
+
+    filters_response = client.get("/api/v1/analytics/filters?dataset=mes_ops&lang=ko")
+    dashboard_response = client.get("/api/v1/analytics/dashboards/operations_overview?dataset=mes_ops&lang=ko")
+    summary_response = client.post(
+        "/api/v1/analytics/summary?lang=ko",
+        json={"dataset": "mes_ops", "filters": {"source": ["OPS_TABLE"]}},
+    )
+    chart_response = client.post(
+        "/api/v1/analytics/charts/rows_by_month/query?lang=ko",
+        json={
+            "dataset": "mes_ops",
+            "chart_id": "rows_by_month",
+            "granularity": "month",
+            "limit": 12,
+            "filters": {},
+        },
+    )
+    detail_response = client.post(
+        "/api/v1/analytics/details/source-files/query?lang=ko",
+        json={
+            "dataset": "mes_ops",
+            "detail_key": "source-files",
+            "filters": {},
+            "page": 1,
+            "page_size": 2,
+        },
+    )
+
+    assert filters_response.status_code == 200
+    assert dashboard_response.status_code == 200
+    assert summary_response.status_code == 200
+    assert chart_response.status_code == 200
+    assert detail_response.status_code == 200
+
+    filter_map = {item["key"]: item["label"] for item in filters_response.json()["filters"]}
+    assert filter_map["source"] == "원본 테이블"
+    assert filter_map["partition_month"] == "파티션 월"
+
+    dashboard_body = dashboard_response.json()
+    assert dashboard_body["title"] == "MES 운영 개요"
+    assert dashboard_body["cards"][0]["label"] == "적재 행 수"
+    assert dashboard_body["charts"][0]["title"] == "월별 적재 행 수"
+
+    summary_body = summary_response.json()
+    summary_metric_map = {metric["key"]: metric for metric in summary_body["metrics"]}
+    assert summary_metric_map["rows_loaded"]["label"] == "적재 행 수"
+    assert summary_metric_map["rows_loaded"]["unit"] == "행"
+
+    chart_body = chart_response.json()
+    assert chart_body["title"] == "월별 적재 행 수"
+    assert chart_body["series"][0]["label"] == "적재 행 수"
+
+    detail_body = detail_response.json()
+    assert detail_body["columns"][0]["label"] == "원본 테이블"
 
 
 def test_analytics_detail_endpoint_returns_paginated_rows(

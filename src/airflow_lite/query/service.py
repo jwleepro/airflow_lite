@@ -33,6 +33,7 @@ from airflow_lite.api.analytics_contracts import (
     SummaryQueryRequest,
     SummaryQueryResponse,
 )
+from airflow_lite.i18n import DEFAULT_LANGUAGE, translate
 
 
 class AnalyticsQueryError(ValueError):
@@ -62,13 +63,13 @@ class DuckDBAnalyticsQueryService:
 
     SUPPORTED_FILTERS = frozenset({"source", "partition_month"})
     SUPPORTED_DETAILS = frozenset({"source-files"})
-    DETAIL_COLUMNS = {
+    DETAIL_COLUMN_SPECS = {
         "source-files": [
-            DetailColumnDefinition(key="source_name", label="Source Table", type=DetailColumnType.STRING),
-            DetailColumnDefinition(key="partition_month", label="Partition Month", type=DetailColumnType.DATE),
-            DetailColumnDefinition(key="file_path", label="File Path", type=DetailColumnType.STRING),
-            DetailColumnDefinition(key="row_count", label="Rows", type=DetailColumnType.INTEGER),
-            DetailColumnDefinition(key="last_build_id", label="Build ID", type=DetailColumnType.STRING),
+            ("source_name", DetailColumnType.STRING, "analytics.detail.column.source_name"),
+            ("partition_month", DetailColumnType.DATE, "analytics.detail.column.partition_month"),
+            ("file_path", DetailColumnType.STRING, "analytics.detail.column.file_path"),
+            ("row_count", DetailColumnType.INTEGER, "analytics.detail.column.row_count"),
+            ("last_build_id", DetailColumnType.STRING, "analytics.detail.column.last_build_id"),
         ]
     }
     DETAIL_SORT_FIELDS = {
@@ -95,7 +96,12 @@ class DuckDBAnalyticsQueryService:
     def __init__(self, database_path: str | Path):
         self.database_path = Path(database_path)
 
-    def query_summary(self, request: SummaryQueryRequest) -> SummaryQueryResponse:
+    def query_summary(
+        self,
+        request: SummaryQueryRequest,
+        *,
+        language: str = DEFAULT_LANGUAGE,
+    ) -> SummaryQueryResponse:
         self._ensure_supported_filters(request.filters)
         self._ensure_dataset_exists(request.dataset)
         where_sql, params = self._build_file_filters(
@@ -132,11 +138,20 @@ class DuckDBAnalyticsQueryService:
             dataset=request.dataset,
             generated_at=datetime.now(),
             filters_applied=request.filters,
-            metrics=build_dataset_summary_metrics(request.dataset, stats),
+            metrics=build_dataset_summary_metrics(
+                request.dataset,
+                stats,
+                language=language,
+            ),
             warnings=[],
         )
 
-    def query_chart(self, request: ChartQueryRequest) -> ChartQueryResponse:
+    def query_chart(
+        self,
+        request: ChartQueryRequest,
+        *,
+        language: str = DEFAULT_LANGUAGE,
+    ) -> ChartQueryResponse:
         self._ensure_supported_filters(request.filters)
         self._ensure_dataset_exists(request.dataset)
         if request.chart_id not in SUPPORTED_CHARTS:
@@ -153,7 +168,9 @@ class DuckDBAnalyticsQueryService:
         with self._connect(read_only=True) as connection:
             if request.chart_id == "rows_by_month":
                 if request.granularity.value != "month":
-                    warnings.append("rows_by_month uses month buckets; granularity was normalized to month.")
+                    warnings.append(
+                        translate("analytics.chart.rows_by_month.granularity_normalized", language)
+                    )
                     response_granularity = ChartGranularity.MONTH
                 rows = connection.execute(
                     f"""
@@ -172,7 +189,13 @@ class DuckDBAnalyticsQueryService:
                     ChartPoint(bucket=bucket, value=int(value))
                     for bucket, value in reversed(rows)
                 ]
-                series = [ChartSeries(key="rows", label="Rows Loaded", points=points)]
+                series = [
+                    ChartSeries(
+                        key="rows",
+                        label=translate("analytics.chart.series.rows", language),
+                        points=points,
+                    )
+                ]
             else:
                 rows = connection.execute(
                     f"""
@@ -189,19 +212,30 @@ class DuckDBAnalyticsQueryService:
                     ChartPoint(bucket=source_name, value=int(value), label=source_name)
                     for source_name, value in rows
                 ]
-                series = [ChartSeries(key="files", label="Files", points=points)]
+                series = [
+                    ChartSeries(
+                        key="files",
+                        label=translate("analytics.chart.series.files", language),
+                        points=points,
+                    )
+                ]
 
         return ChartQueryResponse(
             dataset=request.dataset,
             chart_id=request.chart_id,
-            title=SUPPORTED_CHARTS[request.chart_id],
+            title=translate(SUPPORTED_CHARTS[request.chart_id], language),
             granularity=response_granularity,
             filters_applied=request.filters,
             series=series,
             warnings=warnings,
         )
 
-    def query_detail(self, request: DetailQueryRequest) -> DetailQueryResponse:
+    def query_detail(
+        self,
+        request: DetailQueryRequest,
+        *,
+        language: str = DEFAULT_LANGUAGE,
+    ) -> DetailQueryResponse:
         self._ensure_supported_filters(request.filters)
         self._ensure_dataset_exists(request.dataset)
         detail_sql = self._build_detail_select_sql(request.detail_key)
@@ -234,7 +268,7 @@ class DuckDBAnalyticsQueryService:
         return DetailQueryResponse(
             dataset=request.dataset,
             detail_key=request.detail_key,
-            columns=self.DETAIL_COLUMNS[request.detail_key],
+            columns=self._build_detail_columns(request.detail_key, language),
             rows=[
                 {
                     "source_name": source_name,
@@ -282,7 +316,12 @@ class DuckDBAnalyticsQueryService:
             file_stem=f"{request.dataset}-{detail_key}-{request.action_key}",
         )
 
-    def get_filter_metadata(self, dataset: str) -> AnalyticsFilterMetadataResponse:
+    def get_filter_metadata(
+        self,
+        dataset: str,
+        *,
+        language: str = DEFAULT_LANGUAGE,
+    ) -> AnalyticsFilterMetadataResponse:
         self._ensure_dataset_exists(dataset)
         with self._connect(read_only=True) as connection:
             source_rows = connection.execute(
@@ -308,15 +347,21 @@ class DuckDBAnalyticsQueryService:
         month_options = [FilterOption(value=value, label=value) for (value,) in month_rows]
         return AnalyticsFilterMetadataResponse(
             dataset=dataset,
-            filters=build_filter_definitions(source_options, month_options),
+            filters=build_filter_definitions(source_options, month_options, language=language),
         )
 
-    def get_dashboard_definition(self, dashboard_id: str, dataset: str) -> DashboardDefinitionResponse:
+    def get_dashboard_definition(
+        self,
+        dashboard_id: str,
+        dataset: str,
+        *,
+        language: str = DEFAULT_LANGUAGE,
+    ) -> DashboardDefinitionResponse:
         self._ensure_dataset_exists(dataset)
         if dashboard_id not in SUPPORTED_DASHBOARDS:
             raise AnalyticsDashboardNotFoundError(f"dashboard not found: {dashboard_id}")
 
-        filter_metadata = self.get_filter_metadata(dataset)
+        filter_metadata = self.get_filter_metadata(dataset, language=language)
         with self._connect(read_only=True) as connection:
             last_refreshed_at = connection.execute(
                 """
@@ -332,7 +377,18 @@ class DuckDBAnalyticsQueryService:
             dataset=dataset,
             filters=filter_metadata.filters,
             last_refreshed_at=last_refreshed_at,
+            language=language,
         )
+
+    def _build_detail_columns(self, detail_key: str, language: str) -> list[DetailColumnDefinition]:
+        return [
+            DetailColumnDefinition(
+                key=key,
+                label=translate(label_key, language),
+                type=column_type,
+            )
+            for key, column_type, label_key in self.DETAIL_COLUMN_SPECS[detail_key]
+        ]
 
     def _build_detail_select_sql(self, detail_key: str) -> str:
         if detail_key not in self.SUPPORTED_DETAILS:

@@ -118,6 +118,28 @@ def test_query_filters_returns_source_and_partition_options(tmp_path, analytics_
     ]
 
 
+def test_query_service_localizes_dashboard_and_metrics(tmp_path, analytics_mart_builder):
+    database_path = tmp_path / "analytics.duckdb"
+    analytics_mart_builder(database_path)
+    service = DuckDBAnalyticsQueryService(database_path)
+
+    summary = service.query_summary(
+        SummaryQueryRequest(dataset="mes_ops", filters={}),
+        language="ko",
+    )
+    dashboard = service.get_dashboard_definition(
+        "operations_overview",
+        "mes_ops",
+        language="ko",
+    )
+
+    metric_map = {metric.key: metric for metric in summary.metrics}
+    assert metric_map["rows_loaded"].label == "적재 행 수"
+    assert metric_map["rows_loaded"].unit == "행"
+    assert dashboard.title == "MES 운영 개요"
+    assert dashboard.cards[0].label == "적재 행 수"
+
+
 def test_get_dashboard_definition_returns_dashboard_metadata(tmp_path, analytics_mart_builder):
     database_path = tmp_path / "analytics.duckdb"
     analytics_mart_builder(database_path)

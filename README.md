@@ -135,6 +135,7 @@ python -m airflow_lite service remove
 - 운영 모니터: `http://localhost:8000/monitor`
 - 분석 대시보드 뷰: `http://localhost:8000/monitor/analytics?dataset=mes_ops`
 - export job 모니터: `http://localhost:8000/monitor/exports`
+- 언어 전환 예시: `http://localhost:8000/monitor?lang=ko` (`en`, `ko` 지원)
 
 ## Installation
 
@@ -156,6 +157,7 @@ python -m airflow_lite service remove
 - `incremental` 파이프라인은 `incremental_key`를 정의해야 합니다.
 - 정수 필드(`oracle.port`, `defaults.chunk_size`, `api.port` 등)는 로딩 시 자동 변환됩니다.
 - `api`, `alerting`, `mart` 섹션은 선택 사항이며, 없으면 기본값이 적용됩니다.
+- `webui.default_language`는 `en` 또는 `ko`만 허용되며 기본값은 `en`입니다.
 
 ### 선택 섹션
 
