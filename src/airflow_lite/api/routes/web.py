@@ -15,6 +15,7 @@ from airflow_lite.api.webui import (
     render_analytics_dashboard_page,
     render_export_jobs_page,
     render_monitor_page,
+    render_run_detail_page,
     render_unavailable_page,
 )
 from airflow_lite.export import AnalyticsExportJobNotFoundError
@@ -33,6 +34,23 @@ def _get_query_service(request: Request):
 
 def _get_export_service(request: Request):
     return getattr(request.app.state, "analytics_export_service", None)
+
+
+def _calc_next_run(schedule_cron: str) -> str | None:
+    """APScheduler CronTrigger를 사용해 다음 예정 실행 시각을 계산한다."""
+    try:
+        from datetime import datetime, timezone
+        from apscheduler.triggers.cron import CronTrigger
+
+        trigger = CronTrigger.from_crontab(schedule_cron)
+        now = datetime.now(timezone.utc)
+        next_time = trigger.get_next_fire_time(None, now)
+        if next_time:
+            local_dt = next_time.astimezone().replace(tzinfo=None)
+            return local_dt.strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        pass
+    return None
 
 
 def _extract_selected_filters(source, filter_definitions: list[dict]) -> dict[str, list[str]]:
@@ -81,7 +99,8 @@ def get_monitor_page(request: Request):
         recent_runs = []
         latest_run = None
         if run_repo is not None:
-            runs = run_repo.find_by_pipeline(pipeline.name, limit=5)
+            # 그리드용 최대 25건, step 포함
+            runs = run_repo.find_by_pipeline(pipeline.name, limit=25)
             recent_runs = [
                 _build_run_response_with_steps(run, step_repo).model_dump(mode="json")
                 for run in runs
@@ -94,12 +113,48 @@ def get_monitor_page(request: Request):
                 "table": pipeline.table,
                 "strategy": pipeline.strategy,
                 "schedule": pipeline.schedule,
+                "next_run": _calc_next_run(pipeline.schedule),
                 "latest_run": latest_run,
                 "recent_runs": recent_runs,
             }
         )
 
     return HTMLResponse(render_monitor_page(pipeline_rows))
+
+
+@router.get("/monitor/pipelines/{name}/runs/{run_id}", response_class=HTMLResponse)
+def get_run_detail_page(name: str, run_id: str, request: Request):
+    """특정 실행의 step 타임라인 상세 페이지."""
+    run_repo = request.app.state.run_repo
+    step_repo = request.app.state.step_repo
+    settings = request.app.state.settings
+
+    if run_repo is None:
+        return HTMLResponse(
+            render_unavailable_page(
+                "Run Detail",
+                "Repository is not configured for this runtime.",
+                active_path="/monitor",
+            ),
+            status_code=503,
+        )
+
+    run_obj = run_repo.find_by_id(run_id)
+    if run_obj is None or run_obj.pipeline_name != name:
+        return HTMLResponse(
+            render_unavailable_page(
+                "Run Detail",
+                f"Run '{run_id}' not found for pipeline '{name}'.",
+                active_path="/monitor",
+            ),
+            status_code=404,
+        )
+
+    run_dict = _build_run_response_with_steps(run_obj, step_repo).model_dump(mode="json")
+    pipeline_cfg = next((p for p in settings.pipelines if p.name == name), None)
+    schedule = pipeline_cfg.schedule if pipeline_cfg else "-"
+
+    return HTMLResponse(render_run_detail_page(run_dict, pipeline_name=name, schedule=schedule))
 
 
 @router.get("/monitor/analytics", response_class=HTMLResponse)

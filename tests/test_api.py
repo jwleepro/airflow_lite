@@ -189,8 +189,8 @@ def test_monitor_page_renders_html_with_pipeline_summary(client):
     assert "Ops Console" in body
     assert "Pipeline Inventory" in body
     assert "test_pipeline" in body
-    assert "run-001" not in body
-    assert "/api/v1/pipelines/test_pipeline/runs" in body
+    assert "/monitor/pipelines/test_pipeline/runs/run-001" in body
+    assert "run-grid" in body
     assert "manual" in body
     assert "success" in body
 
