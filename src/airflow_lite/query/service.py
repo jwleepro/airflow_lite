@@ -76,11 +76,8 @@ class DuckDBAnalyticsQueryService:
         *,
         language: str = DEFAULT_LANGUAGE,
     ) -> SummaryQueryResponse:
-        self._sql.ensure_supported_filters(request.filters)
-        self._ensure_dataset_exists(request.dataset)
-        where_sql, params = self._sql.build_file_filters(
-            dataset=request.dataset,
-            filters=request.filters,
+        where_sql, params = self._prepare_file_query(
+            request.dataset, request.filters,
             start=request.window.start if request.window else None,
             end=request.window.end if request.window else None,
         )
@@ -126,14 +123,11 @@ class DuckDBAnalyticsQueryService:
         *,
         language: str = DEFAULT_LANGUAGE,
     ) -> ChartQueryResponse:
-        self._sql.ensure_supported_filters(request.filters)
-        self._ensure_dataset_exists(request.dataset)
         if request.chart_id not in SUPPORTED_CHARTS:
             raise AnalyticsQueryError(f"unsupported chart_id: {request.chart_id}")
 
-        where_sql, params = self._sql.build_file_filters(
-            dataset=request.dataset,
-            filters=request.filters,
+        where_sql, params = self._prepare_file_query(
+            request.dataset, request.filters,
             start=request.window.start if request.window else None,
             end=request.window.end if request.window else None,
         )
@@ -210,15 +204,8 @@ class DuckDBAnalyticsQueryService:
         *,
         language: str = DEFAULT_LANGUAGE,
     ) -> DetailQueryResponse:
-        self._sql.ensure_supported_filters(request.filters)
-        self._ensure_dataset_exists(request.dataset)
         detail_sql = self._sql.build_detail_select_sql(request.detail_key)
-        where_sql, params = self._sql.build_file_filters(
-            dataset=request.dataset,
-            filters=request.filters,
-            start=None,
-            end=None,
-        )
+        where_sql, params = self._prepare_file_query(request.dataset, request.filters)
         sort_fields = request.sort or self._sql.DEFAULT_DETAIL_SORT[request.detail_key]
         order_sql = self._sql.build_detail_sort_sql(request.detail_key, sort_fields)
         offset = (request.page - 1) * request.page_size
@@ -264,8 +251,6 @@ class DuckDBAnalyticsQueryService:
         )
 
     def build_export_plan(self, request: ExportCreateRequest) -> AnalyticsExportPlan:
-        self._sql.ensure_supported_filters(request.filters)
-        self._ensure_dataset_exists(request.dataset)
         expected_format = self._sql.EXPORT_ACTIONS.get(request.action_key)
         if expected_format is None:
             raise AnalyticsQueryError(f"unsupported export action_key: {request.action_key}")
@@ -276,12 +261,7 @@ class DuckDBAnalyticsQueryService:
 
         detail_key = "source-files"
         detail_sql = self._sql.build_detail_select_sql(detail_key)
-        where_sql, params = self._sql.build_file_filters(
-            dataset=request.dataset,
-            filters=request.filters,
-            start=None,
-            end=None,
-        )
+        where_sql, params = self._prepare_file_query(request.dataset, request.filters)
         order_sql = self._sql.build_detail_sort_sql(detail_key, self._sql.DEFAULT_DETAIL_SORT[detail_key])
 
         return AnalyticsExportPlan(
@@ -362,6 +342,20 @@ class DuckDBAnalyticsQueryService:
         """Export용 record batch reader를 반환한다 (하위호환)."""
         with self._conn.execute_batches(sql, params, rows_per_batch=rows_per_batch) as reader:
             yield reader
+
+    def _prepare_file_query(
+        self,
+        dataset: str,
+        filters: dict[str, list[str]],
+        start=None,
+        end=None,
+    ) -> tuple[str, list]:
+        """공통 전처리: 필터 검증 → 데이터셋 확인 → WHERE 절 빌드."""
+        self._sql.ensure_supported_filters(filters)
+        self._ensure_dataset_exists(dataset)
+        return self._sql.build_file_filters(
+            dataset=dataset, filters=filters, start=start, end=end,
+        )
 
     def _ensure_dataset_exists(self, dataset: str) -> None:
         if not self._conn.exists():

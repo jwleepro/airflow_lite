@@ -1,4 +1,6 @@
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Query, Request
+
+from airflow_lite.api.language import resolve_request_language
 
 
 def get_query_service(request: Request):
@@ -13,3 +15,7 @@ def get_export_service(request: Request):
     if export_service is None:
         raise HTTPException(status_code=503, detail="analytics export service is not configured.")
     return export_service
+
+
+def get_language(request: Request, lang: str | None = Query(default=None)) -> str:
+    return resolve_request_language(request, lang)

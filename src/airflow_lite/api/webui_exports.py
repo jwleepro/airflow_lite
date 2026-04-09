@@ -167,13 +167,7 @@ def render_export_jobs_page(
         title=t(language, "webui.exports.title"),
         subtitle=t(language, "webui.exports.subtitle"),
         active_path=MONITOR_EXPORTS_PATH,
-        hero_links=[
-            (
-                t(language, "webui.exports.hero.analytics"),
-                f"{MONITOR_ANALYTICS_PATH}{dataset_query}" if dataset else MONITOR_ANALYTICS_PATH,
-            ),
-            (t(language, "webui.exports.hero.export_api"), ANALYTICS_EXPORTS_PATH),
-        ],
+        hero_links=[],
         content_html=content_html,
         page_tag=t(language, "webui.layout.page_tag.export_workspace"),
         auto_refresh_seconds=refresh_secs,

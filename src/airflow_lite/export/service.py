@@ -236,44 +236,15 @@ class FilesystemAnalyticsExportService:
             job_file.unlink()
 
     def _run_export(self, job_id: str, plan: AnalyticsExportPlan) -> None:
-        record = self._read_record(job_id)
-        self._write_record(
-            ExportJobRecord(
-                **{
-                    **record.__dict__,
-                    "status": ExportJobStatus.RUNNING,
-                    "updated_at": datetime.now(),
-                }
-            )
-        )
+        self._update_record(job_id, status=ExportJobStatus.RUNNING)
 
         try:
-            row_count = self._write_artifact(plan, Path(record.artifact_path))
+            row_count = self._write_artifact(plan, Path(self._read_record(job_id).artifact_path))
         except Exception as exc:
-            failed_record = self._read_record(job_id)
-            self._write_record(
-                ExportJobRecord(
-                    **{
-                        **failed_record.__dict__,
-                        "status": ExportJobStatus.FAILED,
-                        "updated_at": datetime.now(),
-                        "error_message": str(exc),
-                    }
-                )
-            )
+            self._update_record(job_id, status=ExportJobStatus.FAILED, error_message=str(exc))
             return
 
-        completed_record = self._read_record(job_id)
-        self._write_record(
-            ExportJobRecord(
-                **{
-                    **completed_record.__dict__,
-                    "status": ExportJobStatus.COMPLETED,
-                    "updated_at": datetime.now(),
-                    "row_count": row_count,
-                }
-            )
-        )
+        self._update_record(job_id, status=ExportJobStatus.COMPLETED, row_count=row_count)
 
     def _write_artifact(self, plan: AnalyticsExportPlan, artifact_path: Path) -> int:
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
@@ -324,6 +295,11 @@ class FilesystemAnalyticsExportService:
             return compression_map[zip_compression.lower()]
         except KeyError as exc:
             raise ValueError(f"unsupported zip compression: {zip_compression}") from exc
+
+    def _update_record(self, job_id: str, **updates) -> None:
+        record = self._read_record(job_id)
+        updates.setdefault("updated_at", datetime.now())
+        self._write_record(ExportJobRecord(**{**record.__dict__, **updates}))
 
     def _read_record(self, job_id: str) -> ExportJobRecord:
         job_path = self.jobs_path / f"{job_id}.json"

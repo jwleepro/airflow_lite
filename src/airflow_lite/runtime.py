@@ -1,10 +1,10 @@
 import logging
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 
-from airflow_lite.alerting.base import AlertMessage
 from airflow_lite.alerting.factory import build_alert_manager
 from airflow_lite.config.settings import Settings
+from airflow_lite.engine.callbacks import PipelineCallbacks
 from airflow_lite.engine.pipeline import PipelineDefinition, PipelineRunner
 from airflow_lite.engine.stage import RetryConfig, StageDefinition, StageResult
 from airflow_lite.engine.state_machine import StageStateMachine
@@ -39,72 +39,7 @@ def create_runner_factory(settings, run_repo, step_repo):
 
     alert_manager = build_alert_manager(settings.alerting)
     mart_infra = build_mart_infrastructure(settings)
-
-    def _notify(status: str, context, exc: Exception | None = None) -> None:
-        alert_manager.notify(
-            AlertMessage(
-                pipeline_name=context.pipeline_name,
-                execution_date=context.execution_date,
-                status=status,
-                error_message=str(exc) if exc else None,
-                timestamp=datetime.now(),
-            )
-        )
-
-    def _on_failure_callback(context, exc):
-        _notify("failed", context, exc)
-
-    def _on_success_callback(context):
-        _notify("success", context)
-        if mart_infra is None:
-            return
-
-        try:
-            plan = mart_infra.coordinator.plan_refresh(context)
-        except Exception as plan_exc:
-            logger.exception(
-                "Mart refresh planning failed: %s / %s",
-                context.pipeline_name,
-                context.execution_date,
-            )
-            _notify("failed", context, plan_exc)
-            return
-
-        if plan is None:
-            return
-
-        try:
-            result = mart_infra.executor.execute_refresh(plan)
-        except Exception as mart_exc:
-            logger.exception(
-                "Mart refresh execution failed: %s / %s",
-                context.pipeline_name,
-                context.execution_date,
-            )
-            _notify("failed", context, mart_exc)
-            return
-
-        if not result.validation_report.is_valid:
-            issues = [issue.message for issue in result.validation_report.issues]
-            logger.error(
-                "Mart refresh validation failed: dataset=%s issues=%s",
-                result.plan.request.dataset_name,
-                issues,
-            )
-            _notify("failed", context, RuntimeError(f"mart validation failed: {issues}"))
-            return
-
-        logger.info(
-            "Mart refresh completed: dataset=%s mode=%s promoted=%s staging=%s current=%s snapshot=%s rows=%s files=%s",
-            result.plan.request.dataset_name,
-            result.plan.request.mode.value,
-            result.promoted,
-            result.plan.build_plan.paths.staging_db_path,
-            result.plan.build_plan.paths.current_db_path,
-            result.plan.build_plan.paths.snapshot_db_path,
-            result.build_result.row_count,
-            result.build_result.file_count,
-        )
+    callbacks = PipelineCallbacks(alert_manager, mart_infra)
 
     def factory(pipeline_name: str) -> PipelineRunner:
         pipeline_config = pipeline_config_map[pipeline_name]
@@ -120,7 +55,7 @@ def create_runner_factory(settings, run_repo, step_repo):
             max_attempts=settings.defaults.retry.max_attempts,
             min_wait_seconds=settings.defaults.retry.min_wait_seconds,
             max_wait_seconds=settings.defaults.retry.max_wait_seconds,
-            on_failure_callback=_on_failure_callback,
+            on_failure_callback=callbacks.on_failure,
         )
 
         def etl_stage(context) -> StageResult:
@@ -148,7 +83,7 @@ def create_runner_factory(settings, run_repo, step_repo):
                 callable=verify_stage,
                 retry_config=RetryConfig(
                     max_attempts=1,
-                    on_failure_callback=_on_failure_callback,
+                    on_failure_callback=callbacks.on_failure,
                 ),
             ),
         ]
@@ -164,7 +99,7 @@ def create_runner_factory(settings, run_repo, step_repo):
             run_repo=run_repo,
             step_repo=step_repo,
             state_machine=state_machine,
-            on_run_success=_on_success_callback,
+            on_run_success=callbacks.on_success,
         )
 
     return factory

@@ -1,6 +1,6 @@
 from urllib.parse import parse_qs, urlencode
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from airflow_lite.api.analytics_contracts import (
@@ -10,7 +10,7 @@ from airflow_lite.api.analytics_contracts import (
     ExportFormat,
     SummaryQueryRequest,
 )
-from airflow_lite.api.dependencies import get_export_service, get_query_service
+from airflow_lite.api.dependencies import get_export_service, get_language, get_query_service
 from airflow_lite.api.language import resolve_request_language
 from airflow_lite.api.paths import (
     MONITOR_ANALYTICS_PATH,
@@ -120,6 +120,19 @@ def _redirect_to_exports(job_id: str, dataset: str, language: str) -> RedirectRe
     return _redirect(MONITOR_EXPORTS_PATH, language=language, job_id=job_id, dataset=dataset)
 
 
+def _try_get_export_service(request: Request, language: str) -> tuple:
+    """Export service를 가져오거나, 실패 시 (None, HTMLResponse)를 반환한다."""
+    try:
+        return get_export_service(request), None
+    except Exception:
+        return None, _html_unavailable(
+            "Export Jobs",
+            "Export service is not configured for this runtime.",
+            active_path=MONITOR_EXPORTS_PATH,
+            language=language,
+        )
+
+
 @router.get("/")
 def redirect_root(request: Request):
     requested_lang = request.query_params.get("lang")
@@ -130,12 +143,11 @@ def redirect_root(request: Request):
 
 
 @router.get(MONITOR_PATH, response_class=HTMLResponse)
-def get_monitor_page(request: Request, lang: str | None = Query(default=None)):
+def get_monitor_page(request: Request, language: str = Depends(get_language)):
     settings = request.app.state.settings
     run_repo = request.app.state.run_repo
     step_repo = request.app.state.step_repo
     webui = settings.webui
-    language = resolve_request_language(request, lang)
 
     pipeline_rows = []
     for pipeline in settings.pipelines:
@@ -165,12 +177,11 @@ def get_monitor_page(request: Request, lang: str | None = Query(default=None)):
 
 
 @router.get(f"{MONITOR_PATH}/pipelines/{{name}}/runs/{{run_id}}", response_class=HTMLResponse)
-def get_run_detail_page(name: str, run_id: str, request: Request, lang: str | None = Query(default=None)):
+def get_run_detail_page(name: str, run_id: str, request: Request, language: str = Depends(get_language)):
     """특정 실행의 step 타임라인 상세 페이지."""
     run_repo = request.app.state.run_repo
     step_repo = request.app.state.step_repo
     settings = request.app.state.settings
-    language = resolve_request_language(request, lang)
 
     if run_repo is None:
         return _html_unavailable(
@@ -199,18 +210,89 @@ def get_run_detail_page(name: str, run_id: str, request: Request, lang: str | No
     )
 
 
+def _build_dashboard_data(
+    query_service,
+    export_service,
+    *,
+    dataset: str,
+    dashboard_id: str,
+    selected_filters_source,
+    detail_preview_page_size: int,
+    export_jobs_limit: int,
+    language: str,
+) -> dict:
+    """대시보드 페이지에 필요한 데이터를 조립한다."""
+    dashboard = query_service.get_dashboard_definition(
+        dashboard_id=dashboard_id,
+        dataset=dataset,
+        language=language,
+    ).model_dump(mode="json")
+    selected_filters = _extract_selected_filters(selected_filters_source, dashboard["filters"])
+    summary = query_service.query_summary(
+        SummaryQueryRequest(dataset=dataset, filters=selected_filters),
+        language=language,
+    ).model_dump(mode="json")
+
+    charts: dict[str, dict] = {}
+    for chart_definition in dashboard["charts"]:
+        charts[chart_definition["chart_id"]] = query_service.query_chart(
+            ChartQueryRequest(
+                dataset=dataset,
+                chart_id=chart_definition["chart_id"],
+                granularity=chart_definition["default_granularity"],
+                limit=chart_definition["limit"],
+                filters=selected_filters,
+            ),
+            language=language,
+        ).model_dump(mode="json")
+
+    detail_preview = None
+    for drilldown_action in dashboard["drilldown_actions"]:
+        if drilldown_action["status"] != "available":
+            continue
+        detail_key = _extract_detail_key(drilldown_action.get("endpoint"))
+        if not detail_key:
+            continue
+        detail_preview = query_service.query_detail(
+            DetailQueryRequest(
+                dataset=dataset,
+                detail_key=detail_key,
+                filters=selected_filters,
+                page=1,
+                page_size=detail_preview_page_size,
+            ),
+            language=language,
+        ).model_dump(mode="json")
+        break
+
+    export_jobs = []
+    if export_service is not None:
+        export_jobs = [
+            job.model_dump(mode="json")
+            for job in export_service.list_jobs(dataset=dataset, limit=export_jobs_limit)
+        ]
+
+    return {
+        "dashboard": dashboard,
+        "summary": summary,
+        "charts": charts,
+        "detail_preview": detail_preview,
+        "filters_applied": selected_filters,
+        "export_jobs": export_jobs,
+    }
+
+
 @router.get(MONITOR_ANALYTICS_PATH, response_class=HTMLResponse)
 def get_analytics_monitor_page(
     request: Request,
     dataset: str | None = Query(default=None),
     dashboard_id: str | None = Query(default=None),
-    lang: str | None = Query(default=None),
+    language: str = Depends(get_language),
 ):
     settings = request.app.state.settings
     webui = settings.webui
     dataset = dataset or webui.default_dataset
     dashboard_id = dashboard_id or webui.default_dashboard_id
-    language = resolve_request_language(request, lang)
 
     try:
         query_service = get_query_service(request)
@@ -227,58 +309,16 @@ def get_analytics_monitor_page(
         export_service = None
 
     try:
-        dashboard = query_service.get_dashboard_definition(
-            dashboard_id=dashboard_id,
+        data = _build_dashboard_data(
+            query_service,
+            export_service,
             dataset=dataset,
+            dashboard_id=dashboard_id,
+            selected_filters_source=request.query_params,
+            detail_preview_page_size=webui.detail_preview_page_size,
+            export_jobs_limit=webui.analytics_export_jobs_limit,
             language=language,
-        ).model_dump(mode="json")
-        selected_filters = _extract_selected_filters(request.query_params, dashboard["filters"])
-        summary = query_service.query_summary(
-            SummaryQueryRequest(dataset=dataset, filters=selected_filters),
-            language=language,
-        ).model_dump(mode="json")
-
-        charts: dict[str, dict] = {}
-        for chart_definition in dashboard["charts"]:
-            charts[chart_definition["chart_id"]] = query_service.query_chart(
-                ChartQueryRequest(
-                    dataset=dataset,
-                    chart_id=chart_definition["chart_id"],
-                    granularity=chart_definition["default_granularity"],
-                    limit=chart_definition["limit"],
-                    filters=selected_filters,
-                ),
-                language=language,
-            ).model_dump(mode="json")
-
-        detail_preview = None
-        for drilldown_action in dashboard["drilldown_actions"]:
-            if drilldown_action["status"] != "available":
-                continue
-            detail_key = _extract_detail_key(drilldown_action.get("endpoint"))
-            if not detail_key:
-                continue
-            detail_preview = query_service.query_detail(
-                DetailQueryRequest(
-                    dataset=dataset,
-                    detail_key=detail_key,
-                    filters=selected_filters,
-                    page=1,
-                    page_size=webui.detail_preview_page_size,
-                ),
-                language=language,
-            ).model_dump(mode="json")
-            break
-
-        export_jobs = []
-        if export_service is not None:
-            export_jobs = [
-                job.model_dump(mode="json")
-                for job in export_service.list_jobs(
-                    dataset=dataset,
-                    limit=webui.analytics_export_jobs_limit,
-                )
-            ]
+        )
     except (AnalyticsDashboardNotFoundError, AnalyticsDatasetNotFoundError, AnalyticsQueryError) as exc:
         return _html_unavailable(
             "Analytics Dashboard",
@@ -289,26 +329,14 @@ def get_analytics_monitor_page(
         )
 
     return HTMLResponse(
-        render_analytics_dashboard_page(
-            {
-                "dashboard": dashboard,
-                "summary": summary,
-                "charts": charts,
-                "detail_preview": detail_preview,
-                "filters_applied": selected_filters,
-                "export_jobs": export_jobs,
-            },
-            webui_config=webui,
-            language=language,
-        )
+        render_analytics_dashboard_page(data, webui_config=webui, language=language)
     )
 
 
 @router.post(f"{MONITOR_ANALYTICS_PATH}/exports")
-async def create_analytics_export_from_monitor(request: Request):
+async def create_analytics_export_from_monitor(request: Request, request_language: str = Depends(get_language)):
     settings = request.app.state.settings
     webui = settings.webui
-    request_language = resolve_request_language(request, request.query_params.get("lang"))
     try:
         query_service = get_query_service(request)
         export_service = get_export_service(request)
@@ -353,17 +381,10 @@ async def create_analytics_export_from_monitor(request: Request):
 
 
 @router.post(MONITOR_EXPORT_DELETE_JOB_PATH)
-async def delete_export_job_from_monitor(request: Request):
-    request_language = resolve_request_language(request, request.query_params.get("lang"))
-    try:
-        export_service = get_export_service(request)
-    except Exception:
-        return _html_unavailable(
-            "Export Jobs",
-            "Export service is not configured for this runtime.",
-            active_path=MONITOR_EXPORTS_PATH,
-            language=request_language,
-        )
+async def delete_export_job_from_monitor(request: Request, request_language: str = Depends(get_language)):
+    export_service, err = _try_get_export_service(request, request_language)
+    if err:
+        return err
 
     form_data = await _read_form_data(request)
     job_id = _first_value(form_data, "job_id")
@@ -379,17 +400,10 @@ async def delete_export_job_from_monitor(request: Request):
 
 
 @router.post(MONITOR_EXPORT_DELETE_COMPLETED_PATH)
-async def delete_completed_exports_from_monitor(request: Request):
-    request_language = resolve_request_language(request, request.query_params.get("lang"))
-    try:
-        export_service = get_export_service(request)
-    except Exception:
-        return _html_unavailable(
-            "Export Jobs",
-            "Export service is not configured for this runtime.",
-            active_path=MONITOR_EXPORTS_PATH,
-            language=request_language,
-        )
+async def delete_completed_exports_from_monitor(request: Request, request_language: str = Depends(get_language)):
+    export_service, err = _try_get_export_service(request, request_language)
+    if err:
+        return err
 
     form_data = await _read_form_data(request)
     dataset = _first_value(form_data, "dataset")
@@ -404,20 +418,13 @@ def get_export_monitor_page(
     request: Request,
     dataset: str | None = Query(default=None),
     job_id: str | None = Query(default=None),
-    lang: str | None = Query(default=None),
+    language: str = Depends(get_language),
 ):
     settings = request.app.state.settings
     webui = settings.webui
-    language = resolve_request_language(request, lang)
-    try:
-        export_service = get_export_service(request)
-    except Exception:
-        return _html_unavailable(
-            "Export Jobs",
-            "Export service is not configured for this runtime.",
-            active_path=MONITOR_EXPORTS_PATH,
-            language=language,
-        )
+    export_service, err = _try_get_export_service(request, language)
+    if err:
+        return err
 
     jobs = [
         job.model_dump(mode="json")
