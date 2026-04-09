@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block content %}
+
+<section class="summary-grid">
+  {{ m.summary_tile(t('webui.monitor.summary.configured_pipelines.label'), total_pipelines|string, t('webui.monitor.summary.configured_pipelines.detail')) }}
+  {{ m.summary_tile(t('webui.monitor.summary.healthy_last_run.label'), healthy_runs|string, t('webui.monitor.summary.healthy_last_run.detail'), 'ok') }}
+  {{ m.summary_tile(t('webui.monitor.summary.active_runs.label'), active_runs|string, t('webui.monitor.summary.active_runs.detail'), 'warn' if active_runs else 'neutral') }}
+  {{ m.summary_tile(t('webui.monitor.summary.failed_last_run.label'), failed_runs|string, t('webui.monitor.summary.failed_last_run.detail'), 'bad' if failed_runs else 'neutral') }}
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <p class="eyebrow">{{ t('webui.monitor.inventory.eyebrow') }}</p>
+      <h2>{{ t('webui.monitor.inventory.title') }}</h2>
+    </div>
+    <span class="muted refresh-notice">{{ monitor_notice }}</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>{{ t('webui.monitor.table.pipeline_table') }}</th>
+          <th>{{ t('webui.monitor.table.recent_runs') }}</th>
+          <th>{{ t('webui.monitor.table.status') }}</th>
+          <th>{{ t('webui.monitor.table.trigger') }}</th>
+          <th>{{ t('webui.monitor.table.duration') }}</th>
+          <th>{{ t('webui.monitor.table.last_run') }}</th>
+          <th>{{ t('webui.monitor.table.next_run') }}</th>
+          <th>{{ t('webui.monitor.table.schedule') }}</th>
+          <th>{{ t('webui.monitor.table.detail') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in pipeline_rows %}
+        {% set latest = row.latest_run or {} %}
+        {% set latest_status = latest.status or 'never-run' %}
+        {% set latest_tone = status_tone(latest_status) %}
+        {% set pulse_cls = ' pulse' if latest_status in ['running','queued','pending'] else '' %}
+        {% set run_id = latest.id or '' %}
+        <tr>
+          <td>
+            <div class="dense-cell">
+              <strong>{{ fmt(row.name) }}</strong>
+              <span>{{ fmt(row.table) }}</span>
+            </div>
+          </td>
+          <td>
+            {% if row.recent_runs %}
+            <div class="run-grid">
+              {% for r in row.recent_runs|reverse %}
+              <span class="run-block {{ status_tone(r.status or '') }}" title="{{ (r.execution_date or '') }} · {{ (r.status or '') }}"></span>
+              {% endfor %}
+            </div>
+            {% else %}
+            <span class="run-grid-empty">{{ t('webui.run.no_run') }}</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="status {{ latest_tone }}{{ pulse_cls }}">{{ fmt(latest_status) }}</span>
+            {% if latest_status == 'failed' and first_failed_errors.get(row.name) %}
+            <div class="error-inline">{{ first_failed_errors[row.name] }}</div>
+            {% endif %}
+          </td>
+          <td>{{ fmt(latest.trigger_type) }}</td>
+          <td>{{ fmt(fmt_duration(latest.started_at, latest.finished_at)) }}</td>
+          <td>{{ fmt(latest.finished_at or latest.started_at) }}</td>
+          <td>{{ fmt(row.next_run, fallback='—') }}</td>
+          <td>{{ fmt(row.schedule) }}</td>
+          <td>
+            {% if run_id %}
+            <a href="{{ lang_url(monitor_pipeline_run_detail_path(row.name, run_id)) }}">{{ t('webui.monitor.detail_link') }}</a>
+            {% else %}-{% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="empty">{{ t('webui.monitor.empty.no_pipelines') }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% endblock %}

@@ -1,8 +1,10 @@
 import re
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from airflow_lite.api.paths import API_PREFIX
 
@@ -77,6 +79,11 @@ def create_app(
     from airflow_lite.api.routes.backfill import router as backfill_router
     from airflow_lite.api.routes.health import router as health_router
     from airflow_lite.api.routes.admin import router as admin_router
+
+    # 정적 파일(webui CSS/JS 등) 서빙
+    _static_dir = Path(__file__).parent / "static"
+    if _static_dir.is_dir():
+        app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
     app.include_router(web_router)
     app.include_router(health_router, prefix=API_PREFIX)
