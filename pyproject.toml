@@ -27,6 +27,7 @@ phase2 = [
     "httpx>=0.27",
     "sqlalchemy>=2.0",
     "pywin32>=306",
+    "jinja2>=3.1",
 ]
 dev = [
     "pytest>=8.0",

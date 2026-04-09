@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <p class="eyebrow">{{ t('webui.run_detail.eyebrow') }}</p>
+      <h2>{{ pipeline_name }} &nbsp;&middot;&nbsp; {{ fmt(run.execution_date) }}</h2>
+    </div>
+    <span class="status {{ run_tone }}">{{ run_status }}</span>
+  </div>
+  <dl class="meta-grid" style="margin-top:14px;">
+    <div><dt>{{ t('webui.run_detail.meta.run_id') }}</dt><dd style="font-family:monospace;font-size:.85rem;">{{ fmt(run.id) }}</dd></div>
+    <div><dt>{{ t('webui.run_detail.meta.trigger') }}</dt><dd>{{ fmt(run.trigger_type) }}</dd></div>
+    <div><dt>{{ t('webui.run_detail.meta.duration') }}</dt><dd>{{ fmt(run_duration) }}</dd></div>
+    <div><dt>{{ t('webui.run_detail.meta.schedule') }}</dt><dd>{{ fmt(schedule) }}</dd></div>
+    <div><dt>{{ t('webui.run_detail.meta.started') }}</dt><dd>{{ fmt(run.started_at) }}</dd></div>
+    <div><dt>{{ t('webui.run_detail.meta.finished') }}</dt><dd>{{ fmt(run.finished_at) }}</dd></div>
+  </dl>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <p class="eyebrow">{{ t('webui.run_detail.timeline.eyebrow') }}</p>
+      <h2>{{ t('webui.run_detail.timeline.title', count=steps|length) }}</h2>
+    </div>
+    <a class="button-link" href="{{ lang_url(MONITOR_PATH) }}">{{ t('webui.run_detail.back_to_pipelines') }}</a>
+  </div>
+  <div class="table-wrap">
+    <table class="gantt-table">
+      <thead>
+        <tr>
+          <th style="min-width:180px;">{{ t('webui.run_detail.table.step') }}</th>
+          <th>{{ t('webui.run_detail.table.status') }}</th>
+          <th style="min-width:240px;">{{ t('webui.run_detail.table.timeline') }}</th>
+          <th>{{ t('webui.run_detail.table.duration') }}</th>
+          <th>{{ t('webui.run_detail.table.records') }}</th>
+          <th>{{ t('webui.run_detail.table.retries') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for step in step_rows %}
+        <tr>
+          <td>
+            <strong>{{ fmt(step.name) }}</strong>
+            {% if step.error_message %}<div class="step-error">{{ step.error_message }}</div>{% endif %}
+          </td>
+          <td><span class="status {{ step.tone }}">{{ fmt(step.status) }}</span></td>
+          <td>
+            <div class="gantt-track">
+              <div class="gantt-bar {{ step.tone }}"
+                   style="left:{{ '%.1f'|format(step.bar_left_pct) }}%;width:{{ '%.1f'|format(step.bar_width_pct) }}%"
+                   title="{{ step.duration }}"></div>
+            </div>
+          </td>
+          <td>{{ fmt(step.duration) }}</td>
+          <td>{{ fmt(step.records_display) }}</td>
+          <td>{{ fmt(step.retries|string) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="empty">{{ t('webui.run_detail.empty.no_step_records') }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% endblock %}

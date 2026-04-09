@@ -8,6 +8,8 @@ from datetime import datetime
 from html import escape
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+from markupsafe import Markup
+
 from airflow_lite.api.paths import (
     MONITOR_ANALYTICS_PATH,
     MONITOR_EXPORTS_PATH,
@@ -22,10 +24,17 @@ from airflow_lite.i18n import DEFAULT_LANGUAGE, translate
 # 포맷 / 상태 헬퍼
 # ---------------------------------------------------------------------------
 
-def fmt(value, fallback: str = "-") -> str:
+def fmt(value, fallback: str = "-"):
+    """Format a value for display.
+
+    Returns a ``Markup`` instance so Jinja2 autoescape treats the result
+    as already-safe (prevents double-escaping when templates call
+    ``{{ fmt(x) }}``). The returned HTML is still escaped via
+    :func:`html.escape`, so the contract for Python callers is unchanged.
+    """
     if value in (None, ""):
-        return fallback
-    return escape(str(value))
+        return Markup(escape(fallback))
+    return Markup(escape(str(value)))
 
 
 def fmt_duration(started_at: str | None, finished_at: str | None) -> str:

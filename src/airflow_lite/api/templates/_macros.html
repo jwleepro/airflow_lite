@@ -1,0 +1,7 @@
+{% macro summary_tile(label, value, detail, tone='neutral') %}
+<article class="summary-tile {{ tone }}">
+  <p class="summary-label">{{ label }}</p>
+  <div class="summary-value">{{ value }}</div>
+  <p class="summary-detail">{{ detail }}</p>
+</article>
+{% endmacro %}
