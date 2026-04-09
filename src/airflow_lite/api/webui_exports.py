@@ -9,8 +9,8 @@ from airflow_lite.api.paths import (
     MONITOR_ANALYTICS_PATH,
     MONITOR_EXPORTS_PATH,
 )
-from airflow_lite.api.template_env import render
-from airflow_lite.api.webui_helpers import cfg, fmt, t
+from airflow_lite.api.template_env import PageChrome, render_page
+from airflow_lite.api.webui_helpers import build_url, cfg, fmt, t
 from airflow_lite.i18n import DEFAULT_LANGUAGE
 
 
@@ -42,19 +42,19 @@ def render_export_jobs_page(
         "webui.exports.retention.description",
         hours=retention_hours,
     )
-    analytics_href_raw = (
-        f"{MONITOR_ANALYTICS_PATH}?dataset={dataset}" if dataset else MONITOR_ANALYTICS_PATH
-    )
+    analytics_href_raw = build_url(MONITOR_ANALYTICS_PATH, dataset=dataset)
 
-    return render(
-        "exports.html",
-        language=language,
+    chrome = PageChrome(
         title=t(language, "webui.exports.title"),
         subtitle=t(language, "webui.exports.subtitle"),
         active_path=MONITOR_EXPORTS_PATH,
-        hero_links=[],
         page_tag=t(language, "webui.layout.page_tag.export_workspace"),
         auto_refresh_seconds=refresh_secs,
+    )
+    return render_page(
+        "exports.html",
+        chrome=chrome,
+        language=language,
         jobs=jobs,
         selected_job_id=selected_job_id,
         counts=counts,

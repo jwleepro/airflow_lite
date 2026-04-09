@@ -6,8 +6,9 @@ Delegates HTML production to `templates/monitor.html`.
 from __future__ import annotations
 
 from airflow_lite.api.paths import MONITOR_PATH
-from airflow_lite.api.template_env import render
+from airflow_lite.api.template_env import PageChrome, render_page
 from airflow_lite.api.webui_helpers import cfg, fmt, t
+from airflow_lite.api.webui_status import count_by_tone, latest_run_status
 from airflow_lite.i18n import DEFAULT_LANGUAGE
 
 
@@ -32,32 +33,27 @@ def render_monitor_page(
     error_message_max_length = cfg(webui_config, "error_message_max_length", 120)
 
     total_pipelines = len(pipeline_rows)
-    active_runs = sum(
-        1 for row in pipeline_rows
-        if (row.get("latest_run") or {}).get("status", "").lower() in {"running", "queued", "pending"}
-    )
-    healthy_runs = sum(
-        1 for row in pipeline_rows
-        if (row.get("latest_run") or {}).get("status", "").lower() in {"success", "completed"}
-    )
-    failed_runs = sum(
-        1 for row in pipeline_rows
-        if (row.get("latest_run") or {}).get("status", "").lower() == "failed"
-    )
+    tone_counts = count_by_tone(pipeline_rows)
+    active_runs = tone_counts["warn"]
+    healthy_runs = tone_counts["ok"]
+    failed_runs = tone_counts["bad"]
+
     latest_finish = max(
         (
-            row.get("latest_run", {}).get("finished_at")
+            (row.get("latest_run") or {}).get("finished_at")
             for row in pipeline_rows
-            if row.get("latest_run", {}).get("finished_at")
+            if (row.get("latest_run") or {}).get("finished_at")
         ),
         default=None,
     )
 
     first_failed_errors: dict[str, str] = {}
     for row in pipeline_rows:
-        latest = row.get("latest_run") or {}
-        if latest.get("status") == "failed":
-            err = _first_failed_step_error(latest, max_length=error_message_max_length)
+        if latest_run_status(row) == "failed":
+            err = _first_failed_step_error(
+                row.get("latest_run") or {},
+                max_length=error_message_max_length,
+            )
             if err:
                 first_failed_errors[row["name"]] = err
 
@@ -68,15 +64,16 @@ def render_monitor_page(
         seconds=monitor_refresh_seconds,
     )
 
-    return render(
-        "monitor.html",
-        language=language,
+    chrome = PageChrome(
         title=t(language, "webui.monitor.title"),
         subtitle=t(language, "webui.monitor.subtitle"),
         active_path=MONITOR_PATH,
-        hero_links=[],
-        page_tag=None,
         auto_refresh_seconds=monitor_refresh_seconds,
+    )
+    return render_page(
+        "monitor.html",
+        chrome=chrome,
+        language=language,
         pipeline_rows=pipeline_rows,
         total_pipelines=total_pipelines,
         active_runs=active_runs,

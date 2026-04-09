@@ -11,8 +11,8 @@ from airflow_lite.api.paths import (
     MONITOR_EXPORTS_PATH,
     dashboard_definition_path,
 )
-from airflow_lite.api.template_env import render
-from airflow_lite.api.webui_helpers import cfg, t
+from airflow_lite.api.template_env import PageChrome, render_page
+from airflow_lite.api.webui_helpers import build_url, cfg, t
 from airflow_lite.i18n import DEFAULT_LANGUAGE
 
 
@@ -23,15 +23,16 @@ def render_unavailable_page(
     active_path: str,
     language: str = DEFAULT_LANGUAGE,
 ) -> str:
-    return render(
-        "unavailable.html",
-        language=language,
+    chrome = PageChrome(
         title=title,
         subtitle=message,
         active_path=active_path,
-        hero_links=[],
         page_tag=t(language, "webui.layout.page_tag.service_status"),
-        auto_refresh_seconds=None,
+    )
+    return render_page(
+        "unavailable.html",
+        chrome=chrome,
+        language=language,
         message=message,
     )
 
@@ -61,19 +62,25 @@ def render_analytics_dashboard_page(
         "webui.analytics.metadata.refresh_notice",
         seconds=analytics_refresh_seconds,
     )
-    reset_href_raw = f"{MONITOR_ANALYTICS_PATH}?dataset={dataset}&dashboard_id={dashboard_id}"
-    dashboard_api_href_raw = f"{dashboard_definition_path(dashboard_id)}?dataset={dataset}"
-    full_export_monitor_href_raw = f"{MONITOR_EXPORTS_PATH}?dataset={dataset}"
+    reset_href_raw = build_url(
+        MONITOR_ANALYTICS_PATH, dataset=dataset, dashboard_id=dashboard_id
+    )
+    dashboard_api_href_raw = build_url(
+        dashboard_definition_path(dashboard_id), dataset=dataset
+    )
+    full_export_monitor_href_raw = build_url(MONITOR_EXPORTS_PATH, dataset=dataset)
 
-    return render(
-        "analytics.html",
-        language=language,
+    chrome = PageChrome(
         title=t(language, "webui.analytics.title"),
         subtitle=t(language, "webui.analytics.subtitle"),
         active_path=MONITOR_ANALYTICS_PATH,
-        hero_links=[],
         page_tag=t(language, "webui.layout.page_tag.analytics_workspace"),
         auto_refresh_seconds=analytics_refresh_seconds,
+    )
+    return render_page(
+        "analytics.html",
+        chrome=chrome,
+        language=language,
         dashboard=dashboard,
         dashboard_id=dashboard_id,
         dataset=dataset,
