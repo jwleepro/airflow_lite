@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 from typing import TYPE_CHECKING
 from dateutil.relativedelta import relativedelta
 import logging
@@ -68,3 +69,62 @@ class BackfillManager:
             current += relativedelta(months=1)
 
         return months
+
+    def _parquet_path(self, table_name: str, year: int, month: int) -> Path:
+        base = Path(self.parquet_base_path)
+        return (
+            base
+            / table_name
+            / f"year={year:04d}"
+            / f"month={month:02d}"
+            / f"{table_name}_{year:04d}_{month:02d}.parquet"
+        )
+
+    def backup_existing(self, table_name: str, year: int, month: int) -> Path | None:
+        """기존 parquet 파일을 `.bak`으로 이동(백업)하고 백업 경로를 반환한다.
+
+        - 파일이 없으면 None을 반환한다.
+        - 백업은 같은 디렉토리 내 rename으로 수행한다.
+        """
+        parquet_path = self._parquet_path(table_name, year, month)
+        if not parquet_path.exists():
+            return None
+
+        bak_path = parquet_path.with_suffix(parquet_path.suffix + ".bak")
+        try:
+            if bak_path.exists():
+                bak_path.unlink()
+            parquet_path.replace(bak_path)
+        except OSError:
+            # Windows 파일 잠금 등의 환경 이슈에서는 예외를 표면화한다.
+            raise
+        return bak_path
+
+    def remove_backup(self, bak_path: Path | None) -> None:
+        """백업 파일을 삭제한다. (None/미존재 경로는 무시)"""
+        if not bak_path:
+            return
+        try:
+            path = Path(bak_path)
+            if path.exists():
+                path.unlink()
+        except OSError:
+            # 운영에서는 백업 제거 실패가 치명적이지 않으므로, 호출자에서 처리 가능하게 무시한다.
+            return
+
+    def restore_backup(self, bak_path: Path | None) -> None:
+        """`.bak`을 원본 parquet로 복원한다. (None/미존재 경로는 무시)"""
+        if not bak_path:
+            return
+        path = Path(bak_path)
+        if not path.exists():
+            return
+        if path.suffix != ".bak":
+            return
+        original_path = path.with_suffix("")  # drop ".bak"
+        try:
+            if original_path.exists():
+                original_path.unlink()
+            path.replace(original_path)
+        except OSError:
+            raise
