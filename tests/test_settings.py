@@ -1,4 +1,5 @@
 import pytest
+import sqlite3
 from unittest.mock import mock_open, patch
 from airflow_lite.config.settings import (
     _substitute_env_vars,
@@ -136,6 +137,139 @@ pipelines:
         assert settings.defaults.chunk_size == 20000
         assert settings.api.port == 8100
         assert settings.pipelines[0].chunk_size == 40000
+
+    def test_load_uses_sqlite_oracle_and_pipelines_when_available(self, tmp_path):
+        sqlite_path = tmp_path / "airflow_lite.db"
+        with sqlite3.connect(sqlite_path) as connection:
+            connection.execute(
+                """
+                CREATE TABLE connections (
+                    conn_id TEXT PRIMARY KEY,
+                    conn_type TEXT NOT NULL,
+                    host TEXT,
+                    port INTEGER,
+                    schema TEXT,
+                    login TEXT,
+                    password TEXT,
+                    extra TEXT,
+                    description TEXT
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE pipeline_configs (
+                    name TEXT PRIMARY KEY,
+                    source_table TEXT NOT NULL,
+                    partition_column TEXT NOT NULL,
+                    strategy TEXT NOT NULL,
+                    schedule TEXT NOT NULL,
+                    chunk_size INTEGER,
+                    columns TEXT,
+                    incremental_key TEXT
+                )
+                """
+            )
+            connection.execute(
+                """
+                INSERT INTO connections
+                (conn_id, conn_type, host, port, schema, login, password)
+                VALUES ('oracle', 'oracle', 'db.internal', 1521, 'ORCL', 'scott', 'tiger')
+                """
+            )
+            connection.execute(
+                """
+                INSERT INTO pipeline_configs
+                (name, source_table, partition_column, strategy, schedule, chunk_size, columns, incremental_key)
+                VALUES
+                ('production_log', 'PRODUCTION_LOG', 'LOG_DATE', 'incremental', '0 */6 * * *', 5000, 'LOG_ID, LOG_DATE, STATUS', 'UPDATED_AT')
+                """
+            )
+            connection.commit()
+
+        config_path = tmp_path / "pipelines.yaml"
+        config_path.write_text(
+            f"""\
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "{sqlite_path.as_posix()}"
+  log_path: "/tmp/logs"
+""",
+            encoding="utf-8",
+        )
+
+        settings = Settings.load(str(config_path))
+
+        assert settings.oracle.host == "db.internal"
+        assert settings.oracle.user == "scott"
+        assert settings.oracle.password == "tiger"
+        assert len(settings.pipelines) == 1
+        assert settings.pipelines[0].name == "production_log"
+        assert settings.pipelines[0].columns == ["LOG_ID", "LOG_DATE", "STATUS"]
+        assert settings.pipelines[0].incremental_key == "UPDATED_AT"
+
+    def test_load_falls_back_to_yaml_pipelines_when_sqlite_pipeline_table_empty(self, tmp_path):
+        sqlite_path = tmp_path / "airflow_lite.db"
+        with sqlite3.connect(sqlite_path) as connection:
+            connection.execute(
+                """
+                CREATE TABLE connections (
+                    conn_id TEXT PRIMARY KEY,
+                    conn_type TEXT NOT NULL,
+                    host TEXT,
+                    port INTEGER,
+                    schema TEXT,
+                    login TEXT,
+                    password TEXT,
+                    extra TEXT,
+                    description TEXT
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE pipeline_configs (
+                    name TEXT PRIMARY KEY,
+                    source_table TEXT NOT NULL,
+                    partition_column TEXT NOT NULL,
+                    strategy TEXT NOT NULL,
+                    schedule TEXT NOT NULL,
+                    chunk_size INTEGER,
+                    columns TEXT,
+                    incremental_key TEXT
+                )
+                """
+            )
+            connection.execute(
+                """
+                INSERT INTO connections
+                (conn_id, conn_type, host, port, schema, login, password)
+                VALUES ('oracle', 'oracle', 'db.internal', 1521, 'ORCL', 'scott', 'tiger')
+                """
+            )
+            connection.commit()
+
+        config_path = tmp_path / "pipelines.yaml"
+        config_path.write_text(
+            f"""\
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "{sqlite_path.as_posix()}"
+  log_path: "/tmp/logs"
+
+pipelines:
+  - name: "from_yaml"
+    table: "OPS_TABLE"
+    partition_column: "DATE_COL"
+    strategy: "full"
+    schedule: "0 2 * * *"
+""",
+            encoding="utf-8",
+        )
+
+        settings = Settings.load(str(config_path))
+
+        assert [pipeline.name for pipeline in settings.pipelines] == ["from_yaml"]
 
 
 class TestAlertingConfig:

@@ -54,3 +54,15 @@ class PoolModel:
     pool_name: str
     slots: int = 1
     description: str | None = None
+
+
+@dataclass
+class PipelineModel:
+    name: str
+    table: str
+    partition_column: str
+    strategy: str = "full"
+    schedule: str = "0 2 * * *"
+    chunk_size: int | None = None
+    columns: str | None = None
+    incremental_key: str | None = None

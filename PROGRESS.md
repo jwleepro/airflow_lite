@@ -13,6 +13,13 @@
 
 ## 최근 완료 작업
 
+- `T-037` Pipeline CRUD Admin UI 1차 구현 완료
+  - `pipeline_configs` 스키마/모델/CRUD(`PipelineModel`, `AdminRepository`) 추가
+  - `/api/v1/admin/pipelines` REST CRUD 및 `/monitor/admin/pipelines*` web form 핸들러 추가
+  - Admin UI Pipelines 섹션(인라인 edit, create/delete, restart 배너, incremental_key 토글) 추가
+  - `Settings.load()`가 SQLite의 `oracle`/`pipeline_configs`를 우선 로딩하고 YAML fallback 하도록 확장
+  - 관련 단위/통합 테스트(`test_admin_repository`, `test_settings`, `test_api`) 보강
+
 ## 진행 중
 
 - 현재 활성 작업 없음.
@@ -25,19 +32,6 @@
 
 ## 검증 메모
 
-- 프로젝트 로컬 `.venv` 인터프리터 버전 확인: `Python 3.12.12`
-- `./.venv/bin/python -m pytest tests/test_api.py tests/test_settings.py tests/test_extract.py -q --maxfail=1 --basetemp .tmp_pytest_refactor` -> `121 passed`
-- `./.venv/bin/python -m pytest tests/test_query_service.py tests/test_service.py -q --maxfail=1 --basetemp .tmp_pytest_query_refactor` -> `50 passed`
-
+- 대상 검증: `pytest tests/test_admin_repository.py tests/test_settings.py tests/test_api.py -q --basetemp .tmp_pytest -p no:cacheprovider` → `76 passed`
+- 전체 검증: `pytest tests/ -q --basetemp .tmp_pytest -p no:cacheprovider` 실행 시 기존 `tests/test_backfill.py` 9건 실패( `BackfillManager.backup_existing/remove_backup/restore_backup` 미구현으로 보이는 기존 이슈 )
 ## 인수인계
-
-- 저장소는 승격된 DuckDB mart, analytics endpoint, dashboard definition endpoint 위에서 detail/export까지 포함한 `M4` backend 범위와 read-only 운영 모니터링 화면을 함께 이어받을 준비가 되어 있다.
-- dashboard action은 더 이상 planned metadata만 제공하지 않고, detail/export backend endpoint를 실제로 가리킨다.
-- `/monitor`는 pipeline inventory + execution history, `/monitor/analytics`는 filterable dashboard workspace, `/monitor/exports`는 export inventory monitor 역할로 분리되어 있다.
-- 다음 추천 담당자: Codex 내장 `planner-agent` 또는 운영/API 후속 설계 성격의 agent
-- 추천 수정 범위:
-  - `src/airflow_lite/api/`
-  - `src/airflow_lite/export/`
-  - `src/airflow_lite/query/`
-  - `src/airflow_lite/analytics/`
-  - `README.md`

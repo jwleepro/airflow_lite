@@ -19,7 +19,7 @@ from airflow_lite.api.analytics_contracts import (
 from airflow_lite.query import DuckDBAnalyticsQueryService
 from airflow_lite.export import FilesystemAnalyticsExportService
 from airflow_lite.config.settings import ApiConfig, PipelineConfig, WebUIConfig
-from airflow_lite.storage.models import PipelineRun, StepRun
+from airflow_lite.storage.models import PipelineModel, PipelineRun, StepRun
 
 
 # ── 헬퍼 ──────────────────────────────────────────────────────────────────────
@@ -245,6 +245,129 @@ def test_monitor_page_language_precedence_query_over_default_and_header(mock_run
     assert override_response.status_code == 200
     assert '<html lang="en">' in override_response.text
     assert "Pipeline Inventory" in override_response.text
+
+
+def test_monitor_admin_page_renders_pipeline_section(mock_run_repo, mock_step_repo):
+    settings = _make_settings()
+    admin_repo = MagicMock()
+    admin_repo.list_connections.return_value = []
+    admin_repo.list_variables.return_value = []
+    admin_repo.list_pools.return_value = []
+    admin_repo.list_pipelines.return_value = [
+        PipelineModel(
+            name="production_log",
+            table="PRODUCTION_LOG",
+            partition_column="LOG_DATE",
+            strategy="full",
+            schedule="0 2 * * *",
+        )
+    ]
+    app = create_app(
+        settings=settings,
+        run_repo=mock_run_repo,
+        step_repo=mock_step_repo,
+        admin_repo=admin_repo,
+    )
+    client = TestClient(app)
+
+    response = client.get("/monitor/admin")
+
+    assert response.status_code == 200
+    assert "Pipelines" in response.text
+    assert "production_log" in response.text
+    assert "Pipeline settings changes require a service restart." in response.text
+
+
+def test_monitor_admin_create_pipeline_calls_repository(mock_run_repo, mock_step_repo):
+    settings = _make_settings()
+    admin_repo = MagicMock()
+    app = create_app(
+        settings=settings,
+        run_repo=mock_run_repo,
+        step_repo=mock_step_repo,
+        admin_repo=admin_repo,
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/monitor/admin/pipelines",
+        content=(
+            "name=production_log&table=PRODUCTION_LOG&partition_column=LOG_DATE"
+            "&strategy=incremental&schedule=0+%2A%2F6+%2A+%2A+%2A"
+            "&chunk_size=5000&columns=LOG_ID%2C+LOG_DATE&incremental_key=UPDATED_AT"
+        ),
+        headers={"content-type": "application/x-www-form-urlencoded"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/monitor/admin"
+    admin_repo.create_pipeline.assert_called_once()
+    created = admin_repo.create_pipeline.call_args.args[0]
+    assert created.name == "production_log"
+    assert created.strategy == "incremental"
+    assert created.chunk_size == 5000
+    assert created.columns == "LOG_ID, LOG_DATE"
+    assert created.incremental_key == "UPDATED_AT"
+
+
+def test_admin_pipelines_rest_endpoints(mock_run_repo, mock_step_repo):
+    settings = _make_settings()
+    admin_repo = MagicMock()
+    admin_repo.list_pipelines.return_value = [
+        PipelineModel(
+            name="production_log",
+            table="PRODUCTION_LOG",
+            partition_column="LOG_DATE",
+            strategy="full",
+            schedule="0 2 * * *",
+        )
+    ]
+    app = create_app(
+        settings=settings,
+        run_repo=mock_run_repo,
+        step_repo=mock_step_repo,
+        admin_repo=admin_repo,
+    )
+    client = TestClient(app)
+
+    list_response = client.get("/api/v1/admin/pipelines")
+    create_response = client.post(
+        "/api/v1/admin/pipelines",
+        json={
+            "name": "equipment_status",
+            "table": "EQUIPMENT_STATUS",
+            "partition_column": "STATUS_DATE",
+            "strategy": "incremental",
+            "schedule": "0 */6 * * *",
+            "chunk_size": 3000,
+            "columns": "STATUS_ID, STATUS_DATE",
+            "incremental_key": "UPDATED_AT",
+        },
+    )
+    update_response = client.put(
+        "/api/v1/admin/pipelines/equipment_status",
+        json={
+            "name": "equipment_status",
+            "table": "EQUIPMENT_STATUS",
+            "partition_column": "STATUS_DATE",
+            "strategy": "full",
+            "schedule": "0 */12 * * *",
+            "chunk_size": 2000,
+            "columns": "STATUS_ID, STATUS_CODE",
+            "incremental_key": None,
+        },
+    )
+    delete_response = client.delete("/api/v1/admin/pipelines/equipment_status")
+
+    assert list_response.status_code == 200
+    assert list_response.json()[0]["name"] == "production_log"
+    assert create_response.status_code == 200
+    assert update_response.status_code == 200
+    assert delete_response.status_code == 200
+    admin_repo.create_pipeline.assert_called_once()
+    admin_repo.update_pipeline.assert_called_once()
+    admin_repo.delete_pipeline.assert_called_once_with("equipment_status")
 
 
 def test_monitor_analytics_page_renders_dashboard_view(

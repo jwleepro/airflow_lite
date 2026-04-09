@@ -55,3 +55,14 @@ CREATE TABLE IF NOT EXISTS pools (
     slots         INTEGER NOT NULL DEFAULT 1,
     description   TEXT
 );
+
+CREATE TABLE IF NOT EXISTS pipeline_configs (
+    name              TEXT PRIMARY KEY,
+    source_table      TEXT NOT NULL,
+    partition_column  TEXT NOT NULL,
+    strategy          TEXT NOT NULL DEFAULT 'full',
+    schedule          TEXT NOT NULL,
+    chunk_size        INTEGER,
+    columns           TEXT,
+    incremental_key   TEXT
+);
