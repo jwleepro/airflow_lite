@@ -13,6 +13,7 @@ from airflow_lite.api.analytics_contracts import (
 from airflow_lite.api.dependencies import get_export_service, get_language, get_query_service
 from airflow_lite.api.language import resolve_request_language
 from airflow_lite.api.paths import (
+    MONITOR_ADMIN_PATH,
     MONITOR_ANALYTICS_PATH,
     MONITOR_EXPORTS_PATH,
     MONITOR_EXPORT_DELETE_COMPLETED_PATH,
@@ -20,6 +21,8 @@ from airflow_lite.api.paths import (
     MONITOR_PATH,
 )
 from airflow_lite.api.schemas import build_run_response_with_steps
+from airflow_lite.api.webui_admin import render_admin_page
+from airflow_lite.storage.models import ConnectionModel, VariableModel, PoolModel
 from airflow_lite.api.webui import (
     render_analytics_dashboard_page,
     render_export_jobs_page,
@@ -140,6 +143,112 @@ def redirect_root(request: Request):
         return _redirect(MONITOR_PATH)
     language = resolve_request_language(request, requested_lang)
     return _redirect(MONITOR_PATH, language=language)
+
+
+@router.get(MONITOR_ADMIN_PATH, response_class=HTMLResponse)
+def get_admin_page(request: Request, language: str = Depends(get_language)):
+    admin_repo = getattr(request.app.state, "admin_repo", None)
+    if not admin_repo:
+        return _html_unavailable(
+            "Admin UI",
+            "AdminRepository is not configured.",
+            active_path=MONITOR_ADMIN_PATH,
+            language=language,
+        )
+    connections = admin_repo.list_connections()
+    variables = admin_repo.list_variables()
+    pools = admin_repo.list_pools()
+    
+    html = render_admin_page(connections, variables, pools, language=language)
+    return HTMLResponse(html)
+
+
+@router.post(f"{MONITOR_ADMIN_PATH}/connections")
+async def create_connection_from_monitor(request: Request, language: str = Depends(get_language)):
+    admin_repo = getattr(request.app.state, "admin_repo", None)
+    if admin_repo:
+        form_data = await _read_form_data(request)
+        port_str = _first_value(form_data, "port")
+        conn = ConnectionModel(
+            conn_id=_first_value(form_data, "conn_id", ""),
+            conn_type=_first_value(form_data, "conn_type", "oracle"),
+            host=_first_value(form_data, "host"),
+            port=int(port_str) if port_str and port_str.isdigit() else None,
+            schema=_first_value(form_data, "schema"),
+            login=_first_value(form_data, "login"),
+            password=_first_value(form_data, "password"),
+            description=_first_value(form_data, "description"),
+        )
+        if conn.conn_id:
+            admin_repo.create_connection(conn)
+    return _redirect(MONITOR_ADMIN_PATH, language=language)
+
+
+@router.post(f"{MONITOR_ADMIN_PATH}/connections/delete")
+async def delete_connection_from_monitor(request: Request, language: str = Depends(get_language)):
+    admin_repo = getattr(request.app.state, "admin_repo", None)
+    if admin_repo:
+        form_data = await _read_form_data(request)
+        conn_id = _first_value(form_data, "conn_id")
+        if conn_id:
+            admin_repo.delete_connection(conn_id)
+    return _redirect(MONITOR_ADMIN_PATH, language=language)
+
+
+@router.post(f"{MONITOR_ADMIN_PATH}/variables")
+async def create_variable_from_monitor(request: Request, language: str = Depends(get_language)):
+    admin_repo = getattr(request.app.state, "admin_repo", None)
+    if admin_repo:
+        form_data = await _read_form_data(request)
+        var = VariableModel(
+            key=_first_value(form_data, "key", ""),
+            val=_first_value(form_data, "val", ""),
+            description=_first_value(form_data, "description"),
+        )
+        if var.key:
+            admin_repo.create_variable(var)
+    return _redirect(MONITOR_ADMIN_PATH, language=language)
+
+
+@router.post(f"{MONITOR_ADMIN_PATH}/variables/delete")
+async def delete_variable_from_monitor(request: Request, language: str = Depends(get_language)):
+    admin_repo = getattr(request.app.state, "admin_repo", None)
+    if admin_repo:
+        form_data = await _read_form_data(request)
+        key = _first_value(form_data, "key")
+        if key:
+            admin_repo.delete_variable(key)
+    return _redirect(MONITOR_ADMIN_PATH, language=language)
+
+
+@router.post(f"{MONITOR_ADMIN_PATH}/pools")
+async def create_pool_from_monitor(request: Request, language: str = Depends(get_language)):
+    admin_repo = getattr(request.app.state, "admin_repo", None)
+    if admin_repo:
+        form_data = await _read_form_data(request)
+        try:
+            slots = int(_first_value(form_data, "slots", "1"))
+        except ValueError:
+            slots = 1
+        pool = PoolModel(
+            pool_name=_first_value(form_data, "pool_name", ""),
+            slots=slots,
+            description=_first_value(form_data, "description"),
+        )
+        if pool.pool_name:
+            admin_repo.create_pool(pool)
+    return _redirect(MONITOR_ADMIN_PATH, language=language)
+
+
+@router.post(f"{MONITOR_ADMIN_PATH}/pools/delete")
+async def delete_pool_from_monitor(request: Request, language: str = Depends(get_language)):
+    admin_repo = getattr(request.app.state, "admin_repo", None)
+    if admin_repo:
+        form_data = await _read_form_data(request)
+        pool_name = _first_value(form_data, "pool_name")
+        if pool_name:
+            admin_repo.delete_pool(pool_name)
+    return _redirect(MONITOR_ADMIN_PATH, language=language)
 
 
 @router.get(MONITOR_PATH, response_class=HTMLResponse)

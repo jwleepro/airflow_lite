@@ -36,6 +36,7 @@ def create_app(
     step_repo: "StepRunRepository | None" = None,
     analytics_query_service=None,
     analytics_export_service=None,
+    admin_repo=None,
 ) -> FastAPI:
     """FastAPI 앱 팩토리.
 
@@ -56,6 +57,7 @@ def create_app(
     app.state.step_repo = step_repo
     app.state.analytics_query_service = analytics_query_service
     app.state.analytics_export_service = analytics_export_service
+    app.state.admin_repo = admin_repo
 
     # CORS 미들웨어 설정 — 사내망 전용
     allowed_origins, allowed_origin_regex = _split_cors_origins(settings.api.allowed_origins)
@@ -74,11 +76,13 @@ def create_app(
     from airflow_lite.api.routes.analytics import router as analytics_router
     from airflow_lite.api.routes.backfill import router as backfill_router
     from airflow_lite.api.routes.health import router as health_router
+    from airflow_lite.api.routes.admin import router as admin_router
 
     app.include_router(web_router)
     app.include_router(health_router, prefix=API_PREFIX)
     app.include_router(pipelines_router, prefix=API_PREFIX)
     app.include_router(backfill_router, prefix=API_PREFIX)
     app.include_router(analytics_router, prefix=API_PREFIX)
+    app.include_router(admin_router, prefix=API_PREFIX)
 
     return app

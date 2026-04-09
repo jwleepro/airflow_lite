@@ -78,6 +78,7 @@ def test_build_runtime_services_uses_export_root_path(tmp_path):
 
     runtime = build_runtime_services(
         settings,
+        "dummy_path.yaml",
         runner_factory_builder=lambda current_settings, run_repo, step_repo: runner_factory,
     )
 

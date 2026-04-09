@@ -15,7 +15,7 @@ def _run_foreground():
     config_path, settings = load_settings(sys.argv[2] if len(sys.argv) > 2 else None)
     setup_logging(settings.storage.log_path)
     logger = logging.getLogger("airflow_lite")
-    runtime = build_runtime_services(settings)
+    runtime = build_runtime_services(settings, config_path)
 
     from airflow_lite.scheduler.scheduler import PipelineScheduler
     scheduler = PipelineScheduler(settings, runtime.runner_factory, config_path=config_path)
@@ -29,6 +29,7 @@ def _run_foreground():
         backfill_map=runtime.backfill_map,
         run_repo=runtime.run_repo,
         step_repo=runtime.step_repo,
+        admin_repo=runtime.admin_repo,
         analytics_query_service=runtime.analytics_query_service,
         analytics_export_service=runtime.analytics_export_service,
     )
