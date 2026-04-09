@@ -1,17 +1,25 @@
 from html import escape
 
 from airflow_lite.api.paths import MONITOR_ADMIN_PATH
+from airflow_lite.api.viewmodels import (
+    AdminPageViewData,
+    ConnectionVM,
+    PipelineVM,
+    PoolVM,
+    VariableVM,
+)
 from airflow_lite.api.webui_helpers import fmt, render_layout, t
 
 
 def render_admin_page(
-    connections: list,
-    variables: list,
-    pools: list,
-    pipelines: list,
+    view_data: AdminPageViewData,
     *,
     language: str,
 ) -> str:
+    connections: list[ConnectionVM] = view_data.connections
+    variables: list[VariableVM] = view_data.variables
+    pools: list[PoolVM] = view_data.pools
+    pipelines: list[PipelineVM] = view_data.pipelines
     # --- Connections ---
     conn_rows = ""
     for connection in connections:
