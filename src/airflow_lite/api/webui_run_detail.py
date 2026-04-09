@@ -12,8 +12,9 @@ from airflow_lite.api.paths import (
     pipeline_run_detail_path,
     pipeline_runs_path,
 )
-from airflow_lite.api.template_env import render
-from airflow_lite.api.webui_helpers import fmt_duration, status_tone, t
+from airflow_lite.api.template_env import PageChrome, render_page
+from airflow_lite.api.webui_helpers import fmt_duration, t
+from airflow_lite.api.webui_status import tone_of
 from airflow_lite.i18n import DEFAULT_LANGUAGE
 
 
@@ -58,7 +59,7 @@ def _build_step_rows(steps: list[dict]) -> list[dict]:
             {
                 "name": step.get("step_name"),
                 "status": step.get("status", "unknown"),
-                "tone": status_tone(step.get("status", "")),
+                "tone": tone_of(step.get("status", "")),
                 "duration": fmt_duration(step.get("started_at"), step.get("finished_at")),
                 "records_display": str(records) if records else None,
                 "retries": step.get("retry_count", 0),
@@ -80,9 +81,7 @@ def render_run_detail_page(
     steps: list[dict] = run.get("steps", [])
     run_status = run.get("status", "unknown")
 
-    return render(
-        "run_detail.html",
-        language=language,
+    chrome = PageChrome(
         title=t(language, "webui.run_detail.title", pipeline_name=pipeline_name),
         subtitle=t(
             language,
@@ -91,17 +90,21 @@ def render_run_detail_page(
             run_status=run_status,
         ),
         active_path=MONITOR_PATH,
+        page_tag=t(language, "webui.layout.page_tag.run_timeline"),
         hero_links=[
             (t(language, "webui.run_detail.hero.all_runs_api"), pipeline_runs_path(pipeline_name)),
             (t(language, "webui.run_detail.hero.this_run_api"), pipeline_run_detail_path(pipeline_name, run.get("id", ""))),
         ],
-        page_tag=t(language, "webui.layout.page_tag.run_timeline"),
-        auto_refresh_seconds=None,
+    )
+    return render_page(
+        "run_detail.html",
+        chrome=chrome,
+        language=language,
         run=run,
         pipeline_name=pipeline_name,
         schedule=schedule,
         run_status=run_status,
-        run_tone=status_tone(run_status),
+        run_tone=tone_of(run_status),
         run_duration=fmt_duration(run.get("started_at"), run.get("finished_at")),
         steps=steps,
         step_rows=_build_step_rows(steps),

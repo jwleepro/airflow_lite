@@ -8,6 +8,7 @@ without importing Python helpers directly.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -38,14 +39,30 @@ from airflow_lite.api.webui_helpers import (
     cfg,
     fmt,
     fmt_duration,
-    status_tone,
     t,
     with_language_query,
 )
+from airflow_lite.api.webui_status import status_tone
 from airflow_lite.i18n import DEFAULT_LANGUAGE
 
 
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
+
+
+@dataclass(frozen=True)
+class PageChrome:
+    """페이지 공통 "크롬"(레이아웃 바깥 틀) 파라미터.
+
+    모든 WebUI 페이지 렌더러가 base.html로 전달하는 공통 인자 묶음.
+    한 곳에 모아 렌더러별 반복을 제거한다.
+    """
+
+    title: str
+    subtitle: str
+    active_path: str
+    page_tag: str | None = None
+    auto_refresh_seconds: int | None = None
+    hero_links: list[tuple[str, str]] = field(default_factory=list)
 
 
 def _make_env() -> Environment:
@@ -105,3 +122,24 @@ def render(
     context.setdefault("t", _t)
     context.setdefault("lang_url", _lang_url)
     return _ENV.get_template(template_name).render(**context)
+
+
+def render_page(
+    template_name: str,
+    *,
+    chrome: PageChrome,
+    language: str = DEFAULT_LANGUAGE,
+    **context,
+) -> str:
+    """`PageChrome`을 펼쳐 base.html 공통 컨텍스트와 함께 렌더."""
+    return render(
+        template_name,
+        language=language,
+        title=chrome.title,
+        subtitle=chrome.subtitle,
+        active_path=chrome.active_path,
+        page_tag=chrome.page_tag,
+        auto_refresh_seconds=chrome.auto_refresh_seconds,
+        hero_links=chrome.hero_links,
+        **context,
+    )
