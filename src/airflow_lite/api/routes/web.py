@@ -22,7 +22,7 @@ from airflow_lite.api.paths import (
 )
 from airflow_lite.api.schemas import build_run_response_with_steps
 from airflow_lite.api.webui_admin import render_admin_page
-from airflow_lite.storage.models import ConnectionModel, VariableModel, PoolModel
+from airflow_lite.storage.models import ConnectionModel, PipelineModel, VariableModel, PoolModel
 from airflow_lite.api.webui import (
     render_analytics_dashboard_page,
     render_export_jobs_page,
@@ -75,6 +75,18 @@ def _redirect(path: str, *, language: str = "en", **query_params) -> RedirectRes
         query_data["lang"] = language
     query = urlencode(query_data)
     return RedirectResponse(url=f"{path}{'?' + query if query else ''}", status_code=303)
+
+
+def _parse_optional_int(value: str | None) -> int | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    if not stripped:
+        return None
+    try:
+        return int(stripped)
+    except ValueError:
+        return None
 
 
 def _calc_next_run(schedule_cron: str) -> str | None:
@@ -158,8 +170,9 @@ def get_admin_page(request: Request, language: str = Depends(get_language)):
     connections = admin_repo.list_connections()
     variables = admin_repo.list_variables()
     pools = admin_repo.list_pools()
-    
-    html = render_admin_page(connections, variables, pools, language=language)
+    pipelines = admin_repo.list_pipelines()
+
+    html = render_admin_page(connections, variables, pools, pipelines, language=language)
     return HTMLResponse(html)
 
 
@@ -248,6 +261,77 @@ async def delete_pool_from_monitor(request: Request, language: str = Depends(get
         pool_name = _first_value(form_data, "pool_name")
         if pool_name:
             admin_repo.delete_pool(pool_name)
+    return _redirect(MONITOR_ADMIN_PATH, language=language)
+
+
+@router.post(f"{MONITOR_ADMIN_PATH}/pipelines")
+async def create_pipeline_from_monitor(request: Request, language: str = Depends(get_language)):
+    admin_repo = getattr(request.app.state, "admin_repo", None)
+    if admin_repo:
+        form_data = await _read_form_data(request)
+        name = _first_value(form_data, "name", "") or ""
+        table = _first_value(form_data, "table", "") or ""
+        partition_column = _first_value(form_data, "partition_column", "") or ""
+        strategy = _first_value(form_data, "strategy", "full") or "full"
+        schedule = _first_value(form_data, "schedule", "0 2 * * *") or "0 2 * * *"
+        incremental_key = _first_value(form_data, "incremental_key")
+        if strategy != "incremental":
+            incremental_key = None
+
+        if name and table and partition_column:
+            admin_repo.create_pipeline(
+                PipelineModel(
+                    name=name,
+                    table=table,
+                    partition_column=partition_column,
+                    strategy=strategy,
+                    schedule=schedule,
+                    chunk_size=_parse_optional_int(_first_value(form_data, "chunk_size")),
+                    columns=_first_value(form_data, "columns"),
+                    incremental_key=incremental_key,
+                )
+            )
+    return _redirect(MONITOR_ADMIN_PATH, language=language)
+
+
+@router.post(f"{MONITOR_ADMIN_PATH}/pipelines/edit")
+async def edit_pipeline_from_monitor(request: Request, language: str = Depends(get_language)):
+    admin_repo = getattr(request.app.state, "admin_repo", None)
+    if admin_repo:
+        form_data = await _read_form_data(request)
+        name = _first_value(form_data, "name", "") or ""
+        table = _first_value(form_data, "table", "") or ""
+        partition_column = _first_value(form_data, "partition_column", "") or ""
+        strategy = _first_value(form_data, "strategy", "full") or "full"
+        schedule = _first_value(form_data, "schedule", "0 2 * * *") or "0 2 * * *"
+        incremental_key = _first_value(form_data, "incremental_key")
+        if strategy != "incremental":
+            incremental_key = None
+
+        if name and table and partition_column:
+            admin_repo.update_pipeline(
+                PipelineModel(
+                    name=name,
+                    table=table,
+                    partition_column=partition_column,
+                    strategy=strategy,
+                    schedule=schedule,
+                    chunk_size=_parse_optional_int(_first_value(form_data, "chunk_size")),
+                    columns=_first_value(form_data, "columns"),
+                    incremental_key=incremental_key,
+                )
+            )
+    return _redirect(MONITOR_ADMIN_PATH, language=language)
+
+
+@router.post(f"{MONITOR_ADMIN_PATH}/pipelines/delete")
+async def delete_pipeline_from_monitor(request: Request, language: str = Depends(get_language)):
+    admin_repo = getattr(request.app.state, "admin_repo", None)
+    if admin_repo:
+        form_data = await _read_form_data(request)
+        name = _first_value(form_data, "name")
+        if name:
+            admin_repo.delete_pipeline(name)
     return _redirect(MONITOR_ADMIN_PATH, language=language)
 
 

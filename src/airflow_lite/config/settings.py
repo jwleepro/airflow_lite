@@ -1,10 +1,12 @@
 import os
 import re
+import sqlite3
 import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from airflow_lite.i18n import require_supported_language
+from airflow_lite.storage.crypto import Crypto
 
 # 환경변수 치환 패턴: ${VAR_NAME}
 ENV_VAR_PATTERN = re.compile(r"\$\{(\w+)\}")
@@ -192,8 +194,114 @@ def _build_pipeline_configs(pipeline_items: list[dict]) -> list[PipelineConfig]:
             pipeline_values["chunk_size"] = _coerce_int(
                 pipeline_values["chunk_size"], f"pipelines[{index}].chunk_size"
             )
+        pipeline_values["columns"] = _normalize_columns(pipeline_values.get("columns"))
         pipelines.append(PipelineConfig(**pipeline_values))
     return pipelines
+
+
+def _normalize_columns(value) -> list[str] | None:
+    if value is None:
+        return None
+    if isinstance(value, list):
+        normalized = [str(item).strip() for item in value if str(item).strip()]
+        return normalized or None
+    if isinstance(value, str):
+        normalized = [item.strip() for item in value.split(",") if item and item.strip()]
+        return normalized or None
+    return None
+
+
+def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
+    row = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (table_name,),
+    ).fetchone()
+    return row is not None
+
+
+def _decode_connection_password(raw_password: str | None) -> str | None:
+    if raw_password is None:
+        return None
+    decrypted = Crypto.decrypt(raw_password)
+    if decrypted == "---DECRYPTION_FAILED---":
+        return raw_password
+    return decrypted
+
+
+def _load_oracle_from_sqlite(sqlite_path: str) -> OracleConfig | None:
+    db_path = Path(sqlite_path)
+    if not db_path.exists():
+        return None
+
+    connection = sqlite3.connect(str(db_path))
+    connection.row_factory = sqlite3.Row
+    try:
+        if not _table_exists(connection, "connections"):
+            return None
+        row = connection.execute(
+            """
+            SELECT host, port, schema, login, password
+            FROM connections
+            WHERE conn_id = 'oracle'
+            """
+        ).fetchone()
+        if row is None:
+            return None
+        if not row["host"] or not row["schema"] or not row["login"] or row["password"] is None:
+            return None
+        return OracleConfig(
+            host=row["host"],
+            port=_coerce_int(row["port"], "oracle.port"),
+            service_name=row["schema"],
+            user=row["login"],
+            password=_decode_connection_password(row["password"]) or "",
+        )
+    finally:
+        connection.close()
+
+
+def _load_pipelines_from_sqlite(sqlite_path: str) -> list[PipelineConfig] | None:
+    db_path = Path(sqlite_path)
+    if not db_path.exists():
+        return None
+
+    connection = sqlite3.connect(str(db_path))
+    connection.row_factory = sqlite3.Row
+    try:
+        if not _table_exists(connection, "pipeline_configs"):
+            return None
+        rows = connection.execute(
+            """
+            SELECT
+                name,
+                source_table,
+                partition_column,
+                strategy,
+                schedule,
+                chunk_size,
+                columns,
+                incremental_key
+            FROM pipeline_configs
+            ORDER BY name
+            """
+        ).fetchall()
+        if not rows:
+            return None
+        return [
+            PipelineConfig(
+                name=row["name"],
+                table=row["source_table"],
+                partition_column=row["partition_column"],
+                strategy=row["strategy"],
+                schedule=row["schedule"],
+                chunk_size=row["chunk_size"],
+                columns=_normalize_columns(row["columns"]),
+                incremental_key=row["incremental_key"],
+            )
+            for row in rows
+        ]
+    finally:
+        connection.close()
 
 
 def _build_alerting_config(alerting_data) -> AlertingConfig:
@@ -282,10 +390,17 @@ class Settings:
             raw = yaml.safe_load(f)
 
         data = _walk_and_substitute(raw)
-
-        oracle_data = _coerce_int_fields(dict(data["oracle"]), ("port",), "oracle")
-        oracle = OracleConfig(**oracle_data)
         storage = StorageConfig(**data["storage"])
+
+        oracle = _load_oracle_from_sqlite(storage.sqlite_path)
+        if oracle is None:
+            if "oracle" not in data:
+                raise ValueError(
+                    "Oracle 설정을 찾을 수 없습니다. "
+                    "YAML oracle 섹션 또는 SQLite connections(conn_id='oracle')를 확인하세요."
+                )
+            oracle_data = _coerce_int_fields(dict(data["oracle"]), ("port",), "oracle")
+            oracle = OracleConfig(**oracle_data)
 
         defaults_data = data.get("defaults", {})
         retry_data = _coerce_int_fields(
@@ -301,7 +416,9 @@ class Settings:
             parquet=parquet,
         )
 
-        pipelines = _build_pipeline_configs(data.get("pipelines", []))
+        pipelines = _load_pipelines_from_sqlite(storage.sqlite_path)
+        if pipelines is None:
+            pipelines = _build_pipeline_configs(data.get("pipelines", []))
         api = _build_optional_config(data.get("api", {}), ApiConfig, prefix="api", int_fields=("port",))
         alerting = _build_alerting_config(data.get("alerting", {}))
         mart = _build_optional_config(data.get("mart", {}), MartConfig, prefix="mart")
