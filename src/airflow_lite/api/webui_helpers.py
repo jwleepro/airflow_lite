@@ -12,6 +12,7 @@ from airflow_lite.api.paths import (
     MONITOR_ANALYTICS_PATH,
     MONITOR_EXPORTS_PATH,
     MONITOR_PATH,
+    MONITOR_ADMIN_PATH,
     PIPELINES_PATH,
 )
 from airflow_lite.i18n import DEFAULT_LANGUAGE, translate
@@ -268,6 +269,7 @@ def render_layout(
             {nav_link(t(language, "webui.layout.nav.pipelines"), with_language_query(MONITOR_PATH, language), active_path, language=language)}
             {nav_link(t(language, "webui.layout.nav.analytics"), with_language_query(MONITOR_ANALYTICS_PATH, language), active_path, language=language)}
             {nav_link(t(language, "webui.layout.nav.exports"), with_language_query(MONITOR_EXPORTS_PATH, language), active_path, language=language)}
+            {nav_link(t(language, "webui.layout.nav.admin"), with_language_query(MONITOR_ADMIN_PATH, language), active_path, language=language)}
           </nav>
         </div>
       </div>

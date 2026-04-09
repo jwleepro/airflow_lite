@@ -284,6 +284,7 @@ _TRANSLATIONS: Final[dict[str, dict[str, str]]] = {
         "webui.layout.nav.pipelines": "파이프라인",
         "webui.layout.nav.analytics": "분석",
         "webui.layout.nav.exports": "내보내기",
+        "webui.layout.nav.admin": "관리자",
         "webui.layout.header_tag.ops_console": "운영 콘솔",
         "webui.layout.page_tag.operations_console": "운영 콘솔",
         "webui.layout.page_tag.run_timeline": "실행 타임라인",

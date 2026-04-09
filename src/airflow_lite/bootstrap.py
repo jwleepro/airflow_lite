@@ -12,6 +12,7 @@ from airflow_lite.query import DuckDBAnalyticsQueryService
 from airflow_lite.runtime import create_runner_factory
 from airflow_lite.storage.database import Database
 from airflow_lite.storage.repository import PipelineRunRepository, StepRunRepository
+from airflow_lite.storage.admin_repository import AdminRepository
 
 DEFAULT_CONFIG_PATH = "config/pipelines.yaml"
 CONFIG_PATH_ENV_VAR = "AIRFLOW_LITE_CONFIG_PATH"
@@ -22,6 +23,7 @@ class RuntimeServices:
     settings: Settings
     run_repo: PipelineRunRepository
     step_repo: StepRunRepository
+    admin_repo: AdminRepository
     runner_factory: Callable
     runner_map: dict[str, Callable]
     backfill_map: dict[str, Callable]
@@ -48,6 +50,7 @@ def get_api_bind(settings: Settings) -> tuple[str, int]:
 
 def build_runtime_services(
     settings: Settings,
+    config_path: str,
     *,
     runner_factory_builder=None,
 ) -> RuntimeServices:
@@ -55,6 +58,7 @@ def build_runtime_services(
     db.initialize()
     run_repo = PipelineRunRepository(db)
     step_repo = StepRunRepository(db)
+    admin_repo = AdminRepository(db, config_path)
     if runner_factory_builder is None:
         runner_factory = create_runner_factory(settings, run_repo, step_repo)
     else:
@@ -90,6 +94,7 @@ def build_runtime_services(
         settings=settings,
         run_repo=run_repo,
         step_repo=step_repo,
+        admin_repo=admin_repo,
         runner_factory=runner_factory,
         runner_map=runner_map,
         backfill_map=backfill_map,

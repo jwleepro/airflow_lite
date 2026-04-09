@@ -52,6 +52,7 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
             # 3. 런타임 구성 생성
             runtime = build_runtime_services(
                 settings,
+                config_path,
                 runner_factory_builder=self._create_runner_factory,
             )
 
@@ -72,6 +73,7 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
                 backfill_map=runtime.backfill_map,
                 run_repo=runtime.run_repo,
                 step_repo=runtime.step_repo,
+                admin_repo=runtime.admin_repo,
                 analytics_query_service=runtime.analytics_query_service,
                 analytics_export_service=runtime.analytics_export_service,
             )

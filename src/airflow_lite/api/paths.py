@@ -4,6 +4,7 @@ DOCS_PATH = "/docs"
 MONITOR_PATH = "/monitor"
 MONITOR_ANALYTICS_PATH = "/monitor/analytics"
 MONITOR_EXPORTS_PATH = "/monitor/exports"
+MONITOR_ADMIN_PATH = "/monitor/admin"
 MONITOR_EXPORT_DELETE_JOB_PATH = "/monitor/exports/delete-job"
 MONITOR_EXPORT_DELETE_COMPLETED_PATH = "/monitor/exports/delete-completed"
 

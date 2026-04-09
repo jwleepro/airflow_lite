@@ -31,3 +31,27 @@ CREATE INDEX IF NOT EXISTS idx_pipeline_runs_status
     ON pipeline_runs(status);
 CREATE INDEX IF NOT EXISTS idx_step_runs_pipeline_run
     ON step_runs(pipeline_run_id);
+
+CREATE TABLE IF NOT EXISTS connections (
+    conn_id       TEXT PRIMARY KEY,
+    conn_type     TEXT NOT NULL,
+    host          TEXT,
+    port          INTEGER,
+    schema        TEXT,
+    login         TEXT,
+    password      TEXT,
+    extra         TEXT,
+    description   TEXT
+);
+
+CREATE TABLE IF NOT EXISTS variables (
+    key           TEXT PRIMARY KEY,
+    val           TEXT,
+    description   TEXT
+);
+
+CREATE TABLE IF NOT EXISTS pools (
+    pool_name     TEXT PRIMARY KEY,
+    slots         INTEGER NOT NULL DEFAULT 1,
+    description   TEXT
+);
