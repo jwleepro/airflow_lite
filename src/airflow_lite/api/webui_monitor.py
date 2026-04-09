@@ -201,11 +201,7 @@ def render_monitor_page(
         title=t(language, "webui.monitor.title"),
         subtitle=t(language, "webui.monitor.subtitle"),
         active_path=MONITOR_PATH,
-        hero_links=[
-            (t(language, "webui.monitor.hero.pipelines_api"), PIPELINES_PATH),
-            (t(language, "webui.monitor.hero.analytics"), MONITOR_ANALYTICS_PATH),
-            (t(language, "webui.monitor.hero.exports"), MONITOR_EXPORTS_PATH),
-        ],
+        hero_links=[],
         content_html=content_html,
         auto_refresh_seconds=monitor_refresh_seconds,
         language=language,
