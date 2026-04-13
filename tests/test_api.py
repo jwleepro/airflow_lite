@@ -197,9 +197,9 @@ def test_monitor_page_renders_html_with_pipeline_summary(client):
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
     body = response.text
-    assert "Airflow Lite Monitor" in body
+    assert "DAGs" in body
     assert "Ops Console" in body
-    assert "Pipeline Inventory" in body
+    assert "Dag List" in body
     assert "test_pipeline" in body
     assert "/monitor/pipelines/test_pipeline/runs/run-001" in body
     assert "run-grid" in body
@@ -226,7 +226,7 @@ def test_monitor_page_supports_korean_language_query(client):
     body = response.text
     assert '<html lang="ko">' in body
     assert "운영 콘솔" in body
-    assert "파이프라인 인벤토리" in body
+    assert "DAG 목록" in body
     assert "/monitor/analytics?lang=ko" in body
 
 
@@ -239,12 +239,12 @@ def test_monitor_page_language_precedence_query_over_default_and_header(mock_run
     default_response = client.get("/monitor", headers={"Accept-Language": "en-US,en;q=0.8"})
     assert default_response.status_code == 200
     assert '<html lang="ko">' in default_response.text
-    assert "파이프라인 인벤토리" in default_response.text
+    assert "DAG 목록" in default_response.text
 
     override_response = client.get("/monitor?lang=en", headers={"Accept-Language": "ko-KR,ko;q=0.9"})
     assert override_response.status_code == 200
     assert '<html lang="en">' in override_response.text
-    assert "Pipeline Inventory" in override_response.text
+    assert "Dag List" in override_response.text
 
 
 def test_monitor_admin_page_renders_pipeline_section(mock_run_repo, mock_step_repo):
@@ -273,7 +273,7 @@ def test_monitor_admin_page_renders_pipeline_section(mock_run_repo, mock_step_re
     response = client.get("/monitor/admin")
 
     assert response.status_code == 200
-    assert "Pipelines" in response.text
+    assert "Pipeline Definitions" in response.text
     assert "production_log" in response.text
     assert "Pipeline settings changes require a service restart." in response.text
 

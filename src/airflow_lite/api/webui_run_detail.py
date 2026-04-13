@@ -71,15 +71,59 @@ def _build_step_rows(steps: list[dict]) -> list[dict]:
     return out
 
 
+def _build_grid_data(grid_runs: list[dict]) -> dict:
+    """Build grid view data: step_names × runs matrix of tones."""
+    if not grid_runs:
+        return {"step_names": [], "runs": []}
+
+    # Collect all unique step names in order of first appearance
+    step_names: list[str] = []
+    seen: set[str] = set()
+    for run in grid_runs:
+        for step in run.get("steps", []):
+            name = step.get("step_name", "unknown")
+            if name not in seen:
+                step_names.append(name)
+                seen.add(name)
+
+    # Build runs (newest first → reverse for display oldest-left)
+    runs_data = []
+    for run in reversed(grid_runs):
+        step_map = {
+            s.get("step_name", ""): tone_of(s.get("status", ""))
+            for s in run.get("steps", [])
+        }
+        runs_data.append({
+            "id": run.get("id", ""),
+            "execution_date": run.get("execution_date", ""),
+            "status": run.get("status", ""),
+            "tone": tone_of(run.get("status", "")),
+            "step_tones": [step_map.get(name, "neutral") for name in step_names],
+        })
+
+    return {"step_names": step_names, "runs": runs_data}
+
+
 def render_run_detail_page(
     run: dict,
     pipeline_name: str,
     schedule: str,
     *,
     language: str = DEFAULT_LANGUAGE,
+    grid_runs: list[dict] | None = None,
 ) -> str:
     steps: list[dict] = run.get("steps", [])
     run_status = run.get("status", "unknown")
+
+    step_counts = {"ok": 0, "bad": 0, "running": 0}
+    for s in steps:
+        tone = tone_of(s.get("status", ""))
+        if tone == "ok":
+            step_counts["ok"] += 1
+        elif tone == "bad":
+            step_counts["bad"] += 1
+        elif tone in ("warn", "running"):
+            step_counts["running"] += 1
 
     chrome = PageChrome(
         title=t(language, "webui.run_detail.title", pipeline_name=pipeline_name),
@@ -108,4 +152,6 @@ def render_run_detail_page(
         run_duration=fmt_duration(run.get("started_at"), run.get("finished_at")),
         steps=steps,
         step_rows=_build_step_rows(steps),
+        step_counts=step_counts,
+        grid=_build_grid_data(grid_runs or []),
     )

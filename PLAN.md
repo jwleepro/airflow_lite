@@ -32,10 +32,6 @@
 
 ### 완료
 
-- `T-037` Pipeline CRUD Admin UI 1차 개선
-  - `reference/gemini/pipeline-crud-admin-ui.md` 기반으로 Pipeline DB 모델/저장소/API/Web UI 및 설정 로딩 경로(DB 우선) 반영
-  - 관련 테스트 보강 완료 (`test_admin_repository`, `test_settings`, `test_api`)
-
 ### 현재
 
 - 현재 활성 작업 없음.
@@ -67,4 +63,4 @@
 
 ## 다음 추천 작업
 
-M4 마일스톤의 남은 후속 범위를 검토하고, 다음 마일스톤(M5)의 방향을 정의한다.
+Airflow 3 스타일로 재정렬한 UI shell을 기준으로 남은 운영/대시보드 화면 간 정보 구조 차이를 재점검하고, 이후 M5 범위를 정의한다.

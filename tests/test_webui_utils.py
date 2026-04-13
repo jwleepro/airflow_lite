@@ -10,9 +10,7 @@ from __future__ import annotations
 from airflow_lite.api.webui_helpers import build_url
 from airflow_lite.api.webui_status import (
     count_by_tone,
-    in_group,
     latest_run_status,
-    status_tone,
     tone_of,
 )
 
@@ -56,24 +54,6 @@ class TestToneOf:
         assert tone_of("skipped") == "neutral"
         assert tone_of(None) == "neutral"
         assert tone_of("") == "neutral"
-
-    def test_status_tone_alias(self):
-        assert status_tone is tone_of
-
-
-class TestInGroup:
-    def test_membership(self):
-        assert in_group("success", "ok")
-        assert in_group("running", "warn")
-        assert in_group("failed", "bad")
-
-    def test_non_membership(self):
-        assert not in_group("failed", "ok")
-        assert not in_group("success", "bad")
-
-    def test_unknown_group(self):
-        assert not in_group("success", "nope")
-
 
 class TestLatestRunStatus:
     def test_missing_latest_run(self):

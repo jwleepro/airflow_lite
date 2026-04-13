@@ -2,6 +2,19 @@
 {% import "_macros.html" as m %}
 {% block content %}
 
+<section class="hero-surface">
+  <div class="hero-copy">
+    <p class="eyebrow">{{ t('webui.analytics.metadata.eyebrow') }}</p>
+    <h2>{{ dashboard.title }}</h2>
+    <p class="muted">{{ analytics_refresh_notice }}</p>
+  </div>
+  <div class="chip-list">
+    <span class="chip">{{ dataset }}</span>
+    <span class="chip">{{ dashboard.contract_version }}</span>
+    <span class="chip">{{ active_filter_count }} {{ t('webui.analytics.summary.active_filters.label') }}</span>
+  </div>
+</section>
+
 <section class="summary-grid">
   {{ m.summary_tile(t('webui.analytics.summary.dashboard.label'), dashboard.title, t('webui.analytics.summary.dashboard.detail')) }}
   {{ m.summary_tile(t('webui.analytics.summary.charts.label'), (dashboard.charts|length)|string, t('webui.analytics.summary.charts.detail')) }}
@@ -48,12 +61,12 @@
       {% endif %}
     </div>
     <div class="actions">
-      <button class="primary" type="submit">{{ t('webui.analytics.filter_bar.apply_filters') }}</button>
-      <a class="button-link" href="{{ lang_url(reset_href_raw) }}">{{ t('webui.analytics.filter_bar.reset') }}</a>
-      <a class="button-link" href="{{ lang_url(dashboard_api_href_raw) }}" target="_blank" rel="noreferrer">{{ t('webui.analytics.filter_bar.dashboard_api') }}</a>
+      <button class="btn btn-primary" type="submit">{{ t('webui.analytics.filter_bar.apply_filters') }}</button>
+      <a class="btn btn-ghost" href="{{ lang_url(reset_href_raw) }}">{{ t('webui.analytics.filter_bar.reset') }}</a>
+      <a class="btn btn-ghost" href="{{ lang_url(dashboard_api_href_raw) }}" target="_blank" rel="noreferrer">{{ t('webui.analytics.filter_bar.dashboard_api') }}</a>
     </div>
   </form>
-  <div class="chip-list" style="margin-top:10px;">
+  <div class="chip-list panel-chip-list">
     {% if filters_applied %}
       {% for key, values in filters_applied.items() %}
         {% for value in values %}
@@ -101,7 +114,7 @@
       <section class="subpanel">
         <div class="panel-head">
           <div><p class="eyebrow">{{ t('webui.analytics.chart.eyebrow') }}</p><h2>{{ chart_def.title }}</h2></div>
-          <a href="{{ lang_url(chart_def.query_endpoint) }}" target="_blank" rel="noreferrer">{{ t('webui.analytics.chart.query_api') }}</a>
+          <a class="table-link" href="{{ lang_url(chart_def.query_endpoint) }}" target="_blank" rel="noreferrer">{{ t('webui.analytics.chart.query_api') }}</a>
         </div>
         <div class="chart-list">
           {% if points %}
@@ -133,7 +146,7 @@
     </div>
     {% if detail_preview %}
       <div class="table-wrap">
-        <table>
+        <table class="air-table">
           <thead><tr>
             {% for col in detail_preview.columns %}<th>{{ col.label }}</th>{% endfor %}
           </tr></thead>
@@ -175,7 +188,7 @@
               <input type="hidden" name="{{ key }}" value="{{ value }}">
               {% endfor %}
             {% endfor %}
-            <button type="submit">{{ action.label }}</button>
+            <button class="btn btn-primary" type="submit">{{ action.label }}</button>
           </form>
           {% endfor %}
         {% else %}
@@ -186,16 +199,16 @@
     <section class="panel">
       <div class="panel-head">
         <div><p class="eyebrow">{{ t('webui.analytics.recent_jobs.eyebrow') }}</p><h2>{{ t('webui.analytics.recent_jobs.title') }}</h2></div>
-        <a href="{{ lang_url(full_export_monitor_href_raw) }}">{{ t('webui.analytics.recent_jobs.full_monitor') }}</a>
+        <a class="table-link" href="{{ lang_url(full_export_monitor_href_raw) }}">{{ t('webui.analytics.recent_jobs.full_monitor') }}</a>
       </div>
       <div class="table-wrap">
-        <table>
+        <table class="air-table">
           <thead><tr><th>{{ t('webui.analytics.recent_jobs.table.job_id') }}</th><th>{{ t('webui.analytics.recent_jobs.table.status') }}</th><th>{{ t('webui.analytics.recent_jobs.table.format') }}</th><th>{{ t('webui.analytics.recent_jobs.table.updated') }}</th></tr></thead>
           <tbody>
             {% for job in export_jobs %}
             <tr>
-              <td style="font-family:monospace;font-size:.82rem;">{{ job.job_id[:16] }}…</td>
-              <td><span class="status {{ status_tone(job.status) }}">{{ job.status }}</span></td>
+              <td class="cell-code">{{ job.job_id[:16] }}…</td>
+              <td><span class="status {{ tone_of(job.status) }}">{{ job.status }}</span></td>
               <td>{{ job.format }}</td>
               <td>{{ fmt(job.updated_at) }}</td>
             </tr>

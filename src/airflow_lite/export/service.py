@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
+from threading import RLock
 from uuid import uuid4
 
 import pyarrow as pa
@@ -130,6 +131,7 @@ class FilesystemAnalyticsExportService:
         self._rows_per_batch = rows_per_batch
         self._parquet_compression = parquet_compression
         self._zip_compression = self._resolve_zip_compression(zip_compression)
+        self._record_lock = RLock()
         self.executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="analytics-export")
         self.jobs_path.mkdir(parents=True, exist_ok=True)
         self.artifacts_path.mkdir(parents=True, exist_ok=True)
@@ -170,11 +172,12 @@ class FilesystemAnalyticsExportService:
     def list_jobs(self, *, dataset: str | None = None, limit: int = 50) -> list[ExportJobResponse]:
         self._maybe_cleanup()
         records: list[ExportJobRecord] = []
-        for job_file in self.jobs_path.glob("*.json"):
-            record = ExportJobRecord.from_json(job_file.read_text(encoding="utf-8"))
-            if dataset and record.dataset != dataset:
-                continue
-            records.append(record)
+        with self._record_lock:
+            for job_file in self.jobs_path.glob("*.json"):
+                record = self._read_record_file(job_file)
+                if dataset and record.dataset != dataset:
+                    continue
+                records.append(record)
 
         records.sort(key=lambda item: (item.created_at, item.job_id), reverse=True)
         return [record.to_response() for record in records[:limit]]
@@ -199,15 +202,16 @@ class FilesystemAnalyticsExportService:
     def delete_all_completed(self) -> int:
         """Admin action: delete all completed export jobs. Returns count deleted."""
         count = 0
-        for job_file in self.jobs_path.glob("*.json"):
-            record = ExportJobRecord.from_json(job_file.read_text(encoding="utf-8"))
-            if record.status is not ExportJobStatus.COMPLETED:
-                continue
-            artifact_path = Path(record.artifact_path)
-            if artifact_path.exists():
-                artifact_path.unlink()
-            job_file.unlink()
-            count += 1
+        with self._record_lock:
+            for job_file in self.jobs_path.glob("*.json"):
+                record = self._read_record_file(job_file)
+                if record.status is not ExportJobStatus.COMPLETED:
+                    continue
+                artifact_path = Path(record.artifact_path)
+                if artifact_path.exists():
+                    artifact_path.unlink()
+                job_file.unlink()
+                count += 1
         return count
 
     def _maybe_cleanup(self) -> None:
@@ -226,14 +230,15 @@ class FilesystemAnalyticsExportService:
             return
         now = datetime.now()
         self._last_cleanup_at = now
-        for job_file in self.jobs_path.glob("*.json"):
-            record = ExportJobRecord.from_json(job_file.read_text(encoding="utf-8"))
-            if record.expires_at > now:
-                continue
-            artifact_path = Path(record.artifact_path)
-            if artifact_path.exists():
-                artifact_path.unlink()
-            job_file.unlink()
+        with self._record_lock:
+            for job_file in self.jobs_path.glob("*.json"):
+                record = self._read_record_file(job_file)
+                if record.expires_at > now:
+                    continue
+                artifact_path = Path(record.artifact_path)
+                if artifact_path.exists():
+                    artifact_path.unlink()
+                job_file.unlink()
 
     def _run_export(self, job_id: str, plan: AnalyticsExportPlan) -> None:
         self._update_record(job_id, status=ExportJobStatus.RUNNING)
@@ -297,16 +302,30 @@ class FilesystemAnalyticsExportService:
             raise ValueError(f"unsupported zip compression: {zip_compression}") from exc
 
     def _update_record(self, job_id: str, **updates) -> None:
-        record = self._read_record(job_id)
-        updates.setdefault("updated_at", datetime.now())
-        self._write_record(ExportJobRecord(**{**record.__dict__, **updates}))
+        with self._record_lock:
+            record = self._read_record_unlocked(job_id)
+            updates.setdefault("updated_at", datetime.now())
+            self._write_record_unlocked(ExportJobRecord(**{**record.__dict__, **updates}))
 
     def _read_record(self, job_id: str) -> ExportJobRecord:
+        with self._record_lock:
+            return self._read_record_unlocked(job_id)
+
+    def _read_record_unlocked(self, job_id: str) -> ExportJobRecord:
         job_path = self.jobs_path / f"{job_id}.json"
         if not job_path.exists():
             raise AnalyticsExportJobNotFoundError(f"export job not found: {job_id}")
-        return ExportJobRecord.from_json(job_path.read_text(encoding="utf-8"))
+        return self._read_record_file(job_path)
 
     def _write_record(self, record: ExportJobRecord) -> None:
+        with self._record_lock:
+            self._write_record_unlocked(record)
+
+    def _read_record_file(self, job_path: Path) -> ExportJobRecord:
+        return ExportJobRecord.from_json(job_path.read_text(encoding="utf-8"))
+
+    def _write_record_unlocked(self, record: ExportJobRecord) -> None:
         job_path = self.jobs_path / f"{record.job_id}.json"
-        job_path.write_text(record.to_json(), encoding="utf-8")
+        temp_path = job_path.with_name(f"{job_path.name}.{uuid4().hex}.tmp")
+        temp_path.write_text(record.to_json(), encoding="utf-8")
+        temp_path.replace(job_path)

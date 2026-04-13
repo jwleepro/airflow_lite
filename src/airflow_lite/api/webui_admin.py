@@ -14,8 +14,9 @@ from airflow_lite.api.webui_helpers import t
 def render_admin_page(view_data: AdminPageViewData, *, language: str) -> str:
     chrome = PageChrome(
         title=t(language, "webui.layout.nav.admin"),
-        subtitle="Manage connections, variables, pools, and pipelines.",
+        subtitle="Manage connections, variables, pools, and pipeline definitions from one control surface.",
         active_path=MONITOR_ADMIN_PATH,
+        page_tag=t(language, "webui.layout.page_tag.service_status"),
     )
     return render_page(
         "admin.html",
