@@ -13,6 +13,10 @@
 
 ## 최근 완료 작업
 
+- UI dead code cleanup 완료: `src/airflow_lite/api/static/css/app.css`의 미사용 `.btn-delete` 별칭 제거, 회귀 테스트 추가.
+- 작업 브랜치: `codex/ui-dead-code-cleanup`
+- Draft PR: `#30` https://github.com/jwleepro/airflow_lite/pull/30
+
 ## 진행 중
 
 - 현재 활성 작업 없음.
@@ -24,5 +28,9 @@
 ## 블로커 및 리스크
 
 ## 검증 메모
+
+- UI 라우트/템플릿/렌더러 참조 그래프를 먼저 대조해 삭제 범위를 실제 미사용 코드로 한정했다.
+- `pytest tests/test_webui_utils.py -v`
+- `pytest tests/test_api.py -k "root_redirects or monitor_page or monitor_admin_page or monitor_analytics_page or monitor_export_page" -v`
 
 ## 인수인계

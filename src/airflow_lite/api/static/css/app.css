@@ -489,15 +489,13 @@ button.primary:hover {
   background: transparent;
 }
 
-.btn-danger,
-.btn-delete {
+.btn-danger {
   background: var(--bad-bg);
   border-color: rgba(177, 47, 34, 0.22);
   color: var(--bad-ink);
 }
 
-.btn-danger:hover,
-.btn-delete:hover {
+.btn-danger:hover {
   background: #d45a4d;
   color: #fff;
 }
