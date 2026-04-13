@@ -110,15 +110,6 @@ ICON_ANALYTICS = """
 </svg>
 """.strip()
 
-ICON_EXPORTS = """
-<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M12 5.25v9.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
-  <path d="m8.75 11.5 3.25 3.25 3.25-3.25" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M5.75 18.75h12.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
-  <path d="M6.75 5.75h10.5a1.5 1.5 0 0 1 1.5 1.5v9.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/>
-</svg>
-""".strip()
-
 ICON_ADMIN = """
 <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path d="M12 15.25a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5Z" stroke="currentColor" stroke-width="1.75"/>
@@ -130,13 +121,5 @@ ICON_DOCS = """
 <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path d="M7.25 5.25h7.5a2.5 2.5 0 0 1 2.5 2.5v10.5H8.5a2.25 2.25 0 0 0-2.25 2.25V7.5a2.25 2.25 0 0 1 2.25-2.25Z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
   <path d="M8.75 9h6M8.75 12h6M8.75 15h3.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
-</svg>
-""".strip()
-
-ICON_API = """
-<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="m9.25 9.25-2.5 2.75 2.5 2.75" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="m14.75 9.25 2.5 2.75-2.5 2.75" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M12.9 7.5 11.1 16.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
 </svg>
 """.strip()

@@ -27,9 +27,7 @@ from airflow_lite.api.paths import (
 from airflow_lite.api.webui_helpers import (
     ICON_ADMIN,
     ICON_ANALYTICS,
-    ICON_API,
     ICON_DOCS,
-    ICON_EXPORTS,
     ICON_PIPELINES,
     fmt,
     fmt_duration,
@@ -73,10 +71,8 @@ def _make_env() -> Environment:
         # Raw SVG icons — must be output with |safe
         ICON_PIPELINES=Markup(ICON_PIPELINES),
         ICON_ANALYTICS=Markup(ICON_ANALYTICS),
-        ICON_EXPORTS=Markup(ICON_EXPORTS),
         ICON_ADMIN=Markup(ICON_ADMIN),
         ICON_DOCS=Markup(ICON_DOCS),
-        ICON_API=Markup(ICON_API),
         # Paths
         MONITOR_PATH=MONITOR_PATH,
         MONITOR_ADMIN_PATH=MONITOR_ADMIN_PATH,

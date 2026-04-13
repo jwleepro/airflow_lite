@@ -40,7 +40,6 @@
           {% set nav_items = [
             (t('webui.layout.nav.pipelines'), MONITOR_PATH, ICON_PIPELINES),
             (t('webui.layout.nav.analytics'), MONITOR_ANALYTICS_PATH, ICON_ANALYTICS),
-            (t('webui.layout.nav.exports'), MONITOR_EXPORTS_PATH, ICON_EXPORTS),
             (t('webui.layout.nav.admin'), MONITOR_ADMIN_PATH, ICON_ADMIN),
           ] %}
           {% for label, href, icon in nav_items %}
@@ -60,10 +59,6 @@
           <a class="sidebar-utility" href="{{ lang_url('/docs') }}" target="_blank" rel="noreferrer" title="{{ t('webui.layout.link.swagger') }}">
             <span class="sidebar-icon" aria-hidden="true">{{ ICON_DOCS }}</span>
             <span class="sidebar-label">{{ t('webui.layout.link.swagger') }}</span>
-          </a>
-          <a class="sidebar-utility" href="{{ lang_url(PIPELINES_PATH) }}" target="_blank" rel="noreferrer" title="{{ t('webui.layout.link.pipeline_api') }}">
-            <span class="sidebar-icon" aria-hidden="true">{{ ICON_API }}</span>
-            <span class="sidebar-label">{{ t('webui.layout.link.pipeline_api') }}</span>
           </a>
           <button id="theme-toggle" class="sidebar-utility theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme"></button>
         </div>

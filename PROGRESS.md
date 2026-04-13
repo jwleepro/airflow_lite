@@ -13,6 +13,9 @@
 
 ## 최근 완료 작업
 
+- WebUI helper/template layer에서 실제 템플릿이 사용하지 않는 SVG icon globals(`ICON_EXPORTS`, `ICON_API`)를 제거했다.
+- `tests/test_webui_utils.py`에 template environment가 미사용 icon globals를 다시 노출하지 않는 회귀 테스트를 추가했다.
+
 ## 진행 중
 
 - 현재 활성 작업 없음.
@@ -25,4 +28,11 @@
 
 ## 검증 메모
 
+- `python -m pytest tests\test_webui_utils.py -q --basetemp .tmp_pytest`
+- `python -m pytest tests\test_webui_utils.py tests\test_api.py -k "monitor_page_renders_html_with_pipeline_summary or monitor_admin_page_renders_pipeline_section or monitor_analytics_page_renders_dashboard_view or monitor_export_page_creates_and_lists_jobs or root_redirects_to_monitor" -q --basetemp .tmp_pytest`
+
 ## 인수인계
+
+- 브랜치: `codex/ui-dead-code-cleanup-2`
+- Draft PR: `#32` (`[codex] remove unused webui globals`)
+- 사용자 작업 중인 `src/airflow_lite/api/templates/base.html` 수정과 `image.png`는 이번 정리 범위에서 제외했다.
