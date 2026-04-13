@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <p class="eyebrow">{{ t('webui.pipeline_detail.eyebrow') }}</p>
+      <h2>{{ pipeline.name }}</h2>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      {% if latest_run %}
+      <span class="status {{ tone_of(latest_run.status) }}">{{ fmt(latest_run.status) }}</span>
+      {% endif %}
+      <a class="button-link" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}">{{ t('webui.pipeline_detail.back_to_pipelines') }}</a>
+    </div>
+  </div>
+
+  {% if operation_notice %}
+  <div class="operation-notice {{ operation_notice.tone }}">
+    <strong>{{ operation_notice.title }}</strong>
+    <span>{{ operation_notice.detail }}</span>
+  </div>
+  {% endif %}
+
+  {% if actions.can_backfill %}
+  <section class="action-surface">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">{{ t('webui.pipeline_detail.actions.eyebrow') }}</p>
+        <h2>{{ t('webui.pipeline_detail.actions.title') }}</h2>
+      </div>
+      <span class="muted">{{ t('webui.pipeline_detail.actions.hint') }}</span>
+    </div>
+    <form class="form-grid form-grid-3 action-form" method="post" action="{{ lang_url(backfill_form_action) }}">
+      <label class="filter-field">
+        <span>{{ t('webui.actions.backfill_start') }}</span>
+        <input type="date" name="start_date" value="{% if latest_run and latest_run.execution_date %}{{ latest_run.execution_date }}{% endif %}" required>
+      </label>
+      <label class="filter-field">
+        <span>{{ t('webui.actions.backfill_end') }}</span>
+        <input type="date" name="end_date" value="{% if latest_run and latest_run.execution_date %}{{ latest_run.execution_date }}{% endif %}" required>
+      </label>
+      <label class="checkbox-field">
+        <input type="checkbox" name="force" value="true">
+        <span>{{ t('webui.actions.force_option') }}</span>
+      </label>
+      <div class="form-actions action-form-actions">
+        <button class="btn btn-ghost" type="submit">{{ t('webui.actions.backfill') }}</button>
+      </div>
+    </form>
+  </section>
+  {% endif %}
+
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="overview">{{ t('webui.pipeline_detail.tab.overview') }}</button>
+    <button class="tab-btn" data-tab="grid">{{ t('webui.pipeline_detail.tab.grid') }}</button>
+    <button class="tab-btn" data-tab="graph">{{ t('webui.pipeline_detail.tab.graph') }}</button>
+    <button class="tab-btn" data-tab="runs">{{ t('webui.pipeline_detail.tab.runs') }}</button>
+    <button class="tab-btn" data-tab="tasks">{{ t('webui.pipeline_detail.tab.tasks') }}</button>
+    <button class="tab-btn" data-tab="details">{{ t('webui.pipeline_detail.tab.details') }}</button>
+  </div>
+
+  <div class="tab-pane active" id="tab-overview">
+    <section class="summary-grid">
+      <article class="summary-tile neutral">
+        <p class="summary-label">{{ t('webui.pipeline_detail.summary.total_runs') }}</p>
+        <p class="summary-value">{{ summary.total_runs }}</p>
+      </article>
+      <article class="summary-tile ok">
+        <p class="summary-label">{{ t('webui.pipeline_detail.summary.success_runs') }}</p>
+        <p class="summary-value">{{ summary.success_runs }}</p>
+      </article>
+      <article class="summary-tile {{ 'warn' if summary.active_runs else 'neutral' }}">
+        <p class="summary-label">{{ t('webui.pipeline_detail.summary.active_runs') }}</p>
+        <p class="summary-value">{{ summary.active_runs }}</p>
+      </article>
+      <article class="summary-tile {{ 'bad' if summary.failed_runs else 'neutral' }}">
+        <p class="summary-label">{{ t('webui.pipeline_detail.summary.failed_runs') }}</p>
+        <p class="summary-value">{{ summary.failed_runs }}</p>
+      </article>
+      <article class="summary-tile neutral">
+        <p class="summary-label">{{ t('webui.pipeline_detail.summary.tasks') }}</p>
+        <p class="summary-value">{{ summary.task_count }}</p>
+      </article>
+    </section>
+
+    <div class="grid-2" style="margin-top:18px;">
+      <section class="panel" style="padding:18px 20px;">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">{{ t('webui.pipeline_detail.overview.latest_run.eyebrow') }}</p>
+            <h2>{{ t('webui.pipeline_detail.overview.latest_run.title') }}</h2>
+          </div>
+        </div>
+        {% if latest_run %}
+        <dl class="meta-grid">
+          <div><dt>{{ t('webui.run_detail.meta.run_id') }}</dt><dd class="cell-code">{{ latest_run.id }}</dd></div>
+          <div><dt>{{ t('webui.monitor.table.status') }}</dt><dd><span class="status {{ tone_of(latest_run.status) }}">{{ fmt(latest_run.status) }}</span></dd></div>
+          <div><dt>{{ t('webui.monitor.table.trigger') }}</dt><dd>{{ fmt(latest_run.trigger_type) }}</dd></div>
+          <div><dt>{{ t('webui.monitor.table.duration') }}</dt><dd>{{ fmt(fmt_duration(latest_run.started_at, latest_run.finished_at)) }}</dd></div>
+          <div><dt>{{ t('webui.monitor.table.last_run') }}</dt><dd>{{ fmt(latest_run.finished_at or latest_run.started_at or latest_run.execution_date) }}</dd></div>
+          <div><dt>{{ t('webui.monitor.table.detail') }}</dt><dd><a class="table-link" href="{{ lang_url(monitor_pipeline_run_detail_path(pipeline.name, latest_run.id)) }}">{{ t('webui.monitor.detail_link') }}</a></dd></div>
+        </dl>
+        {% else %}
+        <p class="empty">{{ t('webui.pipeline_detail.empty.no_runs') }}</p>
+        {% endif %}
+      </section>
+
+      <section class="panel" style="padding:18px 20px;">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">{{ t('webui.pipeline_detail.overview.failures.eyebrow') }}</p>
+            <h2>{{ t('webui.pipeline_detail.overview.failures.title') }}</h2>
+          </div>
+        </div>
+        {% if recent_failures %}
+        <div class="stack">
+          {% for item in recent_failures %}
+          <article class="subpanel" style="padding:14px 16px;">
+            <div class="panel-head" style="margin-bottom:10px;">
+              <strong>{{ fmt(item.execution_date) }}</strong>
+              <span class="status bad">{{ fmt(item.status) }}</span>
+            </div>
+            <p class="muted" style="margin:0 0 8px;">{{ fmt(item.step_name, fallback='-') }}</p>
+            <p style="margin:0;">{{ fmt(item.error_message, fallback='-') }}</p>
+          </article>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty">{{ t('webui.pipeline_detail.empty.no_failures') }}</p>
+        {% endif %}
+      </section>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-grid">
+    {% if grid.runs %}
+    <div class="table-wrap">
+      <table class="air-table">
+        <thead>
+          <tr>
+            <th style="min-width:160px;">{{ t('webui.run_detail.table.step') }}</th>
+            {% for gr in grid.runs %}
+            <th class="grid-col-header" title="{{ gr.execution_date }}">
+              <span class="run-block {{ gr.tone }}" style="display:inline-block;"></span>
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for step_name in grid.step_names %}
+          <tr>
+            <td><strong>{{ fmt(step_name) }}</strong></td>
+            {% for gr in grid.runs %}
+            <td style="text-align:center;">
+              <span class="run-block {{ gr.step_tones[loop.index0] }}" title="{{ gr.execution_date }} · {{ step_name }}" style="display:inline-block;width:18px;height:18px;"></span>
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="empty">{{ t('webui.pipeline_detail.empty.no_runs') }}</p>
+    {% endif %}
+  </div>
+
+  <div class="tab-pane" id="tab-graph">
+    {% if graph_nodes %}
+    <p class="eyebrow" style="margin-bottom:14px;">{{ t('webui.pipeline_detail.graph.hint') }}</p>
+    <div class="graph-flow">
+      {% for node in graph_nodes %}
+      <div class="graph-node {{ node.tone }}">
+        <span class="graph-node-name">{{ fmt(node.name) }}</span>
+        <span class="graph-node-status">{{ fmt(node.status) }}</span>
+        {% if node.duration and node.duration != '-' %}<span class="graph-node-dur">{{ node.duration }}</span>{% endif %}
+      </div>
+      {% if not loop.last %}<div class="graph-edge"></div>{% endif %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty">{{ t('webui.pipeline_detail.empty.no_graph') }}</p>
+    {% endif %}
+  </div>
+
+  <div class="tab-pane" id="tab-runs">
+    <div class="table-wrap">
+      <table class="air-table">
+        <thead>
+          <tr>
+            <th>{{ t('webui.run_detail.meta.run_id') }}</th>
+            <th>{{ t('webui.monitor.table.status') }}</th>
+            <th>{{ t('webui.monitor.table.trigger') }}</th>
+            <th>{{ t('webui.monitor.table.duration') }}</th>
+            <th>{{ t('webui.monitor.table.last_run') }}</th>
+            <th>{{ t('webui.monitor.table.detail') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for run in runs %}
+          <tr>
+            <td class="cell-code">{{ run.id }}</td>
+            <td><span class="status {{ tone_of(run.status) }}">{{ fmt(run.status) }}</span></td>
+            <td>{{ fmt(run.trigger_type) }}</td>
+            <td>{{ fmt(fmt_duration(run.started_at, run.finished_at)) }}</td>
+            <td>{{ fmt(run.finished_at or run.started_at or run.execution_date) }}</td>
+            <td><a class="table-link" href="{{ lang_url(monitor_pipeline_run_detail_path(pipeline.name, run.id)) }}">{{ t('webui.monitor.detail_link') }}</a></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="empty">{{ t('webui.pipeline_detail.empty.no_runs') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-tasks">
+    <div class="table-wrap">
+      <table class="air-table">
+        <thead>
+          <tr>
+            <th>{{ t('webui.run_detail.table.step') }}</th>
+            <th>{{ t('webui.monitor.table.recent_runs') }}</th>
+            <th>{{ t('webui.monitor.table.status') }}</th>
+            <th>{{ t('webui.pipeline_detail.tasks.success') }}</th>
+            <th>{{ t('webui.pipeline_detail.tasks.active') }}</th>
+            <th>{{ t('webui.pipeline_detail.tasks.failed') }}</th>
+            <th>{{ t('webui.pipeline_detail.tasks.latest_duration') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for task in task_rows %}
+          <tr>
+            <td><strong>{{ fmt(task.name) }}</strong></td>
+            <td>
+              <div class="run-grid">
+                {% for tone in task.recent_tones %}
+                <span class="run-block {{ tone }}"></span>
+                {% endfor %}
+              </div>
+            </td>
+            <td><span class="status {{ task.latest_tone }}">{{ fmt(task.latest_status, fallback='-') }}</span></td>
+            <td>{{ task.success_count }}</td>
+            <td>{{ task.running_count }}</td>
+            <td>{{ task.failed_count }}</td>
+            <td>{{ fmt(task.latest_duration) }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="empty">{{ t('webui.pipeline_detail.empty.no_tasks') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="tab-pane" id="tab-details">
+    <dl class="meta-grid">
+      <div><dt>{{ t('webui.admin.col.name') }}</dt><dd>{{ fmt(pipeline.name) }}</dd></div>
+      <div><dt>{{ t('webui.admin.col.table') }}</dt><dd>{{ fmt(pipeline.table) }}</dd></div>
+      <div><dt>{{ t('webui.admin.col.partition_column') }}</dt><dd>{{ fmt(pipeline.partition_column) }}</dd></div>
+      <div><dt>{{ t('webui.admin.col.strategy') }}</dt><dd>{{ fmt(pipeline.strategy) }}</dd></div>
+      <div><dt>{{ t('webui.admin.col.schedule') }}</dt><dd><code>{{ fmt(pipeline.schedule) }}</code></dd></div>
+      <div><dt>{{ t('webui.monitor.table.next_run') }}</dt><dd>{{ fmt(pipeline.next_run, fallback='—') }}</dd></div>
+      <div><dt>{{ t('webui.admin.col.chunk_size') }}</dt><dd>{{ fmt(pipeline.chunk_size) }}</dd></div>
+      <div><dt>{{ t('webui.admin.col.incremental_key') }}</dt><dd>{{ fmt(pipeline.incremental_key) }}</dd></div>
+      <div><dt>{{ t('webui.admin.col.columns') }}</dt><dd>{{ fmt(pipeline.columns) }}</dd></div>
+    </dl>
+  </div>
+</section>
+
+<script>
+(function(){
+  var btns=document.querySelectorAll('.tab-btn');
+  var panes=document.querySelectorAll('.tab-pane');
+  btns.forEach(function(btn){
+    btn.addEventListener('click',function(){
+      btns.forEach(function(b){b.classList.remove('active')});
+      panes.forEach(function(p){p.classList.remove('active')});
+      btn.classList.add('active');
+      document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    });
+  });
+})();
+</script>
+
+{% endblock %}

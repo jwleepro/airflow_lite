@@ -91,6 +91,13 @@ def build_url(path: str, **params) -> str:
 # 아이콘 SVG 상수 (Jinja globals로 노출)
 # ---------------------------------------------------------------------------
 
+ICON_HOME = """
+<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M4.75 10.5 12 4.75l7.25 5.75v8a1.5 1.5 0 0 1-1.5 1.5H6.25a1.5 1.5 0 0 1-1.5-1.5v-8Z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+  <path d="M9.25 19.75v-5.5a.75.75 0 0 1 .75-.75h4a.75.75 0 0 1 .75.75v5.5" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+</svg>
+""".strip()
+
 ICON_PIPELINES = """
 <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path d="M4.75 12.25h14.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
@@ -107,6 +114,15 @@ ICON_ANALYTICS = """
   <path d="M4.75 8.5c0-1.52 1.23-2.75 2.75-2.75h9a2.75 2.75 0 0 1 2.75 2.75v7a2.75 2.75 0 0 1-2.75 2.75h-9a2.75 2.75 0 0 1-2.75-2.75v-7Z" stroke="currentColor" stroke-width="1.75"/>
   <path d="M8 12h2.5M13.5 12H16" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
   <path d="M9 15.5 12 8.5l3 7" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+""".strip()
+
+ICON_EXPORTS = """
+<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M12 4.75v8.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+  <path d="m8.75 10.75 3.25 3.5 3.25-3.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M5.75 17.25h12.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+  <rect x="4.75" y="16.25" width="14.5" height="3" rx="1.5" stroke="currentColor" stroke-width="1.75"/>
 </svg>
 """.strip()
 

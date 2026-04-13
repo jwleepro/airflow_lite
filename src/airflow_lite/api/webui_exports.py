@@ -6,6 +6,7 @@ Delegates HTML production to `templates/exports.html`.
 from __future__ import annotations
 
 from airflow_lite.api.paths import (
+    MONITOR_PATH,
     MONITOR_ANALYTICS_PATH,
     MONITOR_EXPORTS_PATH,
 )
@@ -50,6 +51,11 @@ def render_export_jobs_page(
         active_path=MONITOR_EXPORTS_PATH,
         page_tag=t(language, "webui.layout.page_tag.export_workspace"),
         auto_refresh_seconds=refresh_secs,
+        breadcrumbs=[
+            (t(language, "webui.layout.nav.home"), MONITOR_PATH),
+            (t(language, "webui.layout.nav.analytics"), MONITOR_ANALYTICS_PATH),
+            (t(language, "webui.layout.nav.exports"), None),
+        ],
         hero_links=[
             (t(language, "webui.exports.hero.analytics"), analytics_href_raw),
             (t(language, "webui.exports.hero.export_api"), "/api/v1/analytics/exports"),

@@ -4,34 +4,56 @@
 
 <section class="hero-surface">
   <div class="hero-copy">
-    <p class="eyebrow">{{ t('webui.monitor.inventory.eyebrow') }}</p>
+    <p class="eyebrow">{{ t('webui.monitor.list.filter.eyebrow') }}</p>
     <h2>{{ t('webui.monitor.inventory.title') }}</h2>
     <p class="muted">{{ monitor_notice }}</p>
   </div>
   <div class="chip-list">
-    <span class="chip">{{ t('webui.layout.nav.pipelines') }}</span>
-    <span class="chip">{{ t('webui.monitor.table.recent_runs') }}</span>
-    <span class="chip">{{ t('webui.monitor.summary.failed_last_run.label') }}</span>
+    <span class="chip">{{ filter_summary }}</span>
+    {% if selected_state != 'all' %}
+    <span class="chip">{{ t('webui.monitor.list.filter.state') }}: {{ t('webui.monitor.list.filter.state.' + selected_state) }}</span>
+    {% endif %}
+    {% if search_query %}
+    <span class="chip">{{ search_query }}</span>
+    {% endif %}
   </div>
 </section>
-
-{% if health_checks %}
-<section class="panel" style="padding:16px 20px;">
-  <p class="eyebrow" style="margin-bottom:12px;">{{ t('webui.monitor.health.eyebrow') }}</p>
-  <div class="summary-grid">
-    {% for check in health_checks %}
-    {% set htone = 'ok' if check.status == 'ok' else ('warn' if check.status == 'degraded' else 'bad') %}
-    {{ m.summary_tile(t('webui.monitor.health.' + check.name), check.status, check.detail or '', htone) }}
-    {% endfor %}
-  </div>
-</section>
-{% endif %}
 
 <section class="summary-grid">
   {{ m.summary_tile(t('webui.monitor.summary.configured_pipelines.label'), total_pipelines|string, t('webui.monitor.summary.configured_pipelines.detail')) }}
   {{ m.summary_tile(t('webui.monitor.summary.healthy_last_run.label'), healthy_runs|string, t('webui.monitor.summary.healthy_last_run.detail'), 'ok') }}
   {{ m.summary_tile(t('webui.monitor.summary.active_runs.label'), active_runs|string, t('webui.monitor.summary.active_runs.detail'), 'warn' if active_runs else 'neutral') }}
   {{ m.summary_tile(t('webui.monitor.summary.failed_last_run.label'), failed_runs|string, t('webui.monitor.summary.failed_last_run.detail'), 'bad' if failed_runs else 'neutral') }}
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <p class="eyebrow">{{ t('webui.monitor.list.filter.eyebrow') }}</p>
+      <h2>{{ t('webui.monitor.list.filter.title') }}</h2>
+    </div>
+  </div>
+  <form class="filter-form" method="get" action="{{ lang_url(MONITOR_PIPELINES_PATH) }}">
+    <div class="filter-grid">
+      <label class="filter-field">
+        <span>{{ t('webui.monitor.list.filter.search') }}</span>
+        <input type="text" name="q" value="{{ search_query }}" placeholder="{{ t('webui.monitor.list.filter.search') }}">
+      </label>
+      <label class="filter-field">
+        <span>{{ t('webui.monitor.list.filter.state') }}</span>
+        <select name="state">
+          <option value="all"{% if selected_state == 'all' %} selected{% endif %}>{{ t('webui.monitor.list.filter.state.all') }}</option>
+          <option value="ok"{% if selected_state == 'ok' %} selected{% endif %}>{{ t('webui.monitor.list.filter.state.ok') }}</option>
+          <option value="warn"{% if selected_state == 'warn' %} selected{% endif %}>{{ t('webui.monitor.list.filter.state.warn') }}</option>
+          <option value="bad"{% if selected_state == 'bad' %} selected{% endif %}>{{ t('webui.monitor.list.filter.state.bad') }}</option>
+        </select>
+      </label>
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" type="submit">{{ t('webui.monitor.list.filter.apply') }}</button>
+      <a class="btn btn-ghost" href="{{ lang_url(filter_reset_href_raw) }}">{{ t('webui.monitor.list.filter.reset') }}</a>
+    </div>
+  </form>
 </section>
 
 <section class="panel">
@@ -61,7 +83,7 @@
           <th>{{ t('webui.monitor.table.last_run') }}</th>
           <th>{{ t('webui.monitor.table.next_run') }}</th>
           <th>{{ t('webui.monitor.table.schedule') }}</th>
-          <th>{{ t('webui.monitor.table.detail') }}</th>
+          <th>{{ t('webui.monitor.table.actions') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -71,10 +93,11 @@
         {% set latest_tone = tone_of(latest_status) %}
         {% set pulse_cls = ' pulse' if latest_status in ['running','queued','pending'] else '' %}
         {% set run_id = latest.id or '' %}
+        {% set actions = pipeline_actions.get(row.name, {}) %}
         <tr>
           <td>
             <div class="dense-cell">
-              <strong>{{ fmt(row.name) }}</strong>
+              <strong><a class="table-link" href="{{ lang_url(monitor_pipeline_detail_path(row.name)) }}">{{ fmt(row.name) }}</a></strong>
               <span>{{ fmt(row.table) }}</span>
             </div>
           </td>
@@ -102,12 +125,24 @@
           <td>{{ fmt(latest.finished_at or latest.started_at) }}</td>
           <td>{{ fmt(row.next_run, fallback='—') }}</td>
           <td><code>{{ fmt(row.schedule) }}</code></td>
-          <td>
-            {% if run_id %}
-            <a class="table-link" href="{{ lang_url(monitor_pipeline_run_detail_path(row.name, run_id)) }}">{{ t('webui.monitor.detail_link') }}</a>
-            {% else %}
-            <span class="muted">-</span>
-            {% endif %}
+          <td class="cell-actions">
+            <div class="cell-action-group">
+              {% if actions.can_trigger %}
+              <form method="post" action="{{ lang_url(monitor_pipeline_trigger_path(row.name)) }}">
+                <button class="btn btn-primary btn-small" type="submit">{{ t('webui.actions.trigger') }}</button>
+              </form>
+              {% endif %}
+              {% if actions.can_trigger and latest.execution_date %}
+              <form method="post" action="{{ lang_url(monitor_pipeline_trigger_path(row.name)) }}">
+                <input type="hidden" name="execution_date" value="{{ latest.execution_date }}">
+                <input type="hidden" name="force" value="true">
+                <button class="btn btn-ghost btn-small" type="submit">{{ t('webui.actions.rerun') }}</button>
+              </form>
+              {% endif %}
+              {% if run_id %}
+              <a class="btn btn-ghost btn-small" href="{{ lang_url(monitor_pipeline_run_detail_path(row.name, run_id)) }}">{{ t('webui.monitor.detail_link') }}</a>
+              {% endif %}
+            </div>
           </td>
         </tr>
         {% else %}

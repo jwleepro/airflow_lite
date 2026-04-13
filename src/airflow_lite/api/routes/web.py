@@ -1,3 +1,4 @@
+from datetime import date
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -12,6 +13,9 @@ from airflow_lite.api.paths import (
     MONITOR_EXPORT_DELETE_COMPLETED_PATH,
     MONITOR_EXPORT_DELETE_JOB_PATH,
     MONITOR_PATH,
+    MONITOR_PIPELINES_PATH,
+    monitor_pipeline_detail_path,
+    monitor_pipeline_run_detail_path,
 )
 from airflow_lite.api.presenters import admin_forms, admin_page
 from airflow_lite.api.presenters.admin_forms import _first_value
@@ -20,14 +24,20 @@ from airflow_lite.api.presenters.exports import (
     build_export_page_data,
     create_export_from_form,
 )
-from airflow_lite.api.presenters.monitor import build_pipeline_rows, build_run_detail_data
+from airflow_lite.api.presenters.monitor import (
+    build_pipeline_detail_view_data,
+    build_pipeline_rows,
+    build_run_detail_data,
+)
 from airflow_lite.api.webui_admin import render_admin_page
 from airflow_lite.api.webui_analytics import (
     render_analytics_dashboard_page,
     render_unavailable_page,
 )
 from airflow_lite.api.webui_exports import render_export_jobs_page
-from airflow_lite.api.webui_monitor import render_monitor_page
+from airflow_lite.api.webui_helpers import t
+from airflow_lite.api.webui_pipeline_detail import render_pipeline_detail_page
+from airflow_lite.api.webui_monitor import render_monitor_home_page, render_pipeline_list_page
 from airflow_lite.api.webui_run_detail import render_run_detail_page
 from airflow_lite.export import AnalyticsExportJobNotFoundError
 from airflow_lite.query import (
@@ -37,6 +47,22 @@ from airflow_lite.query import (
 )
 
 router = APIRouter(include_in_schema=False)
+
+
+def _resolve_runner_entry(entry):
+    if hasattr(entry, "run"):
+        return entry
+    if callable(entry):
+        return entry()
+    raise TypeError("runner_map 항목은 runner 또는 runner factory여야 합니다.")
+
+
+def _resolve_backfill_manager_entry(entry):
+    if hasattr(entry, "run_backfill"):
+        return entry
+    if callable(entry):
+        return entry()
+    raise TypeError("backfill_map 항목은 manager 또는 manager factory여야 합니다.")
 
 
 def _html_unavailable(
@@ -57,6 +83,59 @@ async def _read_form_data(request: Request) -> dict[str, list[str]]:
     from urllib.parse import parse_qs
 
     return parse_qs((await request.body()).decode("utf-8"), keep_blank_values=False)
+
+
+def _parse_bool_value(value: str | None) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _parse_iso_date(value: str | None, *, field_name: str) -> date:
+    if not value:
+        raise ValueError(f"{field_name} is required.")
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must be in YYYY-MM-DD format.") from exc
+
+
+def _pipeline_action_availability(request: Request, pipeline_name: str) -> dict[str, bool]:
+    runner_map = getattr(request.app.state, "runner_map", {}) or {}
+    backfill_map = getattr(request.app.state, "backfill_map", {}) or {}
+    return {
+        "can_trigger": pipeline_name in runner_map,
+        "can_backfill": pipeline_name in backfill_map,
+    }
+
+
+def _build_pipeline_actions(request: Request, pipeline_rows: list[dict]) -> dict[str, dict]:
+    return {
+        row["name"]: _pipeline_action_availability(request, row["name"])
+        for row in pipeline_rows
+    }
+
+
+def _operation_notice(language: str, *, action: str | None, count: int | None = None) -> dict | None:
+    if action == "triggered":
+        return {
+            "tone": "ok",
+            "title": t(language, "webui.actions.notice.triggered.title"),
+            "detail": t(language, "webui.actions.notice.triggered.detail"),
+        }
+    if action == "force_rerun":
+        return {
+            "tone": "warn",
+            "title": t(language, "webui.actions.notice.force_rerun.title"),
+            "detail": t(language, "webui.actions.notice.force_rerun.detail"),
+        }
+    if action == "backfill":
+        return {
+            "tone": "ok",
+            "title": t(language, "webui.actions.notice.backfill.title"),
+            "detail": t(language, "webui.actions.notice.backfill.detail", count=count or 0),
+        }
+    return None
 
 
 def _redirect(path: str, *, language: str = "en", **query_params) -> RedirectResponse:
@@ -175,7 +254,7 @@ async def delete_pipeline_from_monitor(request: Request, language: str = Depends
 
 
 @router.get(MONITOR_PATH, response_class=HTMLResponse)
-def get_monitor_page(request: Request, language: str = Depends(get_language)):
+def get_monitor_home_page(request: Request, language: str = Depends(get_language)):
     from airflow_lite.api.routes.health import _check_disk, _check_mart_db, _check_scheduler
 
     settings = request.app.state.settings
@@ -189,7 +268,7 @@ def get_monitor_page(request: Request, language: str = Depends(get_language)):
         _check_disk(request),
     ]
     return HTMLResponse(
-        render_monitor_page(
+        render_monitor_home_page(
             pipeline_rows,
             webui_config=settings.webui,
             language=language,
@@ -201,8 +280,158 @@ def get_monitor_page(request: Request, language: str = Depends(get_language)):
     )
 
 
-@router.get(f"{MONITOR_PATH}/pipelines/{{name}}/runs/{{run_id}}", response_class=HTMLResponse)
-def get_run_detail_page(name: str, run_id: str, request: Request, language: str = Depends(get_language)):
+@router.get(MONITOR_PIPELINES_PATH, response_class=HTMLResponse)
+def get_monitor_pipeline_list_page(
+    request: Request,
+    q: str | None = Query(default=None),
+    state: str | None = Query(default=None),
+    language: str = Depends(get_language),
+):
+    settings = request.app.state.settings
+    run_repo = request.app.state.run_repo
+    step_repo = request.app.state.step_repo
+    pipeline_rows = build_pipeline_rows(settings, run_repo, step_repo)
+
+    return HTMLResponse(
+        render_pipeline_list_page(
+            pipeline_rows,
+            webui_config=settings.webui,
+            language=language,
+            search_query=q or "",
+            state=state or "all",
+            pipeline_actions=_build_pipeline_actions(request, pipeline_rows),
+        )
+    )
+
+
+@router.get(f"{MONITOR_PIPELINES_PATH}/{{name}}", response_class=HTMLResponse)
+def get_monitor_pipeline_detail_page(
+    name: str,
+    request: Request,
+    action: str | None = Query(default=None),
+    count: int | None = Query(default=None),
+    language: str = Depends(get_language),
+):
+    settings = request.app.state.settings
+    run_repo = request.app.state.run_repo
+    step_repo = request.app.state.step_repo
+    page = build_pipeline_detail_view_data(settings, run_repo, step_repo, name)
+    if page is None:
+        return _html_unavailable(
+            "DAG Details",
+            f"Pipeline '{name}' is not configured.",
+            active_path=MONITOR_PIPELINES_PATH,
+            status_code=404,
+            language=language,
+        )
+
+    return HTMLResponse(
+        render_pipeline_detail_page(
+            page,
+            language=language,
+            actions=_pipeline_action_availability(request, name),
+            operation_notice=_operation_notice(language, action=action, count=count),
+        )
+    )
+
+
+@router.post(f"{MONITOR_PIPELINES_PATH}/{{name}}/trigger")
+async def trigger_pipeline_from_monitor(
+    name: str,
+    request: Request,
+    request_language: str = Depends(get_language),
+):
+    form_data = await _read_form_data(request)
+    language = resolve_request_language(
+        request,
+        _first_value(form_data, "lang") or request.query_params.get("lang"),
+    )
+    runner_map = getattr(request.app.state, "runner_map", {}) or {}
+    if name not in runner_map:
+        return _html_unavailable(
+            "Pipeline action",
+            f"Pipeline '{name}' is not configured for manual trigger.",
+            active_path=MONITOR_PIPELINES_PATH,
+            status_code=404,
+            language=language or request_language,
+        )
+
+    execution_date_raw = _first_value(form_data, "execution_date")
+    force = _parse_bool_value(_first_value(form_data, "force"))
+    execution_date = (
+        _parse_iso_date(execution_date_raw, field_name="execution_date")
+        if execution_date_raw
+        else date.today()
+    )
+    runner = _resolve_runner_entry(runner_map[name])
+    run = runner.run(
+        execution_date=execution_date,
+        trigger_type="manual",
+        force_rerun=force,
+    )
+    return _redirect(
+        monitor_pipeline_run_detail_path(name, run.id),
+        language=language or request_language,
+        action="force_rerun" if force else "triggered",
+    )
+
+
+@router.post(f"{MONITOR_PIPELINES_PATH}/{{name}}/backfill")
+async def request_pipeline_backfill_from_monitor(
+    name: str,
+    request: Request,
+    request_language: str = Depends(get_language),
+):
+    form_data = await _read_form_data(request)
+    language = resolve_request_language(
+        request,
+        _first_value(form_data, "lang") or request.query_params.get("lang"),
+    )
+    backfill_map = getattr(request.app.state, "backfill_map", {}) or {}
+    if name not in backfill_map:
+        return _html_unavailable(
+            "Backfill",
+            f"Pipeline '{name}' is not configured for backfill.",
+            active_path=MONITOR_PIPELINES_PATH,
+            status_code=404,
+            language=language or request_language,
+        )
+
+    try:
+        start_date = _parse_iso_date(_first_value(form_data, "start_date"), field_name="start_date")
+        end_date = _parse_iso_date(_first_value(form_data, "end_date"), field_name="end_date")
+    except ValueError as exc:
+        return _html_unavailable(
+            "Backfill",
+            str(exc),
+            active_path=MONITOR_PIPELINES_PATH,
+            status_code=400,
+            language=language or request_language,
+        )
+
+    manager = _resolve_backfill_manager_entry(backfill_map[name])
+    runs = manager.run_backfill(
+        pipeline_name=name,
+        start_date=start_date,
+        end_date=end_date,
+        force_rerun=_parse_bool_value(_first_value(form_data, "force")),
+    )
+    return _redirect(
+        monitor_pipeline_detail_path(name),
+        language=language or request_language,
+        action="backfill",
+        count=len(runs),
+    )
+
+
+@router.get(f"{MONITOR_PIPELINES_PATH}/{{name}}/runs/{{run_id}}", response_class=HTMLResponse)
+def get_run_detail_page(
+    name: str,
+    run_id: str,
+    request: Request,
+    action: str | None = Query(default=None),
+    language: str = Depends(get_language),
+):
     run_repo = request.app.state.run_repo
     step_repo = request.app.state.step_repo
     settings = request.app.state.settings
@@ -226,6 +455,16 @@ def get_run_detail_page(name: str, run_id: str, request: Request, language: str 
         )
 
     run_dict, schedule = build_run_detail_data(run_obj, step_repo, settings, name)
+    pipeline_cfg = next((p for p in settings.pipelines if p.name == name), None)
+    pipeline_meta = {
+        "table": getattr(pipeline_cfg, "table", None),
+        "partition_column": getattr(pipeline_cfg, "partition_column", None),
+        "strategy": getattr(pipeline_cfg, "strategy", None),
+        "schedule": getattr(pipeline_cfg, "schedule", schedule),
+        "chunk_size": getattr(pipeline_cfg, "chunk_size", None),
+        "columns": getattr(pipeline_cfg, "columns", None),
+        "incremental_key": getattr(pipeline_cfg, "incremental_key", None),
+    }
 
     # Grid View: collect recent runs with steps for this pipeline
     grid_runs: list[dict] = []
@@ -239,6 +478,9 @@ def get_run_detail_page(name: str, run_id: str, request: Request, language: str 
         render_run_detail_page(
             run_dict, pipeline_name=name, schedule=schedule,
             language=language, grid_runs=grid_runs,
+            pipeline_meta=pipeline_meta,
+            actions=_pipeline_action_availability(request, name),
+            operation_notice=_operation_notice(language, action=action),
         )
     )
 

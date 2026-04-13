@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -190,14 +191,28 @@ class FilesystemAnalyticsExportService:
             raise AnalyticsExportNotReadyError(f"export job is not ready: {job_id}")
         return artifact_path, record.file_name
 
+    @staticmethod
+    def _unlink_with_retry(path: Path, *, attempts: int = 5, delay_seconds: float = 0.05) -> None:
+        """Best-effort unlink for Windows file-handle lag."""
+        for attempt in range(attempts):
+            try:
+                path.unlink()
+                return
+            except FileNotFoundError:
+                return
+            except PermissionError:
+                if attempt == attempts - 1:
+                    raise
+                time.sleep(delay_seconds)
+
     def delete_job(self, job_id: str) -> None:
         """Admin action: delete a specific export job and its artifact."""
         record = self._read_record(job_id)
         artifact_path = Path(record.artifact_path)
         if artifact_path.exists():
-            artifact_path.unlink()
+            self._unlink_with_retry(artifact_path)
         job_path = self.jobs_path / f"{job_id}.json"
-        job_path.unlink()
+        self._unlink_with_retry(job_path)
 
     def delete_all_completed(self) -> int:
         """Admin action: delete all completed export jobs. Returns count deleted."""
@@ -209,8 +224,8 @@ class FilesystemAnalyticsExportService:
                     continue
                 artifact_path = Path(record.artifact_path)
                 if artifact_path.exists():
-                    artifact_path.unlink()
-                job_file.unlink()
+                    self._unlink_with_retry(artifact_path)
+                self._unlink_with_retry(job_file)
                 count += 1
         return count
 

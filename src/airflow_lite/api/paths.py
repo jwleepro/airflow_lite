@@ -1,6 +1,7 @@
 API_PREFIX = "/api/v1"
 
 MONITOR_PATH = "/monitor"
+MONITOR_PIPELINES_PATH = f"{MONITOR_PATH}/pipelines"
 MONITOR_ANALYTICS_PATH = "/monitor/analytics"
 MONITOR_EXPORTS_PATH = "/monitor/exports"
 MONITOR_ADMIN_PATH = "/monitor/admin"
@@ -21,8 +22,20 @@ def pipeline_run_detail_path(pipeline_name: str, run_id: str) -> str:
     return f"{pipeline_runs_path(pipeline_name)}/{run_id}"
 
 
+def monitor_pipeline_detail_path(pipeline_name: str) -> str:
+    return f"{MONITOR_PIPELINES_PATH}/{pipeline_name}"
+
+
+def monitor_pipeline_trigger_path(pipeline_name: str) -> str:
+    return f"{monitor_pipeline_detail_path(pipeline_name)}/trigger"
+
+
+def monitor_pipeline_backfill_path(pipeline_name: str) -> str:
+    return f"{monitor_pipeline_detail_path(pipeline_name)}/backfill"
+
+
 def monitor_pipeline_run_detail_path(pipeline_name: str, run_id: str) -> str:
-    return f"{MONITOR_PATH}/pipelines/{pipeline_name}/runs/{run_id}"
+    return f"{MONITOR_PIPELINES_PATH}/{pipeline_name}/runs/{run_id}"
 
 
 def dashboard_definition_path(dashboard_id: str) -> str:

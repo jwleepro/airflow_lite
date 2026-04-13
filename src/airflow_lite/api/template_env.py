@@ -21,13 +21,19 @@ from airflow_lite.api.paths import (
     MONITOR_EXPORT_DELETE_COMPLETED_PATH,
     MONITOR_EXPORT_DELETE_JOB_PATH,
     MONITOR_PATH,
+    MONITOR_PIPELINES_PATH,
     PIPELINES_PATH,
+    monitor_pipeline_backfill_path,
+    monitor_pipeline_detail_path,
+    monitor_pipeline_trigger_path,
     monitor_pipeline_run_detail_path,
 )
 from airflow_lite.api.webui_helpers import (
     ICON_ADMIN,
     ICON_ANALYTICS,
     ICON_DOCS,
+    ICON_EXPORTS,
+    ICON_HOME,
     ICON_PIPELINES,
     fmt,
     fmt_duration,
@@ -54,7 +60,9 @@ class PageChrome:
     active_path: str
     page_tag: str | None = None
     auto_refresh_seconds: int | None = None
+    breadcrumbs: list[tuple[str, str | None]] = field(default_factory=list)
     hero_links: list[tuple[str, str]] = field(default_factory=list)
+    hero_actions: list[dict] = field(default_factory=list)
 
 
 def _make_env() -> Environment:
@@ -69,18 +77,24 @@ def _make_env() -> Environment:
         fmt_duration=fmt_duration,
         tone_of=tone_of,
         # Raw SVG icons — must be output with |safe
+        ICON_HOME=Markup(ICON_HOME),
         ICON_PIPELINES=Markup(ICON_PIPELINES),
         ICON_ANALYTICS=Markup(ICON_ANALYTICS),
+        ICON_EXPORTS=Markup(ICON_EXPORTS),
         ICON_ADMIN=Markup(ICON_ADMIN),
         ICON_DOCS=Markup(ICON_DOCS),
         # Paths
         MONITOR_PATH=MONITOR_PATH,
+        MONITOR_PIPELINES_PATH=MONITOR_PIPELINES_PATH,
         MONITOR_ADMIN_PATH=MONITOR_ADMIN_PATH,
         MONITOR_ANALYTICS_PATH=MONITOR_ANALYTICS_PATH,
         MONITOR_EXPORTS_PATH=MONITOR_EXPORTS_PATH,
         MONITOR_EXPORT_DELETE_COMPLETED_PATH=MONITOR_EXPORT_DELETE_COMPLETED_PATH,
         MONITOR_EXPORT_DELETE_JOB_PATH=MONITOR_EXPORT_DELETE_JOB_PATH,
         PIPELINES_PATH=PIPELINES_PATH,
+        monitor_pipeline_detail_path=monitor_pipeline_detail_path,
+        monitor_pipeline_trigger_path=monitor_pipeline_trigger_path,
+        monitor_pipeline_backfill_path=monitor_pipeline_backfill_path,
         monitor_pipeline_run_detail_path=monitor_pipeline_run_detail_path,
     )
     return env
@@ -124,6 +138,8 @@ def render_page(
         active_path=chrome.active_path,
         page_tag=chrome.page_tag,
         auto_refresh_seconds=chrome.auto_refresh_seconds,
+        breadcrumbs=chrome.breadcrumbs,
         hero_links=chrome.hero_links,
+        hero_actions=chrome.hero_actions,
         **context,
     )

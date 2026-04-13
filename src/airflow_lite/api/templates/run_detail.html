@@ -7,146 +7,227 @@
       <p class="eyebrow">{{ t('webui.run_detail.eyebrow') }}</p>
       <h2>{{ pipeline_name }} &nbsp;&middot;&nbsp; {{ fmt(run.execution_date) }}</h2>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <span class="status {{ run_tone }}">{{ run_status }}</span>
-      <a class="button-link" href="{{ lang_url(MONITOR_PATH) }}">{{ t('webui.run_detail.back_to_pipelines') }}</a>
+      <a class="button-link" href="{{ lang_url(monitor_pipeline_detail_path(pipeline_name)) }}">{{ t('webui.run_detail.back_to_pipeline') }}</a>
     </div>
   </div>
 
-  <div class="tab-bar">
-    <button class="tab-btn active" data-tab="overview">{{ t('webui.run_detail.tab.overview') }}</button>
-    <button class="tab-btn" data-tab="steps">{{ t('webui.run_detail.tab.steps') }}</button>
-    {% if grid.runs %}<button class="tab-btn" data-tab="grid">{{ t('webui.run_detail.tab.grid') }}</button>{% endif %}
-    {% if step_rows %}<button class="tab-btn" data-tab="graph">{{ t('webui.run_detail.tab.graph') }}</button>{% endif %}
-  </div>
-
-  {# ── Overview Tab ── #}
-  <div class="tab-pane active" id="tab-overview">
-    <dl class="meta-grid">
-      <div><dt>{{ t('webui.run_detail.meta.run_id') }}</dt><dd style="font-family:monospace;font-size:.85rem;">{{ fmt(run.id) }}</dd></div>
-      <div><dt>{{ t('webui.run_detail.meta.trigger') }}</dt><dd>{{ fmt(run.trigger_type) }}</dd></div>
-      <div><dt>{{ t('webui.run_detail.meta.duration') }}</dt><dd>{{ fmt(run_duration) }}</dd></div>
-      <div><dt>{{ t('webui.run_detail.meta.schedule') }}</dt><dd>{{ fmt(schedule) }}</dd></div>
-      <div><dt>{{ t('webui.run_detail.meta.started') }}</dt><dd>{{ fmt(run.started_at) }}</dd></div>
-      <div><dt>{{ t('webui.run_detail.meta.finished') }}</dt><dd>{{ fmt(run.finished_at) }}</dd></div>
-    </dl>
-
-    {# Step summary within overview #}
-    <div style="margin-top:18px;">
-      <p class="eyebrow">{{ t('webui.run_detail.overview.step_summary') }}</p>
-      <div class="summary-grid" style="margin-top:10px;">
-        <div class="summary-tile ok">
-          <p class="summary-label">{{ t('webui.run_detail.overview.succeeded') }}</p>
-          <p class="summary-value">{{ step_counts.ok }}</p>
-        </div>
-        <div class="summary-tile bad">
-          <p class="summary-label">{{ t('webui.run_detail.overview.failed') }}</p>
-          <p class="summary-value">{{ step_counts.bad }}</p>
-        </div>
-        <div class="summary-tile {{ 'warn' if step_counts.running > 0 else '' }}">
-          <p class="summary-label">{{ t('webui.run_detail.overview.running') }}</p>
-          <p class="summary-value">{{ step_counts.running }}</p>
-        </div>
-        <div class="summary-tile">
-          <p class="summary-label">{{ t('webui.run_detail.overview.total') }}</p>
-          <p class="summary-value">{{ steps|length }}</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  {# ── Steps & Timeline Tab ── #}
-  <div class="tab-pane" id="tab-steps">
-    <div class="table-wrap">
-      <table class="gantt-table">
-        <thead>
-          <tr>
-            <th style="min-width:180px;">{{ t('webui.run_detail.table.step') }}</th>
-            <th>{{ t('webui.run_detail.table.status') }}</th>
-            <th style="min-width:240px;">{{ t('webui.run_detail.table.timeline') }}</th>
-            <th>{{ t('webui.run_detail.table.duration') }}</th>
-            <th>{{ t('webui.run_detail.table.records') }}</th>
-            <th>{{ t('webui.run_detail.table.retries') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for step in step_rows %}
-          <tr>
-            <td>
-              <strong>{{ fmt(step.name) }}</strong>
-              {% if step.error_message %}<div class="step-error">{{ step.error_message }}</div>{% endif %}
-            </td>
-            <td><span class="status {{ step.tone }}">{{ fmt(step.status) }}</span></td>
-            <td>
-              <div class="gantt-track">
-                <div class="gantt-bar {{ step.tone }}"
-                     style="left:{{ '%.1f'|format(step.bar_left_pct) }}%;width:{{ '%.1f'|format(step.bar_width_pct) }}%"
-                     title="{{ step.duration }}"></div>
-              </div>
-            </td>
-            <td>{{ fmt(step.duration) }}</td>
-            <td>{{ fmt(step.records_display) }}</td>
-            <td>{{ fmt(step.retries|string) }}</td>
-          </tr>
-          {% else %}
-          <tr><td colspan="6" class="empty">{{ t('webui.run_detail.empty.no_step_records') }}</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  {# ── Grid View Tab ── #}
-  {% if grid.runs %}
-  <div class="tab-pane" id="tab-grid">
-    <p class="eyebrow" style="margin-bottom:12px;">{{ t('webui.run_detail.grid.description') }}</p>
-    <div class="table-wrap">
-      <table class="air-table">
-        <thead>
-          <tr>
-            <th style="min-width:140px;">{{ t('webui.run_detail.table.step') }}</th>
-            {% for gr in grid.runs %}
-            <th class="grid-col-header" title="{{ gr.execution_date }}">
-              <span class="run-block {{ gr.tone }}" style="display:inline-block;"></span>
-            </th>
-            {% endfor %}
-          </tr>
-        </thead>
-        <tbody>
-          {% for step_name in grid.step_names %}
-          <tr>
-            <td><strong>{{ fmt(step_name) }}</strong></td>
-            {% for gr in grid.runs %}
-            <td style="text-align:center;">
-              <span class="run-block {{ gr.step_tones[loop.index0] }}" title="{{ gr.execution_date }} · {{ step_name }}" style="display:inline-block;width:18px;height:18px;"></span>
-            </td>
-            {% endfor %}
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <p class="muted" style="margin-top:10px;font-size:0.82rem;">{{ t('webui.run_detail.grid.hint') }}</p>
+  {% if operation_notice %}
+  <div class="operation-notice {{ operation_notice.tone }}">
+    <strong>{{ operation_notice.title }}</strong>
+    <span>{{ operation_notice.detail }}</span>
   </div>
   {% endif %}
 
-  {# ── Graph View Tab ── #}
-  {% if step_rows %}
-  <div class="tab-pane" id="tab-graph">
-    <p class="eyebrow" style="margin-bottom:14px;">{{ t('webui.run_detail.graph.description') }}</p>
-    <div class="graph-flow">
-      {% for step in step_rows %}
-      <div class="graph-node {{ step.tone }}">
-        <span class="graph-node-name">{{ fmt(step.name) }}</span>
-        <span class="graph-node-status">{{ fmt(step.status) }}</span>
-        {% if step.duration %}<span class="graph-node-dur">{{ step.duration }}</span>{% endif %}
-      </div>
-      {% if not loop.last %}<div class="graph-edge"></div>{% endif %}
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
+  <section class="summary-grid">
+    <article class="summary-tile neutral">
+      <p class="summary-label">{{ t('webui.run_detail.summary.run_id') }}</p>
+      <p class="summary-value cell-code">{{ run.id[:8] }}</p>
+      <p class="summary-detail">{{ fmt(run.trigger_type) }}</p>
+    </article>
+    <article class="summary-tile {{ 'warn' if step_counts.running else 'neutral' }}">
+      <p class="summary-label">{{ t('webui.run_detail.overview.running') }}</p>
+      <p class="summary-value">{{ step_counts.running }}</p>
+      <p class="summary-detail">{{ t('webui.run_detail.summary.running_detail') }}</p>
+    </article>
+    <article class="summary-tile ok">
+      <p class="summary-label">{{ t('webui.run_detail.overview.succeeded') }}</p>
+      <p class="summary-value">{{ step_counts.ok }}</p>
+      <p class="summary-detail">{{ t('webui.run_detail.summary.success_detail') }}</p>
+    </article>
+    <article class="summary-tile {{ 'bad' if step_counts.bad else 'neutral' }}">
+      <p class="summary-label">{{ t('webui.run_detail.overview.failed') }}</p>
+      <p class="summary-value">{{ step_counts.bad }}</p>
+      <p class="summary-detail">{{ t('webui.run_detail.summary.failed_detail') }}</p>
+    </article>
+    <article class="summary-tile neutral">
+      <p class="summary-label">{{ t('webui.run_detail.meta.duration') }}</p>
+      <p class="summary-value">{{ fmt(run_duration) }}</p>
+      <p class="summary-detail">{{ fmt(schedule) }}</p>
+    </article>
+  </section>
 </section>
+
+<div class="detail-layout">
+  <aside class="detail-sidebar">
+    <section class="panel sticky-panel">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">{{ t('webui.run_detail.sidebar.eyebrow') }}</p>
+          <h2>{{ t('webui.run_detail.sidebar.title') }}</h2>
+        </div>
+      </div>
+      {% if grid.runs %}
+      <div class="table-wrap">
+        <table class="air-table compact-table">
+          <thead>
+            <tr>
+              <th style="min-width:120px;">{{ t('webui.run_detail.table.step') }}</th>
+              {% for gr in grid.runs %}
+              <th class="grid-col-header" title="{{ gr.execution_date }}">
+                <span class="run-block {{ gr.tone }}" style="display:inline-block;"></span>
+              </th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for step_name in grid.step_names %}
+            <tr>
+              <td><strong>{{ fmt(step_name) }}</strong></td>
+              {% for gr in grid.runs %}
+              <td style="text-align:center;">
+                <span class="run-block {{ gr.step_tones[loop.index0] }}" title="{{ gr.execution_date }} · {{ step_name }}" style="display:inline-block;width:16px;height:16px;"></span>
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="muted side-note">{{ t('webui.run_detail.grid.hint') }}</p>
+      {% else %}
+      <p class="empty">{{ t('webui.run_detail.empty.no_recent_runs') }}</p>
+      {% endif %}
+    </section>
+  </aside>
+
+  <section class="detail-main panel">
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="task-instances">{{ t('webui.run_detail.tab.task_instances') }}</button>
+      <button class="tab-btn" data-tab="events">{{ t('webui.run_detail.tab.events') }}</button>
+      <button class="tab-btn" data-tab="code">{{ t('webui.run_detail.tab.code') }}</button>
+      <button class="tab-btn" data-tab="details">{{ t('webui.run_detail.tab.details') }}</button>
+      <button class="tab-btn" data-tab="graph">{{ t('webui.run_detail.tab.graph_view') }}</button>
+    </div>
+
+    <div class="tab-pane active" id="tab-task-instances">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">{{ t('webui.run_detail.task_instances.eyebrow') }}</p>
+          <h2>{{ t('webui.run_detail.task_instances.title') }}</h2>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="gantt-table">
+          <thead>
+            <tr>
+              <th style="min-width:180px;">{{ t('webui.run_detail.table.step') }}</th>
+              <th>{{ t('webui.run_detail.table.status') }}</th>
+              <th style="min-width:240px;">{{ t('webui.run_detail.table.timeline') }}</th>
+              <th>{{ t('webui.run_detail.table.duration') }}</th>
+              <th>{{ t('webui.run_detail.table.records') }}</th>
+              <th>{{ t('webui.run_detail.table.retries') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for step in step_rows %}
+            <tr>
+              <td>
+                <strong>{{ fmt(step.name) }}</strong>
+                {% if step.error_message %}<div class="step-error">{{ step.error_message }}</div>{% endif %}
+              </td>
+              <td><span class="status {{ step.tone }}">{{ fmt(step.status) }}</span></td>
+              <td>
+                <div class="gantt-track">
+                  <div class="gantt-bar {{ step.tone }}"
+                       style="left:{{ '%.1f'|format(step.bar_left_pct) }}%;width:{{ '%.1f'|format(step.bar_width_pct) }}%"
+                       title="{{ step.duration }}"></div>
+                </div>
+              </td>
+              <td>{{ fmt(step.duration) }}</td>
+              <td>{{ fmt(step.records_display) }}</td>
+              <td>{{ fmt(step.retries|string) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="empty">{{ t('webui.run_detail.empty.no_step_records') }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tab-pane" id="tab-events">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">{{ t('webui.run_detail.events.eyebrow') }}</p>
+          <h2>{{ t('webui.run_detail.events.title') }}</h2>
+        </div>
+      </div>
+      {% if events %}
+      <div class="event-list">
+        {% for event in events %}
+        <article class="event-row {{ event.tone }}">
+          <div class="event-meta">
+            <span class="status {{ event.tone }}">{{ event.title }}</span>
+            <span class="muted">{{ fmt(event.timestamp) }}</span>
+          </div>
+          <p>{{ fmt(event.detail) }}</p>
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="empty">{{ t('webui.run_detail.empty.no_events') }}</p>
+      {% endif %}
+    </div>
+
+    <div class="tab-pane" id="tab-code">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">{{ t('webui.run_detail.code.eyebrow') }}</p>
+          <h2>{{ t('webui.run_detail.code.title') }}</h2>
+        </div>
+        <span class="muted">{{ t('webui.run_detail.code.hint') }}</span>
+      </div>
+      <pre class="code-block"><code>{{ code_snapshot }}</code></pre>
+    </div>
+
+    <div class="tab-pane" id="tab-details">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">{{ t('webui.run_detail.details.eyebrow') }}</p>
+          <h2>{{ t('webui.run_detail.details.title') }}</h2>
+        </div>
+      </div>
+      <dl class="meta-grid">
+        <div><dt>{{ t('webui.run_detail.meta.run_id') }}</dt><dd class="cell-code">{{ fmt(run.id) }}</dd></div>
+        <div><dt>{{ t('webui.run_detail.meta.trigger') }}</dt><dd>{{ fmt(run.trigger_type) }}</dd></div>
+        <div><dt>{{ t('webui.run_detail.meta.duration') }}</dt><dd>{{ fmt(run_duration) }}</dd></div>
+        <div><dt>{{ t('webui.run_detail.meta.schedule') }}</dt><dd>{{ fmt(schedule) }}</dd></div>
+        <div><dt>{{ t('webui.run_detail.meta.started') }}</dt><dd>{{ fmt(run.started_at) }}</dd></div>
+        <div><dt>{{ t('webui.run_detail.meta.finished') }}</dt><dd>{{ fmt(run.finished_at) }}</dd></div>
+        <div><dt>{{ t('webui.admin.col.table') }}</dt><dd>{{ fmt(pipeline_meta.table) }}</dd></div>
+        <div><dt>{{ t('webui.admin.col.strategy') }}</dt><dd>{{ fmt(pipeline_meta.strategy) }}</dd></div>
+        <div><dt>{{ t('webui.admin.col.partition_column') }}</dt><dd>{{ fmt(pipeline_meta.partition_column) }}</dd></div>
+        <div><dt>{{ t('webui.admin.col.incremental_key') }}</dt><dd>{{ fmt(pipeline_meta.incremental_key) }}</dd></div>
+      </dl>
+    </div>
+
+    <div class="tab-pane" id="tab-graph">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">{{ t('webui.run_detail.graph.eyebrow') }}</p>
+          <h2>{{ t('webui.run_detail.graph.title') }}</h2>
+        </div>
+      </div>
+      {% if step_rows %}
+      <p class="eyebrow" style="margin-bottom:14px;">{{ t('webui.run_detail.graph.description') }}</p>
+      <div class="graph-flow">
+        {% for step in step_rows %}
+        <div class="graph-node {{ step.tone }}">
+          <span class="graph-node-name">{{ fmt(step.name) }}</span>
+          <span class="graph-node-status">{{ fmt(step.status) }}</span>
+          {% if step.duration and step.duration != '-' %}<span class="graph-node-dur">{{ step.duration }}</span>{% endif %}
+        </div>
+        {% if not loop.last %}<div class="graph-edge"></div>{% endif %}
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="empty">{{ t('webui.run_detail.empty.no_graph') }}</p>
+      {% endif %}
+    </div>
+  </section>
+</div>
 
 <script>
 (function(){

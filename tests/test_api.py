@@ -191,20 +191,41 @@ def test_root_redirects_to_monitor_with_non_default_language():
     assert response.headers["location"] == "/monitor?lang=ko"
 
 
-def test_monitor_page_renders_html_with_pipeline_summary(client):
+def test_monitor_home_page_renders_html_with_system_summary(client):
     response = client.get("/monitor")
 
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
     body = response.text
-    assert "DAGs" in body
+    assert "Home" in body
     assert "Ops Console" in body
+    assert "Environment overview" in body
+    assert "Latest pipeline runs" in body
+    assert "test_pipeline" in body
+    assert "/monitor/pipelines" in body
+    assert "/monitor/exports" in body
+    assert "/monitor/pipelines/test_pipeline/runs/run-001" in body
+    assert "manual" in body
+    assert "success" in body
+
+
+def test_monitor_pipeline_list_page_renders_html_with_pipeline_summary(client):
+    response = client.get("/monitor/pipelines")
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    body = response.text
+    assert "DAGs" in body
     assert "Dag List" in body
     assert "test_pipeline" in body
+    assert '/monitor/pipelines/test_pipeline"' in body
     assert "/monitor/pipelines/test_pipeline/runs/run-001" in body
     assert "run-grid" in body
     assert "manual" in body
     assert "success" in body
+    assert "Trigger" in body
+    assert "Force rerun" in body
+    assert "/monitor/pipelines/test_pipeline/trigger" in body
 
 
 def test_monitor_page_uses_webui_refresh_setting(mock_run_repo, mock_step_repo):
@@ -226,7 +247,7 @@ def test_monitor_page_supports_korean_language_query(client):
     body = response.text
     assert '<html lang="ko">' in body
     assert "운영 콘솔" in body
-    assert "DAG 목록" in body
+    assert "최신 파이프라인 실행" in body
     assert "/monitor/analytics?lang=ko" in body
 
 
@@ -239,12 +260,161 @@ def test_monitor_page_language_precedence_query_over_default_and_header(mock_run
     default_response = client.get("/monitor", headers={"Accept-Language": "en-US,en;q=0.8"})
     assert default_response.status_code == 200
     assert '<html lang="ko">' in default_response.text
-    assert "DAG 목록" in default_response.text
+    assert "최신 파이프라인 실행" in default_response.text
 
     override_response = client.get("/monitor?lang=en", headers={"Accept-Language": "ko-KR,ko;q=0.9"})
     assert override_response.status_code == 200
     assert '<html lang="en">' in override_response.text
-    assert "Dag List" in override_response.text
+    assert "Latest pipeline runs" in override_response.text
+
+
+def test_monitor_pipeline_list_page_filters_by_latest_run_state(
+    mock_runner,
+    mock_backfill_manager,
+    mock_step_repo,
+):
+    settings = _make_settings(pipeline_names=("good_pipeline", "bad_pipeline"))
+    run_repo = MagicMock()
+    good_run = _make_pipeline_run(pipeline_name="good_pipeline", run_id="run-good", status="success")
+    bad_run = _make_pipeline_run(pipeline_name="bad_pipeline", run_id="run-bad", status="failed")
+
+    def _find_by_pipeline(name, limit):
+        if name == "good_pipeline":
+            return [good_run]
+        if name == "bad_pipeline":
+            return [bad_run]
+        return []
+
+    run_repo.find_by_pipeline.side_effect = _find_by_pipeline
+    run_repo.find_by_id.return_value = bad_run
+    run_repo.find_by_pipeline_paginated.return_value = ([bad_run], 1)
+    app = create_app(
+        settings=settings,
+        runner_map={"good_pipeline": mock_runner},
+        backfill_map={"good_pipeline": mock_backfill_manager},
+        run_repo=run_repo,
+        step_repo=mock_step_repo,
+    )
+    client = TestClient(app)
+
+    response = client.get("/monitor/pipelines?state=bad")
+
+    assert response.status_code == 200
+    assert "bad_pipeline" in response.text
+    assert "good_pipeline" not in response.text
+
+
+def test_monitor_pipeline_detail_page_renders_dag_details_tabs(client):
+    response = client.get("/monitor/pipelines/test_pipeline")
+
+    assert response.status_code == 200
+    assert "DAG Details" in response.text
+    assert "Overview" in response.text
+    assert "Grid View" in response.text
+    assert "Graph View" in response.text
+    assert "Runs" in response.text
+    assert "Tasks" in response.text
+    assert "Details" in response.text
+    assert "Trigger now" in response.text
+    assert "Re-run latest" in response.text
+    assert "Backfill control" in response.text
+    assert "/monitor/pipelines/test_pipeline/runs/run-001" in response.text
+
+
+def test_monitor_pipeline_detail_page_supports_korean_language_query(client):
+    response = client.get("/monitor/pipelines/test_pipeline?lang=ko")
+
+    assert response.status_code == 200
+    body = response.text
+    assert '<html lang="ko">' in body
+    assert "DAG 상세" in body
+    assert "그리드 뷰" in body
+    assert "태스크" in body
+    assert "즉시 실행" in body
+    assert "백필 제어" in body
+
+
+def test_monitor_pipeline_detail_page_returns_404_for_unknown_pipeline(client):
+    response = client.get("/monitor/pipelines/unknown_pipeline")
+
+    assert response.status_code == 404
+    assert "unknown_pipeline" in response.text
+
+
+def test_monitor_run_detail_page_renders_dag_run_tabs(client):
+    response = client.get("/monitor/pipelines/test_pipeline/runs/run-001")
+
+    assert response.status_code == 200
+    body = response.text
+    assert "Dag Run" in body
+    assert "Task Instances" in body
+    assert "Events" in body
+    assert "Code" in body
+    assert "Details" in body
+    assert "Graph View" in body
+    assert "Persistent grid view" in body
+    assert "pipeline:" in body
+    assert "dag_run:" in body
+    assert "test_pipeline" in body
+    assert '/monitor/pipelines/test_pipeline"' in body
+    assert "/monitor" in body
+    assert "Re-run this date" in body
+
+
+def test_monitor_run_detail_page_supports_korean_language_query(client):
+    response = client.get("/monitor/pipelines/test_pipeline/runs/run-001?lang=ko")
+
+    assert response.status_code == 200
+    body = response.text
+    assert '<html lang="ko">' in body
+    assert "실행 이벤트 피드" in body
+    assert "파이프라인 스냅샷" in body
+    assert "실행 메타데이터" in body
+    assert "현재 날짜 재실행" in body
+
+
+def test_monitor_trigger_action_redirects_to_run_detail(client, mock_runner):
+    response = client.post("/monitor/pipelines/test_pipeline/trigger", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/monitor/pipelines/test_pipeline/runs/run-001?action=triggered"
+    call_kwargs = mock_runner.run.call_args.kwargs
+    assert call_kwargs["execution_date"] == date.today()
+    assert call_kwargs["trigger_type"] == "manual"
+    assert call_kwargs["force_rerun"] is False
+
+
+def test_monitor_force_rerun_action_redirects_with_language(client, mock_runner):
+    response = client.post(
+        "/monitor/pipelines/test_pipeline/trigger?lang=ko",
+        content="execution_date=2026-01-01&force=true",
+        headers={"content-type": "application/x-www-form-urlencoded"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/monitor/pipelines/test_pipeline/runs/run-001?action=force_rerun&lang=ko"
+    call_kwargs = mock_runner.run.call_args.kwargs
+    assert call_kwargs["execution_date"] == date(2026, 1, 1)
+    assert call_kwargs["force_rerun"] is True
+
+
+def test_monitor_backfill_action_redirects_to_pipeline_detail(client, mock_backfill_manager):
+    response = client.post(
+        "/monitor/pipelines/test_pipeline/backfill",
+        content="start_date=2026-01-01&end_date=2026-02-28&force=true",
+        headers={"content-type": "application/x-www-form-urlencoded"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/monitor/pipelines/test_pipeline?action=backfill&count=2"
+    mock_backfill_manager.run_backfill.assert_called_once_with(
+        pipeline_name="test_pipeline",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 2, 28),
+        force_rerun=True,
+    )
 
 
 def test_monitor_admin_page_renders_pipeline_section(mock_run_repo, mock_step_repo):
