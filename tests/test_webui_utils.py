@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from airflow_lite.api.webui_helpers import build_url
 from airflow_lite.api.webui_status import (
     count_by_tone,
@@ -80,3 +82,19 @@ class TestCountByTone:
         ]
         result = count_by_tone(rows)
         assert result == {"ok": 2, "warn": 1, "bad": 1}
+
+
+def test_app_css_does_not_include_legacy_btn_delete_alias():
+    css_path = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "airflow_lite"
+        / "api"
+        / "static"
+        / "css"
+        / "app.css"
+    )
+
+    css = css_path.read_text(encoding="utf-8")
+
+    assert ".btn-delete" not in css

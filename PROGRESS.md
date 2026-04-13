@@ -15,7 +15,8 @@
 
 ## 진행 중
 
-- 현재 활성 작업 없음.
+- UI dead code cleanup 진행 중.
+- 범위: `src/airflow_lite/api/static/css/`, `src/airflow_lite/api/templates/`, `tests/`에서 실제 미사용 선택자/자산 정리 및 회귀 확인.
 
 ## 다음 작업
 
@@ -24,5 +25,7 @@
 ## 블로커 및 리스크
 
 ## 검증 메모
+
+- UI 라우트/템플릿/렌더러 참조 그래프를 먼저 대조해 삭제 범위를 실제 미사용 코드로 한정했다.
 
 ## 인수인계
