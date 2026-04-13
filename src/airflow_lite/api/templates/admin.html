@@ -1,238 +1,270 @@
 {% extends "base.html" %}
 {% block content %}
 
-<section class="panel">
-  <div class="panel-head"><h2>Connections</h2></div>
-  <div class="table-wrap" style="margin-top:12px;">
-    <table>
-      <thead>
-        <tr><th>Conn ID</th><th>Type</th><th>Host</th><th>Port</th><th>Schema</th><th>Login</th><th>Password</th><th>Description</th><th style="width:80px;"></th></tr>
-      </thead>
-      <tbody>
-        {% for c in connections %}
-        <tr>
-          <td>{{ fmt(c.conn_id) }}</td>
-          <td>{{ fmt(c.conn_type) }}</td>
-          <td>{{ fmt(c.host) }}</td>
-          <td>{{ fmt(c.port) }}</td>
-          <td>{{ fmt(c.schema) }}</td>
-          <td>{{ fmt(c.login) }}</td>
-          <td>********</td>
-          <td>{{ fmt(c.description) }}</td>
-          <td style="text-align: right;">
-            <form method="POST" action="{{ MONITOR_ADMIN_PATH }}/connections/delete" style="display:inline;" onsubmit="return confirm('Delete connection?');">
-              <input type="hidden" name="conn_id" value="{{ c.conn_id }}" />
-              <button type="submit" class="btn-delete">Delete</button>
-            </form>
-          </td>
-        </tr>
-        {% else %}
-        <tr><td colspan="9" class="empty">No connections found.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+<section class="hero-surface">
+  <div class="hero-copy">
+    <p class="eyebrow">{{ t('webui.admin.eyebrow') }}</p>
+    <h2>{{ t('webui.admin.title') }}</h2>
+    <p class="muted">{{ t('webui.admin.subtitle') }}</p>
   </div>
-  <div style="margin-top: 16px; padding: 12px; background: var(--panel-soft); border-radius: 8px; border: 1px solid var(--line);">
-    <h3 style="margin-top: 0; font-size: 1rem;">Add Connection</h3>
-    <form method="POST" action="{{ MONITOR_ADMIN_PATH }}/connections" class="grid-3" style="align-items: end;">
-      <div class="filter-field"><label class="eyebrow">Conn ID</label><input type="text" name="conn_id" required/></div>
-      <div class="filter-field"><label class="eyebrow">Type</label><input type="text" name="conn_type" value="oracle" required/></div>
-      <div class="filter-field"><label class="eyebrow">Host</label><input type="text" name="host"/></div>
-      <div class="filter-field"><label class="eyebrow">Port</label><input type="number" name="port"/></div>
-      <div class="filter-field"><label class="eyebrow">Schema</label><input type="text" name="schema"/></div>
-      <div class="filter-field"><label class="eyebrow">Login</label><input type="text" name="login"/></div>
-      <div class="filter-field"><label class="eyebrow">Password</label><input type="password" name="password"/></div>
-      <div class="filter-field" style="grid-column: span 2;"><label class="eyebrow">Description</label><input type="text" name="description"/></div>
-      <div style="grid-column: span 3; text-align: right;"><button type="submit" class="primary">Add Connection</button></div>
-    </form>
+  <div class="chip-list">
+    <span class="chip">{{ connections|length }} {{ t('webui.admin.chip.connections') }}</span>
+    <span class="chip">{{ variables|length }} {{ t('webui.admin.chip.variables') }}</span>
+    <span class="chip">{{ pools|length }} {{ t('webui.admin.chip.pools') }}</span>
+    <span class="chip">{{ pipelines|length }} {{ t('webui.admin.chip.pipelines') }}</span>
   </div>
 </section>
 
-<br>
-
-<section class="panel">
-  <div class="panel-head"><h2>Variables</h2></div>
-  <div class="table-wrap" style="margin-top:12px;">
-    <table>
-      <thead>
-        <tr><th>Key</th><th>Value</th><th>Description</th><th style="width:80px;"></th></tr>
-      </thead>
-      <tbody>
-        {% for v in variables %}
-        <tr>
-          <td>{{ fmt(v.key) }}</td>
-          <td>{{ fmt(v.val) }}</td>
-          <td>{{ fmt(v.description) }}</td>
-          <td style="text-align: right;">
-            <form method="POST" action="{{ MONITOR_ADMIN_PATH }}/variables/delete" style="display:inline;" onsubmit="return confirm('Delete variable?');">
-              <input type="hidden" name="key" value="{{ v.key }}" />
-              <button type="submit" class="btn-delete">Delete</button>
-            </form>
-          </td>
-        </tr>
-        {% else %}
-        <tr><td colspan="4" class="empty">No variables found.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <div style="margin-top: 16px; padding: 12px; background: var(--panel-soft); border-radius: 8px; border: 1px solid var(--line);">
-    <h3 style="margin-top: 0; font-size: 1rem;">Add Variable</h3>
-    <form method="POST" action="{{ MONITOR_ADMIN_PATH }}/variables" class="grid-3" style="align-items: end;">
-      <div class="filter-field"><label class="eyebrow">Key</label><input type="text" name="key" required/></div>
-      <div class="filter-field"><label class="eyebrow">Value</label><input type="text" name="val" required/></div>
-      <div class="filter-field"><label class="eyebrow">Description</label><input type="text" name="description"/></div>
-      <div style="grid-column: span 3; text-align: right;"><button type="submit" class="primary">Add Variable</button></div>
-    </form>
-  </div>
-</section>
-
-<br>
-
-<section class="panel">
-  <div class="panel-head"><h2>Pools</h2></div>
-  <div class="table-wrap" style="margin-top:12px;">
-    <table>
-      <thead>
-        <tr><th>Pool Name</th><th>Slots</th><th>Description</th><th style="width:80px;"></th></tr>
-      </thead>
-      <tbody>
-        {% for p in pools %}
-        <tr>
-          <td>{{ fmt(p.pool_name) }}</td>
-          <td>{{ fmt(p.slots) }}</td>
-          <td>{{ fmt(p.description) }}</td>
-          <td style="text-align: right;">
-            <form method="POST" action="{{ MONITOR_ADMIN_PATH }}/pools/delete" style="display:inline;" onsubmit="return confirm('Delete pool?');">
-              <input type="hidden" name="pool_name" value="{{ p.pool_name }}" />
-              <button type="submit" class="btn-delete">Delete</button>
-            </form>
-          </td>
-        </tr>
-        {% else %}
-        <tr><td colspan="4" class="empty">No pools found.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <div style="margin-top: 16px; padding: 12px; background: var(--panel-soft); border-radius: 8px; border: 1px solid var(--line);">
-    <h3 style="margin-top: 0; font-size: 1rem;">Add Pool</h3>
-    <form method="POST" action="{{ MONITOR_ADMIN_PATH }}/pools" class="grid-3" style="align-items: end;">
-      <div class="filter-field"><label class="eyebrow">Pool Name</label><input type="text" name="pool_name" required/></div>
-      <div class="filter-field"><label class="eyebrow">Slots</label><input type="number" name="slots" value="1" min="1" required/></div>
-      <div class="filter-field"><label class="eyebrow">Description</label><input type="text" name="description"/></div>
-      <div style="grid-column: span 3; text-align: right;"><button type="submit" class="primary">Add Pool</button></div>
-    </form>
-  </div>
-</section>
-
-<br>
-
-<section class="panel">
-  <div class="panel-head"><h2>Pipelines</h2></div>
-  <div style="margin-top: 12px; padding: 10px 12px; background: #fff6dd; border: 1px solid #f0d58c; border-radius: 8px; color: #6b4f00;">
-    Pipeline settings changes require a service restart.
-  </div>
-  <div class="table-wrap" style="margin-top:12px;">
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th><th>Table</th><th>Partition Col</th><th>Strategy</th><th>Schedule</th><th>Chunk Size</th><th>Columns</th><th>Incr. Key</th><th style="width:180px;"></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for p in pipelines %}
-        {% set edit_row_id = "pipeline-edit-" ~ p.name %}
-        {% set is_incremental = p.strategy == "incremental" %}
-        <tr>
-          <td>{{ fmt(p.name) }}</td>
-          <td>{{ fmt(p.table) }}</td>
-          <td>{{ fmt(p.partition_column) }}</td>
-          <td>{{ fmt(p.strategy) }}</td>
-          <td>{{ fmt(p.schedule) }}</td>
-          <td>{{ fmt(p.chunk_size) }}</td>
-          <td>{{ fmt(p.columns) }}</td>
-          <td>{{ fmt(p.incremental_key) }}</td>
-          <td style="text-align: right; white-space: nowrap;">
-            <button type="button" class="secondary" onclick="togglePipelineEdit('{{ edit_row_id }}')">Edit</button>
-            <form method="POST" action="{{ MONITOR_ADMIN_PATH }}/pipelines/delete" style="display:inline;" onsubmit="return confirm('Delete pipeline?');">
-              <input type="hidden" name="name" value="{{ p.name }}" />
-              <button type="submit" class="btn-delete">Delete</button>
-            </form>
-          </td>
-        </tr>
-        <tr id="{{ edit_row_id }}" style="display:none;">
-          <td colspan="9">
-            <form method="POST" action="{{ MONITOR_ADMIN_PATH }}/pipelines/edit" class="grid-3" style="padding: 12px; background: var(--panel-soft); border: 1px solid var(--line); border-radius: 8px;">
-              <div class="filter-field"><label class="eyebrow">Name</label><input type="text" name="name" value="{{ p.name }}" readonly style="background:#f5f5f5;"/></div>
-              <div class="filter-field"><label class="eyebrow">Table</label><input type="text" name="table" value="{{ p.table }}" required/></div>
-              <div class="filter-field"><label class="eyebrow">Partition Column</label><input type="text" name="partition_column" value="{{ p.partition_column }}" required/></div>
-              <div class="filter-field">
-                <label class="eyebrow">Strategy</label>
-                <select name="strategy" onchange="toggleIncrementalField(this, '{{ edit_row_id }}')">
-                  <option value="full" {% if p.strategy == 'full' %}selected{% endif %}>full</option>
-                  <option value="incremental" {% if is_incremental %}selected{% endif %}>incremental</option>
-                </select>
-              </div>
-              <div class="filter-field"><label class="eyebrow">Schedule</label><input type="text" name="schedule" value="{{ p.schedule }}" required/></div>
-              <div class="filter-field"><label class="eyebrow">Chunk Size</label><input type="number" name="chunk_size" value="{{ '' if p.chunk_size is none else p.chunk_size }}" min="1"/></div>
-              <div class="filter-field" style="grid-column: span 2;">
-                <label class="eyebrow">Columns</label>
-                <textarea name="columns" rows="2" placeholder="COL1, COL2, COL3" style="width:100%;">{{ p.columns or '' }}</textarea>
-              </div>
-              <div class="filter-field incremental-key-field" data-prefix="{{ edit_row_id }}" style="display: {% if is_incremental %}block{% else %}none{% endif %};">
-                <label class="eyebrow">Incremental Key</label>
-                <input type="text" name="incremental_key" value="{{ p.incremental_key or '' }}"/>
-              </div>
-              <div style="grid-column: span 3; text-align: right;"><button type="submit" class="primary">Save Pipeline</button></div>
-            </form>
-          </td>
-        </tr>
-        {% else %}
-        <tr><td colspan="9" class="empty">No pipelines found.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <div style="margin-top: 16px; padding: 12px; background: var(--panel-soft); border-radius: 8px; border: 1px solid var(--line);">
-    <h3 style="margin-top: 0; font-size: 1rem;">Add Pipeline</h3>
-    <form method="POST" action="{{ MONITOR_ADMIN_PATH }}/pipelines" class="grid-3" style="align-items: end;">
-      <div class="filter-field"><label class="eyebrow">Name</label><input type="text" name="name" required/></div>
-      <div class="filter-field"><label class="eyebrow">Table</label><input type="text" name="table" required/></div>
-      <div class="filter-field"><label class="eyebrow">Partition Column</label><input type="text" name="partition_column" required/></div>
-      <div class="filter-field">
-        <label class="eyebrow">Strategy</label>
-        <select name="strategy" onchange="toggleIncrementalField(this, 'new-pipeline')">
-          <option value="full" selected>full</option>
-          <option value="incremental">incremental</option>
-        </select>
+<div class="admin-stack">
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">{{ t('webui.admin.connections.eyebrow') }}</p>
+        <h2>{{ t('webui.admin.connections.title') }}</h2>
       </div>
-      <div class="filter-field"><label class="eyebrow">Schedule</label><input type="text" name="schedule" value="0 2 * * *" required/></div>
-      <div class="filter-field"><label class="eyebrow">Chunk Size</label><input type="number" name="chunk_size" min="1"/></div>
-      <div class="filter-field" style="grid-column: span 2;"><label class="eyebrow">Columns</label><textarea name="columns" rows="2" placeholder="COL1, COL2, COL3" style="width:100%;"></textarea></div>
-      <div class="filter-field incremental-key-field" data-prefix="new-pipeline" style="display:none;">
-        <label class="eyebrow">Incremental Key</label>
-        <input type="text" name="incremental_key"/>
+    </div>
+    <div class="table-wrap">
+      <table class="air-table">
+        <thead>
+          <tr><th>{{ t('webui.admin.col.conn_id') }}</th><th>{{ t('webui.admin.col.type') }}</th><th>{{ t('webui.admin.col.host') }}</th><th>{{ t('webui.admin.col.port') }}</th><th>{{ t('webui.admin.col.schema') }}</th><th>{{ t('webui.admin.col.login') }}</th><th>{{ t('webui.admin.col.password') }}</th><th>{{ t('webui.admin.col.description') }}</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for c in connections %}
+          <tr>
+            <td>{{ fmt(c.conn_id) }}</td>
+            <td>{{ fmt(c.conn_type) }}</td>
+            <td>{{ fmt(c.host) }}</td>
+            <td>{{ fmt(c.port) }}</td>
+            <td>{{ fmt(c.schema) }}</td>
+            <td>{{ fmt(c.login) }}</td>
+            <td>********</td>
+            <td>{{ fmt(c.description) }}</td>
+            <td class="cell-actions">
+              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/connections/delete" style="display:inline;" onsubmit="return confirm('{{ t('webui.admin.connections.confirm_delete') }}');">
+                <input type="hidden" name="conn_id" value="{{ c.conn_id }}">
+                <button type="submit" class="btn btn-danger btn-small">{{ t('webui.admin.btn.delete') }}</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="9" class="empty">{{ t('webui.admin.connections.empty') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="editor-box">
+      <h3>{{ t('webui.admin.connections.add') }}</h3>
+      <form method="post" action="{{ MONITOR_ADMIN_PATH }}/connections" class="form-grid">
+        <label class="filter-field"><span>{{ t('webui.admin.col.conn_id') }}</span><input type="text" name="conn_id" required></label>
+        <label class="filter-field"><span>{{ t('webui.admin.col.type') }}</span><input type="text" name="conn_type" value="oracle" required></label>
+        <label class="filter-field"><span>{{ t('webui.admin.col.host') }}</span><input type="text" name="host"></label>
+        <label class="filter-field"><span>{{ t('webui.admin.col.port') }}</span><input type="number" name="port"></label>
+        <label class="filter-field"><span>{{ t('webui.admin.col.schema') }}</span><input type="text" name="schema"></label>
+        <label class="filter-field"><span>{{ t('webui.admin.col.login') }}</span><input type="text" name="login"></label>
+        <label class="filter-field"><span>{{ t('webui.admin.col.password') }}</span><input type="password" name="password"></label>
+        <label class="filter-field field-span-2"><span>{{ t('webui.admin.col.description') }}</span><input type="text" name="description"></label>
+        <div class="form-actions"><button type="submit" class="btn btn-primary">{{ t('webui.admin.connections.add') }}</button></div>
+      </form>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">{{ t('webui.admin.variables.eyebrow') }}</p>
+        <h2>{{ t('webui.admin.variables.title') }}</h2>
       </div>
-      <div style="grid-column: span 3; text-align: right;"><button type="submit" class="primary">Add Pipeline</button></div>
-    </form>
-  </div>
-</section>
+    </div>
+    <div class="table-wrap">
+      <table class="air-table">
+        <thead>
+          <tr><th>{{ t('webui.admin.col.key') }}</th><th>{{ t('webui.admin.col.value') }}</th><th>{{ t('webui.admin.col.description') }}</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for v in variables %}
+          <tr>
+            <td>{{ fmt(v.key) }}</td>
+            <td>{{ fmt(v.val) }}</td>
+            <td>{{ fmt(v.description) }}</td>
+            <td class="cell-actions">
+              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/variables/delete" style="display:inline;" onsubmit="return confirm('{{ t('webui.admin.variables.confirm_delete') }}');">
+                <input type="hidden" name="key" value="{{ v.key }}">
+                <button type="submit" class="btn btn-danger btn-small">{{ t('webui.admin.btn.delete') }}</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="empty">{{ t('webui.admin.variables.empty') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="editor-box">
+      <h3>{{ t('webui.admin.variables.add') }}</h3>
+      <form method="post" action="{{ MONITOR_ADMIN_PATH }}/variables" class="form-grid form-grid-3">
+        <label class="filter-field"><span>{{ t('webui.admin.col.key') }}</span><input type="text" name="key" required></label>
+        <label class="filter-field"><span>{{ t('webui.admin.col.value') }}</span><input type="text" name="val" required></label>
+        <label class="filter-field"><span>{{ t('webui.admin.col.description') }}</span><input type="text" name="description"></label>
+        <div class="form-actions"><button type="submit" class="btn btn-primary">{{ t('webui.admin.variables.add') }}</button></div>
+      </form>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">{{ t('webui.admin.pools.eyebrow') }}</p>
+        <h2>{{ t('webui.admin.pools.title') }}</h2>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="air-table">
+        <thead>
+          <tr><th>{{ t('webui.admin.col.pool_name') }}</th><th>{{ t('webui.admin.col.slots') }}</th><th>{{ t('webui.admin.col.description') }}</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for p in pools %}
+          <tr>
+            <td>{{ fmt(p.pool_name) }}</td>
+            <td>{{ fmt(p.slots) }}</td>
+            <td>{{ fmt(p.description) }}</td>
+            <td class="cell-actions">
+              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/pools/delete" style="display:inline;" onsubmit="return confirm('{{ t('webui.admin.pools.confirm_delete') }}');">
+                <input type="hidden" name="pool_name" value="{{ p.pool_name }}">
+                <button type="submit" class="btn btn-danger btn-small">{{ t('webui.admin.btn.delete') }}</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="empty">{{ t('webui.admin.pools.empty') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="editor-box">
+      <h3>{{ t('webui.admin.pools.add') }}</h3>
+      <form method="post" action="{{ MONITOR_ADMIN_PATH }}/pools" class="form-grid form-grid-3">
+        <label class="filter-field"><span>{{ t('webui.admin.col.pool_name') }}</span><input type="text" name="pool_name" required></label>
+        <label class="filter-field"><span>{{ t('webui.admin.col.slots') }}</span><input type="number" name="slots" value="1" min="1" required></label>
+        <label class="filter-field"><span>{{ t('webui.admin.col.description') }}</span><input type="text" name="description"></label>
+        <div class="form-actions"><button type="submit" class="btn btn-primary">{{ t('webui.admin.pools.add') }}</button></div>
+      </form>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">{{ t('webui.admin.pipelines.eyebrow') }}</p>
+        <h2>{{ t('webui.admin.pipelines.title') }}</h2>
+      </div>
+    </div>
+    <div class="section-note">{{ t('webui.admin.pipelines.note') }}</div>
+    <div class="table-wrap">
+      <table class="air-table">
+        <thead>
+          <tr>
+            <th>{{ t('webui.admin.col.name') }}</th><th>{{ t('webui.admin.col.table') }}</th><th>{{ t('webui.admin.col.partition_column') }}</th><th>{{ t('webui.admin.col.strategy') }}</th><th>{{ t('webui.admin.col.schedule') }}</th><th>{{ t('webui.admin.col.chunk_size') }}</th><th>{{ t('webui.admin.col.columns') }}</th><th>{{ t('webui.admin.col.incremental_key') }}</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in pipelines %}
+          {% set edit_row_id = "pipeline-edit-" ~ p.name %}
+          {% set is_incremental = p.strategy == "incremental" %}
+          <tr>
+            <td>{{ fmt(p.name) }}</td>
+            <td>{{ fmt(p.table) }}</td>
+            <td>{{ fmt(p.partition_column) }}</td>
+            <td>{{ fmt(p.strategy) }}</td>
+            <td>{{ fmt(p.schedule) }}</td>
+            <td>{{ fmt(p.chunk_size) }}</td>
+            <td>{{ fmt(p.columns) }}</td>
+            <td>{{ fmt(p.incremental_key) }}</td>
+            <td class="cell-actions">
+              <button type="button" class="btn btn-ghost btn-small" onclick="togglePipelineEdit('{{ edit_row_id }}')">{{ t('webui.admin.btn.edit') }}</button>
+              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/pipelines/delete" style="display:inline;" onsubmit="return confirm('{{ t('webui.admin.pipelines.confirm_delete') }}');">
+                <input type="hidden" name="name" value="{{ p.name }}">
+                <button type="submit" class="btn btn-danger btn-small">{{ t('webui.admin.btn.delete') }}</button>
+              </form>
+            </td>
+          </tr>
+          <tr id="{{ edit_row_id }}" class="edit-row" style="display:none;">
+            <td colspan="9">
+              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/pipelines/edit" class="form-grid">
+                <label class="filter-field"><span>{{ t('webui.admin.col.name') }}</span><input type="text" name="name" value="{{ p.name }}" readonly></label>
+                <label class="filter-field"><span>{{ t('webui.admin.col.table') }}</span><input type="text" name="table" value="{{ p.table }}" required></label>
+                <label class="filter-field"><span>{{ t('webui.admin.col.partition_column') }}</span><input type="text" name="partition_column" value="{{ p.partition_column }}" required></label>
+                <label class="filter-field">
+                  <span>{{ t('webui.admin.col.strategy') }}</span>
+                  <select name="strategy" onchange="toggleIncrementalField(this, '{{ edit_row_id }}')">
+                    <option value="full" {% if p.strategy == 'full' %}selected{% endif %}>full</option>
+                    <option value="incremental" {% if is_incremental %}selected{% endif %}>incremental</option>
+                  </select>
+                </label>
+                <label class="filter-field"><span>{{ t('webui.admin.col.schedule') }}</span><input type="text" name="schedule" value="{{ p.schedule }}" required></label>
+                <label class="filter-field"><span>{{ t('webui.admin.col.chunk_size') }}</span><input type="number" name="chunk_size" value="{{ '' if p.chunk_size is none else p.chunk_size }}" min="1"></label>
+                <label class="filter-field field-span-2"><span>{{ t('webui.admin.col.columns') }}</span><textarea name="columns" rows="2" placeholder="COL1, COL2, COL3">{{ p.columns or '' }}</textarea></label>
+                <label class="filter-field incremental-key-field" data-prefix="{{ edit_row_id }}" style="display:{% if is_incremental %}grid{% else %}none{% endif %};">
+                  <span>{{ t('webui.admin.col.incremental_key') }}</span>
+                  <input type="text" name="incremental_key" value="{{ p.incremental_key or '' }}">
+                </label>
+                <div class="form-actions"><button type="submit" class="btn btn-primary">{{ t('webui.admin.pipelines.save') }}</button></div>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="9" class="empty">{{ t('webui.admin.pipelines.empty') }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="editor-box">
+      <h3>{{ t('webui.admin.pipelines.add') }}</h3>
+      <form method="post" action="{{ MONITOR_ADMIN_PATH }}/pipelines" class="form-grid">
+        <label class="filter-field"><span>{{ t('webui.admin.col.name') }}</span><input type="text" name="name" required></label>
+        <label class="filter-field"><span>{{ t('webui.admin.col.table') }}</span><input type="text" name="table" required></label>
+        <label class="filter-field"><span>{{ t('webui.admin.col.partition_column') }}</span><input type="text" name="partition_column" required></label>
+        <label class="filter-field">
+          <span>{{ t('webui.admin.col.strategy') }}</span>
+          <select name="strategy" onchange="toggleIncrementalField(this, 'new-pipeline')">
+            <option value="full" selected>full</option>
+            <option value="incremental">incremental</option>
+          </select>
+        </label>
+        <label class="filter-field"><span>{{ t('webui.admin.col.schedule') }}</span><input type="text" name="schedule" value="0 2 * * *" required></label>
+        <label class="filter-field"><span>{{ t('webui.admin.col.chunk_size') }}</span><input type="number" name="chunk_size" min="1"></label>
+        <label class="filter-field field-span-2"><span>{{ t('webui.admin.col.columns') }}</span><textarea name="columns" rows="2" placeholder="COL1, COL2, COL3"></textarea></label>
+        <label class="filter-field incremental-key-field" data-prefix="new-pipeline" style="display:none;">
+          <span>{{ t('webui.admin.col.incremental_key') }}</span>
+          <input type="text" name="incremental_key">
+        </label>
+        <div class="form-actions"><button type="submit" class="btn btn-primary">{{ t('webui.admin.pipelines.add') }}</button></div>
+      </form>
+    </div>
+  </section>
+</div>
 
 <script>
 function togglePipelineEdit(rowId) {
-    const row = document.getElementById(rowId);
-    if (!row) return;
-    row.style.display = row.style.display === "none" ? "table-row" : "none";
+  const row = document.getElementById(rowId);
+  if (!row) {
+    return;
+  }
+  row.style.display = row.style.display === "none" ? "table-row" : "none";
 }
+
 function toggleIncrementalField(selectEl, prefix) {
-    const section = document.querySelector('.incremental-key-field[data-prefix="' + prefix + '"]');
-    if (!section) return;
-    section.style.display = selectEl.value === "incremental" ? "block" : "none";
-    if (selectEl.value !== "incremental") {
-        const input = section.querySelector('input[name="incremental_key"]');
-        if (input) input.value = "";
+  const section = document.querySelector('.incremental-key-field[data-prefix="' + prefix + '"]');
+  if (!section) {
+    return;
+  }
+  section.style.display = selectEl.value === "incremental" ? "grid" : "none";
+  if (selectEl.value !== "incremental") {
+    const input = section.querySelector('input[name="incremental_key"]');
+    if (input) {
+      input.value = "";
     }
+  }
 }
 </script>
 

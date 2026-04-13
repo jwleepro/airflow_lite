@@ -22,13 +22,13 @@ from airflow_lite.api.presenters.exports import (
 )
 from airflow_lite.api.presenters.monitor import build_pipeline_rows, build_run_detail_data
 from airflow_lite.api.webui_admin import render_admin_page
-from airflow_lite.api.webui import (
+from airflow_lite.api.webui_analytics import (
     render_analytics_dashboard_page,
-    render_export_jobs_page,
-    render_monitor_page,
-    render_run_detail_page,
     render_unavailable_page,
 )
+from airflow_lite.api.webui_exports import render_export_jobs_page
+from airflow_lite.api.webui_monitor import render_monitor_page
+from airflow_lite.api.webui_run_detail import render_run_detail_page
 from airflow_lite.export import AnalyticsExportJobNotFoundError
 from airflow_lite.query import (
     AnalyticsDashboardNotFoundError,
@@ -176,13 +176,28 @@ async def delete_pipeline_from_monitor(request: Request, language: str = Depends
 
 @router.get(MONITOR_PATH, response_class=HTMLResponse)
 def get_monitor_page(request: Request, language: str = Depends(get_language)):
+    from airflow_lite.api.routes.health import _check_disk, _check_mart_db, _check_scheduler
+
     settings = request.app.state.settings
     run_repo = request.app.state.run_repo
     step_repo = request.app.state.step_repo
 
     pipeline_rows = build_pipeline_rows(settings, run_repo, step_repo)
+    health_checks = [
+        _check_scheduler(request),
+        _check_mart_db(request),
+        _check_disk(request),
+    ]
     return HTMLResponse(
-        render_monitor_page(pipeline_rows, webui_config=settings.webui, language=language)
+        render_monitor_page(
+            pipeline_rows,
+            webui_config=settings.webui,
+            language=language,
+            health_checks=[
+                {"name": c.name, "status": c.status, "detail": c.detail}
+                for c in health_checks
+            ],
+        )
     )
 
 
@@ -211,8 +226,20 @@ def get_run_detail_page(name: str, run_id: str, request: Request, language: str 
         )
 
     run_dict, schedule = build_run_detail_data(run_obj, step_repo, settings, name)
+
+    # Grid View: collect recent runs with steps for this pipeline
+    grid_runs: list[dict] = []
+    grid_limit = getattr(settings.webui, "grid_view_run_limit", 10)
+    recent_run_objs, _ = run_repo.find_by_pipeline_paginated(name, page=1, page_size=grid_limit)
+    for r in recent_run_objs:
+        from airflow_lite.api.schemas import build_run_response_with_steps as _build
+        grid_runs.append(_build(r, step_repo).model_dump(mode="json"))
+
     return HTMLResponse(
-        render_run_detail_page(run_dict, pipeline_name=name, schedule=schedule, language=language)
+        render_run_detail_page(
+            run_dict, pipeline_name=name, schedule=schedule,
+            language=language, grid_runs=grid_runs,
+        )
     )
 
 

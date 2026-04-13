@@ -1,6 +1,5 @@
 API_PREFIX = "/api/v1"
 
-DOCS_PATH = "/docs"
 MONITOR_PATH = "/monitor"
 MONITOR_ANALYTICS_PATH = "/monitor/analytics"
 MONITOR_EXPORTS_PATH = "/monitor/exports"

@@ -27,11 +27,6 @@ def tone_of(status: str | None) -> str:
     return "neutral"
 
 
-def in_group(status: str | None, tone: str) -> bool:
-    """``status``가 주어진 톤 그룹에 속하는지."""
-    return _norm(status) in STATUS_GROUPS.get(tone, frozenset())
-
-
 def latest_run_status(row: dict) -> str:
     """파이프라인 행의 ``latest_run.status``를 소문자로 안전 추출."""
     return _norm((row.get("latest_run") or {}).get("status"))
@@ -50,8 +45,3 @@ def count_by_tone(rows: list[dict]) -> dict[str, int]:
                 counts[tone] += 1
                 break
     return counts
-
-
-# 하위호환을 위한 별칭 — `status_tone`이라는 이름으로 Jinja/템플릿에서 오랫동안
-# 사용돼 왔으므로 노출 이름은 유지한다.
-status_tone = tone_of

@@ -2,6 +2,31 @@
 {% import "_macros.html" as m %}
 {% block content %}
 
+<section class="hero-surface">
+  <div class="hero-copy">
+    <p class="eyebrow">{{ t('webui.monitor.inventory.eyebrow') }}</p>
+    <h2>{{ t('webui.monitor.inventory.title') }}</h2>
+    <p class="muted">{{ monitor_notice }}</p>
+  </div>
+  <div class="chip-list">
+    <span class="chip">{{ t('webui.layout.nav.pipelines') }}</span>
+    <span class="chip">{{ t('webui.monitor.table.recent_runs') }}</span>
+    <span class="chip">{{ t('webui.monitor.summary.failed_last_run.label') }}</span>
+  </div>
+</section>
+
+{% if health_checks %}
+<section class="panel" style="padding:16px 20px;">
+  <p class="eyebrow" style="margin-bottom:12px;">{{ t('webui.monitor.health.eyebrow') }}</p>
+  <div class="summary-grid">
+    {% for check in health_checks %}
+    {% set htone = 'ok' if check.status == 'ok' else ('warn' if check.status == 'degraded' else 'bad') %}
+    {{ m.summary_tile(t('webui.monitor.health.' + check.name), check.status, check.detail or '', htone) }}
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
 <section class="summary-grid">
   {{ m.summary_tile(t('webui.monitor.summary.configured_pipelines.label'), total_pipelines|string, t('webui.monitor.summary.configured_pipelines.detail')) }}
   {{ m.summary_tile(t('webui.monitor.summary.healthy_last_run.label'), healthy_runs|string, t('webui.monitor.summary.healthy_last_run.detail'), 'ok') }}
@@ -17,8 +42,15 @@
     </div>
     <span class="muted refresh-notice">{{ monitor_notice }}</span>
   </div>
+
+  <div class="chip-list panel-chip-list">
+    <span class="chip">{{ total_pipelines }} {{ t('webui.layout.nav.pipelines') }}</span>
+    <span class="chip {% if failed_runs %}chip-bad{% endif %}">{{ failed_runs }} {{ t('webui.monitor.summary.failed_last_run.label') }}</span>
+    <span class="chip {% if active_runs %}chip-warn{% endif %}">{{ active_runs }} {{ t('webui.monitor.summary.active_runs.label') }}</span>
+  </div>
+
   <div class="table-wrap">
-    <table>
+    <table class="air-table">
       <thead>
         <tr>
           <th>{{ t('webui.monitor.table.pipeline_table') }}</th>
@@ -36,7 +68,7 @@
         {% for row in pipeline_rows %}
         {% set latest = row.latest_run or {} %}
         {% set latest_status = latest.status or 'never-run' %}
-        {% set latest_tone = status_tone(latest_status) %}
+        {% set latest_tone = tone_of(latest_status) %}
         {% set pulse_cls = ' pulse' if latest_status in ['running','queued','pending'] else '' %}
         {% set run_id = latest.id or '' %}
         <tr>
@@ -50,7 +82,7 @@
             {% if row.recent_runs %}
             <div class="run-grid">
               {% for r in row.recent_runs|reverse %}
-              <span class="run-block {{ status_tone(r.status or '') }}" title="{{ (r.execution_date or '') }} · {{ (r.status or '') }}"></span>
+              <span class="run-block {{ tone_of(r.status or '') }}" title="{{ (r.execution_date or '') }} · {{ (r.status or '') }}"></span>
               {% endfor %}
             </div>
             {% else %}
@@ -58,20 +90,24 @@
             {% endif %}
           </td>
           <td>
-            <span class="status {{ latest_tone }}{{ pulse_cls }}">{{ fmt(latest_status) }}</span>
-            {% if latest_status == 'failed' and first_failed_errors.get(row.name) %}
-            <div class="error-inline">{{ first_failed_errors[row.name] }}</div>
-            {% endif %}
+            <div class="status-stack">
+              <span class="status {{ latest_tone }}{{ pulse_cls }}">{{ fmt(latest_status) }}</span>
+              {% if latest_status == 'failed' and first_failed_errors.get(row.name) %}
+              <div class="error-inline">{{ first_failed_errors[row.name] }}</div>
+              {% endif %}
+            </div>
           </td>
           <td>{{ fmt(latest.trigger_type) }}</td>
           <td>{{ fmt(fmt_duration(latest.started_at, latest.finished_at)) }}</td>
           <td>{{ fmt(latest.finished_at or latest.started_at) }}</td>
           <td>{{ fmt(row.next_run, fallback='—') }}</td>
-          <td>{{ fmt(row.schedule) }}</td>
+          <td><code>{{ fmt(row.schedule) }}</code></td>
           <td>
             {% if run_id %}
-            <a href="{{ lang_url(monitor_pipeline_run_detail_path(row.name, run_id)) }}">{{ t('webui.monitor.detail_link') }}</a>
-            {% else %}-{% endif %}
+            <a class="table-link" href="{{ lang_url(monitor_pipeline_run_detail_path(row.name, run_id)) }}">{{ t('webui.monitor.detail_link') }}</a>
+            {% else %}
+            <span class="muted">-</span>
+            {% endif %}
           </td>
         </tr>
         {% else %}

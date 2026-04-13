@@ -15,8 +15,6 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markupsafe import Markup
 
 from airflow_lite.api.paths import (
-    ANALYTICS_EXPORTS_PATH,
-    ANALYTICS_FILTERS_PATH,
     MONITOR_ADMIN_PATH,
     MONITOR_ANALYTICS_PATH,
     MONITOR_EXPORTS_PATH,
@@ -24,10 +22,7 @@ from airflow_lite.api.paths import (
     MONITOR_EXPORT_DELETE_JOB_PATH,
     MONITOR_PATH,
     PIPELINES_PATH,
-    dashboard_definition_path,
     monitor_pipeline_run_detail_path,
-    pipeline_run_detail_path,
-    pipeline_runs_path,
 )
 from airflow_lite.api.webui_helpers import (
     ICON_ADMIN,
@@ -36,13 +31,12 @@ from airflow_lite.api.webui_helpers import (
     ICON_DOCS,
     ICON_EXPORTS,
     ICON_PIPELINES,
-    cfg,
     fmt,
     fmt_duration,
     t,
     with_language_query,
 )
-from airflow_lite.api.webui_status import status_tone
+from airflow_lite.api.webui_status import tone_of
 from airflow_lite.i18n import DEFAULT_LANGUAGE
 
 
@@ -75,8 +69,7 @@ def _make_env() -> Environment:
     env.globals.update(
         fmt=fmt,
         fmt_duration=fmt_duration,
-        status_tone=status_tone,
-        cfg=cfg,
+        tone_of=tone_of,
         # Raw SVG icons — must be output with |safe
         ICON_PIPELINES=Markup(ICON_PIPELINES),
         ICON_ANALYTICS=Markup(ICON_ANALYTICS),
@@ -91,13 +84,8 @@ def _make_env() -> Environment:
         MONITOR_EXPORTS_PATH=MONITOR_EXPORTS_PATH,
         MONITOR_EXPORT_DELETE_COMPLETED_PATH=MONITOR_EXPORT_DELETE_COMPLETED_PATH,
         MONITOR_EXPORT_DELETE_JOB_PATH=MONITOR_EXPORT_DELETE_JOB_PATH,
-        ANALYTICS_EXPORTS_PATH=ANALYTICS_EXPORTS_PATH,
-        ANALYTICS_FILTERS_PATH=ANALYTICS_FILTERS_PATH,
         PIPELINES_PATH=PIPELINES_PATH,
-        dashboard_definition_path=dashboard_definition_path,
         monitor_pipeline_run_detail_path=monitor_pipeline_run_detail_path,
-        pipeline_run_detail_path=pipeline_run_detail_path,
-        pipeline_runs_path=pipeline_runs_path,
     )
     return env
 

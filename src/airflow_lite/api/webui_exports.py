@@ -50,6 +50,10 @@ def render_export_jobs_page(
         active_path=MONITOR_EXPORTS_PATH,
         page_tag=t(language, "webui.layout.page_tag.export_workspace"),
         auto_refresh_seconds=refresh_secs,
+        hero_links=[
+            (t(language, "webui.exports.hero.analytics"), analytics_href_raw),
+            (t(language, "webui.exports.hero.export_api"), "/api/v1/analytics/exports"),
+        ],
     )
     return render_page(
         "exports.html",

@@ -92,43 +92,51 @@ def build_url(path: str, **params) -> str:
 # ---------------------------------------------------------------------------
 
 ICON_PIPELINES = """
-<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
-  <path fill="currentColor" d="M4 10.5a2.5 2.5 0 0 1 2.5-2.5h2.2a.9.9 0 0 0 .64-.26l1.6-1.6A3.5 3.5 0 0 1 15.4 5H19.5A2.5 2.5 0 0 1 22 7.5v9A2.5 2.5 0 0 1 19.5 19h-13A2.5 2.5 0 0 1 4 16.5v-6Z"/>
-  <path fill="rgba(255,255,255,0.22)" d="M4.6 9.7c.5-.4 1.1-.7 1.9-.7h2.5c.5 0 1 .2 1.4.6l.6.6c.4.4.9.6 1.4.6h8.8c.3 0 .6.3.6.6v5.1A2.5 2.5 0 0 1 19.3 19H6.7A2.5 2.5 0 0 1 4.2 16.5V10.6c0-.4.1-.7.4-.9Z"/>
+<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M4.75 12.25h14.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+  <path d="M7.5 5.75h8.75" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+  <path d="M7.5 18.75h8.75" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+  <circle cx="6.5" cy="5.75" r="1.25" fill="currentColor"/>
+  <circle cx="17.5" cy="12.25" r="1.25" fill="currentColor"/>
+  <circle cx="6.5" cy="18.75" r="1.25" fill="currentColor"/>
 </svg>
 """.strip()
 
 ICON_ANALYTICS = """
-<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
-  <path fill="currentColor" d="M5 19a1 1 0 0 1-1-1V6.5a2.5 2.5 0 0 1 2.5-2.5h11A2.5 2.5 0 0 1 20 6.5V18a1 1 0 0 1-1 1H5Z"/>
-  <path fill="rgba(255,255,255,0.22)" d="M7 16.8a.8.8 0 0 1-.8-.8v-6.2a.8.8 0 0 1 1.6 0V16c0 .44-.36.8-.8.8Zm4.2 0a.8.8 0 0 1-.8-.8V8.8a.8.8 0 1 1 1.6 0V16c0 .44-.36.8-.8.8Zm4.2 0a.8.8 0 0 1-.8-.8v-4.1a.8.8 0 1 1 1.6 0V16c0 .44-.36.8-.8.8Z"/>
+<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M4.75 8.5c0-1.52 1.23-2.75 2.75-2.75h9a2.75 2.75 0 0 1 2.75 2.75v7a2.75 2.75 0 0 1-2.75 2.75h-9a2.75 2.75 0 0 1-2.75-2.75v-7Z" stroke="currentColor" stroke-width="1.75"/>
+  <path d="M8 12h2.5M13.5 12H16" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+  <path d="M9 15.5 12 8.5l3 7" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
 """.strip()
 
 ICON_EXPORTS = """
-<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
-  <path fill="currentColor" d="M6.5 3h7.2a3 3 0 0 1 2.12.88l3.3 3.3A3 3 0 0 1 20 9.3V18a3 3 0 0 1-3 3h-10a3 3 0 0 1-3-3V6.5a3.5 3.5 0 0 1 3.5-3.5Z"/>
-  <path fill="rgba(255,255,255,0.22)" d="M12 18.2a.9.9 0 0 1-.9-.9v-5.1l-1.6 1.6a.9.9 0 1 1-1.27-1.27l3.13-3.13a.9.9 0 0 1 1.27 0l3.13 3.13a.9.9 0 1 1-1.27 1.27l-1.6-1.6v5.1a.9.9 0 0 1-.9.9Z"/>
+<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M12 5.25v9.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+  <path d="m8.75 11.5 3.25 3.25 3.25-3.25" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M5.75 18.75h12.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+  <path d="M6.75 5.75h10.5a1.5 1.5 0 0 1 1.5 1.5v9.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/>
 </svg>
 """.strip()
 
 ICON_ADMIN = """
-<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
-  <path fill="currentColor" d="M12 2a5 5 0 0 1 5 5v1.1a6.5 6.5 0 0 1 3.5 5.7V18a3 3 0 0 1-3 3h-11a3 3 0 0 1-3-3v-4.2A6.5 6.5 0 0 1 7 8.1V7a5 5 0 0 1 5-5Z"/>
-  <path fill="rgba(255,255,255,0.22)" d="M12 9.8a2.6 2.6 0 0 1 2.6 2.6 2.6 2.6 0 0 1-1.4 2.3V17a1.2 1.2 0 0 1-2.4 0v-2.3a2.6 2.6 0 0 1-1.4-2.3A2.6 2.6 0 0 1 12 9.8Z"/>
+<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M12 15.25a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5Z" stroke="currentColor" stroke-width="1.75"/>
+  <path d="M19 12a7 7 0 0 0-.08-1.02l1.52-1.18-1.45-2.51-1.86.6a7.24 7.24 0 0 0-1.77-1.02l-.33-1.95h-2.9l-.33 1.95c-.63.21-1.22.54-1.77 1.02l-1.86-.6L3.56 9.8l1.52 1.18A7 7 0 0 0 5 12c0 .35.03.69.08 1.02L3.56 14.2l1.45 2.51 1.86-.6c.55.48 1.14.81 1.77 1.02l.33 1.95h2.9l.33-1.95c.63-.21 1.22-.54 1.77-1.02l1.86.6 1.45-2.51-1.52-1.18c.05-.33.08-.67.08-1.02Z" stroke="currentColor" stroke-width="1.45" stroke-linejoin="round"/>
 </svg>
 """.strip()
 
 ICON_DOCS = """
-<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
-  <path fill="currentColor" d="M7 3h10a3 3 0 0 1 3 3v12.5a2.5 2.5 0 0 1-2.5 2.5H7a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Z"/>
-  <path fill="rgba(255,255,255,0.22)" d="M8 8.2c0-.5.4-.9.9-.9h6.8a.9.9 0 1 1 0 1.8H8.9c-.5 0-.9-.4-.9-.9Zm0 3c0-.5.4-.9.9-.9h6.8a.9.9 0 1 1 0 1.8H8.9c-.5 0-.9-.4-.9-.9Zm0 3c0-.5.4-.9.9-.9h4.6a.9.9 0 1 1 0 1.8H8.9c-.5 0-.9-.4-.9-.9Z"/>
+<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M7.25 5.25h7.5a2.5 2.5 0 0 1 2.5 2.5v10.5H8.5a2.25 2.25 0 0 0-2.25 2.25V7.5a2.25 2.25 0 0 1 2.25-2.25Z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+  <path d="M8.75 9h6M8.75 12h6M8.75 15h3.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
 </svg>
 """.strip()
 
 ICON_API = """
-<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
-  <path fill="currentColor" d="M6 6.5A3.5 3.5 0 0 1 9.5 3h5A3.5 3.5 0 0 1 18 6.5v11A3.5 3.5 0 0 1 14.5 21h-5A3.5 3.5 0 0 1 6 17.5v-11Z"/>
-  <path fill="rgba(255,255,255,0.22)" d="M9.2 9.3a.9.9 0 0 1 1.27 0l.9.9.9-.9a.9.9 0 0 1 1.27 1.27l-.9.9.9.9a.9.9 0 0 1-1.27 1.27l-.9-.9-.9.9a.9.9 0 0 1-1.27-1.27l.9-.9-.9-.9a.9.9 0 0 1 0-1.27Z"/>
+<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="m9.25 9.25-2.5 2.75 2.5 2.75" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m14.75 9.25 2.5 2.75-2.5 2.75" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12.9 7.5 11.1 16.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
 </svg>
 """.strip()

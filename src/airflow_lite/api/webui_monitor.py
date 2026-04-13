@@ -5,7 +5,7 @@ Delegates HTML production to `templates/monitor.html`.
 
 from __future__ import annotations
 
-from airflow_lite.api.paths import MONITOR_PATH
+from airflow_lite.api.paths import MONITOR_ANALYTICS_PATH, MONITOR_EXPORTS_PATH, MONITOR_PATH, PIPELINES_PATH
 from airflow_lite.api.template_env import PageChrome, render_page
 from airflow_lite.api.webui_helpers import cfg, fmt, t
 from airflow_lite.api.webui_status import count_by_tone, latest_run_status
@@ -28,6 +28,7 @@ def render_monitor_page(
     *,
     webui_config=None,
     language: str = DEFAULT_LANGUAGE,
+    health_checks: list[dict] | None = None,
 ) -> str:
     monitor_refresh_seconds = cfg(webui_config, "monitor_refresh_seconds", 30)
     error_message_max_length = cfg(webui_config, "error_message_max_length", 120)
@@ -68,7 +69,13 @@ def render_monitor_page(
         title=t(language, "webui.monitor.title"),
         subtitle=t(language, "webui.monitor.subtitle"),
         active_path=MONITOR_PATH,
+        page_tag=t(language, "webui.layout.header_tag.ops_console"),
         auto_refresh_seconds=monitor_refresh_seconds,
+        hero_links=[
+            (t(language, "webui.monitor.hero.pipelines_api"), PIPELINES_PATH),
+            (t(language, "webui.monitor.hero.analytics"), MONITOR_ANALYTICS_PATH),
+            (t(language, "webui.monitor.hero.exports"), MONITOR_EXPORTS_PATH),
+        ],
     )
     return render_page(
         "monitor.html",
@@ -81,4 +88,5 @@ def render_monitor_page(
         failed_runs=failed_runs,
         monitor_notice=monitor_notice,
         first_failed_errors=first_failed_errors,
+        health_checks=health_checks or [],
     )

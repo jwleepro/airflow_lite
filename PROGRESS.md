@@ -13,25 +13,16 @@
 
 ## 최근 완료 작업
 
-- `T-037` Pipeline CRUD Admin UI 1차 구현 완료
-  - `pipeline_configs` 스키마/모델/CRUD(`PipelineModel`, `AdminRepository`) 추가
-  - `/api/v1/admin/pipelines` REST CRUD 및 `/monitor/admin/pipelines*` web form 핸들러 추가
-  - Admin UI Pipelines 섹션(인라인 edit, create/delete, restart 배너, incremental_key 토글) 추가
-  - `Settings.load()`가 SQLite의 `oracle`/`pipeline_configs`를 우선 로딩하고 YAML fallback 하도록 확장
-  - 관련 단위/통합 테스트(`test_admin_repository`, `test_settings`, `test_api`) 보강
-
 ## 진행 중
 
 - 현재 활성 작업 없음.
 
 ## 다음 작업
 
-- M4 마일스톤 후속 범위 검토 및 M5 정의.
+- M4 마일스톤 후속 범위 검토 및 M5 정의
 
 ## 블로커 및 리스크
 
 ## 검증 메모
 
-- 대상 검증: `pytest tests/test_admin_repository.py tests/test_settings.py tests/test_api.py -q --basetemp .tmp_pytest -p no:cacheprovider` → `76 passed`
-- 전체 검증: `pytest tests/ -q --basetemp .tmp_pytest -p no:cacheprovider` 실행 시 기존 `tests/test_backfill.py` 9건 실패( `BackfillManager.backup_existing/remove_backup/restore_backup` 미구현으로 보이는 기존 이슈 )
 ## 인수인계
