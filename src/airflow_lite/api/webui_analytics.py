@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from airflow_lite.api.paths import (
     ANALYTICS_FILTERS_PATH,
+    MONITOR_PATH,
     MONITOR_ANALYTICS_PATH,
     MONITOR_EXPORTS_PATH,
     dashboard_definition_path,
@@ -29,6 +30,10 @@ def render_unavailable_page(
         subtitle=message,
         active_path=active_path,
         page_tag=t(language, "webui.layout.page_tag.service_status"),
+        breadcrumbs=[
+            (t(language, "webui.layout.nav.home"), MONITOR_PATH),
+            (title, None),
+        ],
     )
     return render_page(
         "unavailable.html",
@@ -77,6 +82,10 @@ def render_analytics_dashboard_page(
         active_path=MONITOR_ANALYTICS_PATH,
         page_tag=t(language, "webui.layout.page_tag.analytics_workspace"),
         auto_refresh_seconds=analytics_refresh_seconds,
+        breadcrumbs=[
+            (t(language, "webui.layout.nav.home"), MONITOR_PATH),
+            (t(language, "webui.layout.nav.analytics"), None),
+        ],
         hero_links=[
             (t(language, "webui.analytics.hero.dashboard_api"), dashboard_api_href_raw),
             (t(language, "webui.analytics.hero.filters_api"), build_url(ANALYTICS_FILTERS_PATH, dataset=dataset)),

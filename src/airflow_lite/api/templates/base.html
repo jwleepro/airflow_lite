@@ -37,25 +37,51 @@
         </div>
 
         <nav class="sidebar-nav" aria-label="Primary">
-          {% set nav_items = [
-            (t('webui.layout.nav.pipelines'), MONITOR_PATH, ICON_PIPELINES),
-            (t('webui.layout.nav.analytics'), MONITOR_ANALYTICS_PATH, ICON_ANALYTICS),
-            (t('webui.layout.nav.admin'), MONITOR_ADMIN_PATH, ICON_ADMIN),
+          {% set nav_groups = [
+            (
+              t('webui.layout.section.operations'),
+              [
+                (t('webui.layout.nav.home'), MONITOR_PATH, ICON_HOME),
+                (t('webui.layout.nav.pipelines'), MONITOR_PIPELINES_PATH, ICON_PIPELINES),
+              ]
+            ),
+            (
+              t('webui.layout.section.workspaces'),
+              [
+                (t('webui.layout.nav.analytics'), MONITOR_ANALYTICS_PATH, ICON_ANALYTICS),
+                (t('webui.layout.nav.exports'), MONITOR_EXPORTS_PATH, ICON_EXPORTS),
+              ]
+            ),
           ] %}
-          {% for label, href, icon in nav_items %}
-          <a
-            class="sidebar-link{% if href == active_path %} active{% endif %}"
-            href="{{ lang_url(href) }}"
-            title="{{ label }}"
-            aria-current="{% if href == active_path %}page{% else %}false{% endif %}"
-          >
-            <span class="sidebar-icon" aria-hidden="true">{{ icon }}</span>
-            <span class="sidebar-label">{{ label }}</span>
-          </a>
+          {% for group_label, nav_items in nav_groups %}
+          <div class="sidebar-group">
+            <p class="sidebar-section-label">{{ group_label }}</p>
+            {% for label, href, icon in nav_items %}
+            <a
+              class="sidebar-link{% if href == active_path %} active{% endif %}"
+              href="{{ lang_url(href) }}"
+              title="{{ label }}"
+              aria-current="{% if href == active_path %}page{% else %}false{% endif %}"
+            >
+              <span class="sidebar-icon" aria-hidden="true">{{ icon }}</span>
+              <span class="sidebar-label">{{ label }}</span>
+            </a>
+            {% endfor %}
+          </div>
           {% endfor %}
         </nav>
 
         <div class="sidebar-footer">
+          <p class="sidebar-section-label">{{ t('webui.layout.section.platform') }}</p>
+          <a
+            class="sidebar-utility{% if MONITOR_ADMIN_PATH == active_path %} active{% endif %}"
+            href="{{ lang_url(MONITOR_ADMIN_PATH) }}"
+            title="{{ t('webui.layout.nav.admin') }}"
+            aria-current="{% if MONITOR_ADMIN_PATH == active_path %}page{% else %}false{% endif %}"
+          >
+            <span class="sidebar-icon" aria-hidden="true">{{ ICON_ADMIN }}</span>
+            <span class="sidebar-label">{{ t('webui.layout.nav.admin') }}</span>
+          </a>
           <a class="sidebar-utility" href="{{ lang_url('/docs') }}" target="_blank" rel="noreferrer" title="{{ t('webui.layout.link.swagger') }}">
             <span class="sidebar-icon" aria-hidden="true">{{ ICON_DOCS }}</span>
             <span class="sidebar-label">{{ t('webui.layout.link.swagger') }}</span>
@@ -67,6 +93,18 @@
       <div class="shell-main">
         <header class="topbar">
           <div class="topbar-copy">
+            {% if breadcrumbs %}
+            <nav class="breadcrumb-row" aria-label="Breadcrumb">
+              {% for label, href in breadcrumbs %}
+                {% if href %}
+                <a class="breadcrumb-link" href="{{ lang_url(href) }}">{{ label }}</a>
+                {% else %}
+                <span class="breadcrumb-current">{{ label }}</span>
+                {% endif %}
+                {% if not loop.last %}<span class="breadcrumb-sep">/</span>{% endif %}
+              {% endfor %}
+            </nav>
+            {% endif %}
             {% if page_tag %}<p class="page-kicker">{{ page_tag }}</p>{% endif %}
             <div class="title-row">
               <h1 class="page-title">{{ title }}</h1>
@@ -76,8 +114,16 @@
             </div>
             {% if subtitle %}<p class="page-subtitle">{{ subtitle }}</p>{% endif %}
           </div>
-          {% if hero_links %}
+          {% if hero_actions or hero_links %}
           <div class="topbar-actions">
+            {% for action in hero_actions %}
+            <form class="topbar-form" method="post" action="{{ lang_url(action.href) }}">
+              {% for field_name, field_value in (action.fields or {}).items() %}
+              <input type="hidden" name="{{ field_name }}" value="{{ field_value }}">
+              {% endfor %}
+              <button class="btn {{ action.class_name or 'btn-ghost' }}" type="submit">{{ action.label }}</button>
+            </form>
+            {% endfor %}
             {% for label, href in hero_links %}
             <a class="btn btn-ghost" href="{{ lang_url(href) }}" target="_blank" rel="noreferrer">{{ label }}</a>
             {% endfor %}

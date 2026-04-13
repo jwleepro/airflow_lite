@@ -102,8 +102,9 @@ def test_app_css_does_not_include_legacy_btn_delete_alias():
 
 
 def test_template_env_does_not_register_unused_icon_globals():
-    assert "ICON_EXPORTS" not in _ENV.globals
     assert "ICON_API" not in _ENV.globals
+    assert "ICON_HOME" in _ENV.globals
+    assert "ICON_EXPORTS" in _ENV.globals
     assert "ICON_PIPELINES" in _ENV.globals
     assert "ICON_ANALYTICS" in _ENV.globals
     assert "ICON_ADMIN" in _ENV.globals

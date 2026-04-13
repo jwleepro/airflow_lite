@@ -159,6 +159,22 @@ pre,
   gap: 6px;
 }
 
+.sidebar-group {
+  display: grid;
+  gap: 6px;
+}
+
+.sidebar-section-label {
+  margin: 0;
+  padding: 6px 6px 2px;
+  color: var(--sidebar-muted);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
 .sidebar-footer {
   padding-top: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -190,6 +206,12 @@ pre,
   box-shadow: none;
 }
 
+.sidebar-utility.active {
+  background: var(--sidebar-active);
+  border-color: transparent;
+  color: #ffffff;
+}
+
 .sidebar-icon {
   display: inline-flex;
   align-items: center;
@@ -215,7 +237,9 @@ pre,
 }
 
 .sidebar-link.active .sidebar-label,
-.sidebar-link.active .sidebar-icon {
+.sidebar-link.active .sidebar-icon,
+.sidebar-utility.active .sidebar-label,
+.sidebar-utility.active .sidebar-icon {
   color: #ffffff;
 }
 
@@ -249,6 +273,34 @@ pre,
 
 .topbar-copy {
   min-width: 0;
+}
+
+.breadcrumb-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.breadcrumb-link,
+.breadcrumb-current,
+.breadcrumb-sep {
+  font-size: 0.78rem;
+}
+
+.breadcrumb-link {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.breadcrumb-current {
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.breadcrumb-sep {
+  color: var(--muted);
 }
 
 .page-kicker,
@@ -287,6 +339,10 @@ pre,
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.topbar-form {
+  margin: 0;
 }
 
 .main-stage {
@@ -565,6 +621,25 @@ select:focus {
   grid-column: 1 / -1;
 }
 
+.action-form-actions {
+  align-items: center;
+}
+
+.checkbox-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 32px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.checkbox-field input {
+  width: auto;
+  margin: 0;
+}
+
 .table-wrap {
   overflow-x: auto;
   border: 1px solid var(--line);
@@ -732,10 +807,74 @@ table tbody tr:last-child td {
   text-align: right;
 }
 
+.cell-action-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cell-action-group form {
+  margin: 0;
+}
+
+.action-surface {
+  display: grid;
+  gap: 16px;
+  margin: 18px 0 4px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface-muted);
+}
+
+.action-form {
+  align-items: end;
+}
+
+.operation-notice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-muted);
+}
+
+.operation-notice.ok {
+  border-color: rgba(46, 139, 87, 0.24);
+  background: var(--ok-bg);
+  color: var(--ok-ink);
+}
+
+.operation-notice.warn {
+  border-color: rgba(168, 120, 27, 0.24);
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}
+
 .grid-2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
+}
+
+.detail-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 18px;
+}
+
+.detail-main {
+  min-width: 0;
+}
+
+.sticky-panel {
+  position: sticky;
+  top: 108px;
 }
 
 .meta-grid {
@@ -760,6 +899,16 @@ dd {
 .chart-list {
   display: grid;
   gap: 14px;
+}
+
+.side-note {
+  margin-top: 12px;
+  font-size: 0.82rem;
+}
+
+.compact-table th,
+.compact-table td {
+  padding: 8px 10px;
 }
 
 .chart-row {
@@ -922,6 +1071,41 @@ dd {
   flex-shrink: 0;
 }
 
+.event-list {
+  display: grid;
+  gap: 12px;
+}
+
+.event-row {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-muted);
+}
+
+.event-row p {
+  margin: 8px 0 0;
+}
+
+.event-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.code-block {
+  margin: 0;
+  padding: 18px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-muted);
+  color: var(--ink);
+  line-height: 1.55;
+}
+
 .grid-col-header {
   text-align: center;
   padding: 8px 4px;
@@ -956,6 +1140,14 @@ dd {
     grid-template-columns: 1fr;
   }
 
+  .detail-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sticky-panel {
+    position: static;
+  }
+
   .field-span-2 {
     grid-column: auto;
   }
@@ -987,7 +1179,8 @@ dd {
   }
 
   .sidebar-label,
-  .brand-subtitle {
+  .brand-subtitle,
+  .sidebar-section-label {
     display: none;
   }
 
