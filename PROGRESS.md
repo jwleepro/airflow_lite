@@ -33,4 +33,6 @@
 
 ## 인수인계
 
+- 브랜치: `codex/ui-dead-code-cleanup-2`
+- Draft PR: `#32` (`[codex] remove unused webui globals`)
 - 사용자 작업 중인 `src/airflow_lite/api/templates/base.html` 수정과 `image.png`는 이번 정리 범위에서 제외했다.
