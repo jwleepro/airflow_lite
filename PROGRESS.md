@@ -13,6 +13,8 @@
 
 ## 최근 완료 작업
 
+- `docs/airflow-lite-user-manual.md`에 운영자/사용자용 설치 후 사용 절차, 모니터 화면, 수동 실행, 백필, export, 장애 대응을 정리한 매뉴얼을 추가했다.
+- `README.md` Documentation 섹션에 사용자 매뉴얼 링크를 추가했다.
 - WebUI helper/template layer에서 실제 템플릿이 사용하지 않는 SVG icon globals(`ICON_EXPORTS`, `ICON_API`)를 제거했다.
 - `tests/test_webui_utils.py`에 template environment가 미사용 icon globals를 다시 노출하지 않는 회귀 테스트를 추가했다.
 - `/monitor`를 Airflow식 Home 화면으로 축소하고, 기존 DAG inventory를 `/monitor/pipelines` list view로 분리했다.

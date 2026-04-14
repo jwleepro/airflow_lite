@@ -379,6 +379,7 @@ pytest -m integration
 
 | 문서 | 설명 |
 | --- | --- |
+| [`docs/airflow-lite-user-manual.md`](docs/airflow-lite-user-manual.md) | 운영자/사용자용 설치 후 사용 절차 매뉴얼 |
 | [`spec/architecture.md`](spec/architecture.md) | 현재 구현 기준 아키텍처 상세 |
 | [`spec/requirements.md`](spec/requirements.md) | 요구사항 원문 |
 | [`spec/mart-refresh-design.md`](spec/mart-refresh-design.md) | Parquet → DuckDB mart refresh handoff 설계 |
