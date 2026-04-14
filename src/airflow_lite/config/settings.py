@@ -164,26 +164,7 @@ class MartConfig:
     pipeline_datasets: dict[str, str] = field(default_factory=dict)
 
 
-def _coerce_int(value: int | str, field_name: str) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"정수 필드 '{field_name}'의 값이 올바르지 않습니다: {value!r}") from exc
-
-
-def _coerce_int_fields(values: dict, field_names: tuple[str, ...], prefix: str) -> dict:
-    coerced = dict(values)
-    for field_name in field_names:
-        if field_name in coerced:
-            coerced[field_name] = _coerce_int(coerced[field_name], f"{prefix}.{field_name}")
-    return coerced
-
-
-def _build_optional_config(section_data, config_cls, *, prefix: str, int_fields: tuple[str, ...] = ()):
-    if not section_data:
-        return config_cls()
-    values = _coerce_int_fields(dict(section_data), int_fields, prefix)
-    return config_cls(**values)
+from ._coerce import coerce_int as _coerce_int, coerce_int_fields as _coerce_int_fields
 
 
 def _build_pipeline_configs(pipeline_items: list[dict]) -> list[PipelineConfig]:
@@ -304,58 +285,6 @@ def _load_pipelines_from_sqlite(sqlite_path: str) -> list[PipelineConfig] | None
         connection.close()
 
 
-def _build_alerting_config(alerting_data) -> AlertingConfig:
-    if not alerting_data:
-        return AlertingConfig()
-
-    channels = []
-    for channel_data in alerting_data.get("channels", []):
-        channel_values = dict(channel_data)
-        channel_type = channel_values.get("type")
-        if channel_type == "email":
-            channel_values = _coerce_int_fields(
-                channel_values,
-                ("smtp_port",),
-                "alerting.channels[]",
-            )
-            channels.append(EmailChannelConfig(**channel_values))
-            continue
-        if channel_type == "webhook":
-            channels.append(WebhookChannelConfig(**channel_values))
-            continue
-        raise ValueError(f"알 수 없는 알림 채널 타입: {channel_type!r}")
-
-    triggers = AlertingTriggersConfig(**alerting_data.get("triggers", {}))
-    return AlertingConfig(channels=channels, triggers=triggers)
-
-
-def _build_webui_config(webui_data) -> WebUIConfig:
-    if not webui_data:
-        return WebUIConfig()
-
-    webui_values = _coerce_int_fields(
-        dict(webui_data),
-        (
-            "monitor_refresh_seconds",
-            "analytics_refresh_seconds",
-            "exports_active_refresh_seconds",
-            "exports_idle_refresh_seconds",
-            "recent_runs_limit",
-            "detail_preview_page_size",
-            "analytics_export_jobs_limit",
-            "export_jobs_page_limit",
-            "error_message_max_length",
-        ),
-        "webui",
-    )
-    if "default_language" in webui_values:
-        webui_values["default_language"] = require_supported_language(
-            str(webui_values["default_language"]),
-            field_name="webui.default_language",
-        )
-    return WebUIConfig(**webui_values)
-
-
 class Settings:
     """YAML 설정 로더. 환경변수 ${VAR} 참조를 자동 치환한다."""
 
@@ -419,22 +348,23 @@ class Settings:
         pipelines = _load_pipelines_from_sqlite(storage.sqlite_path)
         if pipelines is None:
             pipelines = _build_pipeline_configs(data.get("pipelines", []))
-        api = _build_optional_config(data.get("api", {}), ApiConfig, prefix="api", int_fields=("port",))
-        alerting = _build_alerting_config(data.get("alerting", {}))
-        mart = _build_optional_config(data.get("mart", {}), MartConfig, prefix="mart")
-        export = _build_optional_config(
-            data.get("export", {}),
-            ExportConfig,
-            prefix="export",
-            int_fields=("retention_hours", "cleanup_cooldown_seconds", "max_workers", "rows_per_batch"),
+
+        # 빌더 모듈 사용
+        from .builders import (
+            build_alerting_config,
+            build_api_config,
+            build_export_config,
+            build_mart_config,
+            build_scheduler_config,
+            build_webui_config,
         )
-        scheduler = _build_optional_config(
-            data.get("scheduler", {}),
-            SchedulerConfig,
-            prefix="scheduler",
-            int_fields=("max_instances", "misfire_grace_time_seconds"),
-        )
-        webui = _build_webui_config(data.get("webui", {}))
+
+        api = build_api_config(data.get("api"))
+        alerting = build_alerting_config(data.get("alerting"))
+        mart = build_mart_config(data.get("mart"))
+        export = build_export_config(data.get("export"))
+        scheduler = build_scheduler_config(data.get("scheduler"))
+        webui = build_webui_config(data.get("webui"))
 
         return cls(
             oracle=oracle,

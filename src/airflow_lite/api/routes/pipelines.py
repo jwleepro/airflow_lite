@@ -2,6 +2,12 @@ from datetime import date
 
 from fastapi import APIRouter, HTTPException, Request
 
+from airflow_lite.api._resolver import resolve_runner
+from airflow_lite.api.dependencies import (
+    get_run_repo,
+    get_runner_map,
+    get_step_repo,
+)
 from airflow_lite.api.schemas import (
     PaginatedResponse,
     PipelineInfo,
@@ -13,31 +19,22 @@ from airflow_lite.api.schemas import (
 router = APIRouter(tags=["pipelines"])
 
 
-def _resolve_runner(entry):
-    if hasattr(entry, "run"):
-        return entry
-    if callable(entry):
-        return entry()
-    raise TypeError("runner_map 항목은 runner 또는 runner factory여야 합니다.")
-
-
 @router.post("/pipelines/{name}/trigger", response_model=PipelineRunResponse)
 def trigger_pipeline(name: str, body: TriggerRequest, req: Request):
     """수동 즉시 실행. execution_date 미지정 시 오늘 날짜 사용."""
-    runner_map = req.app.state.runner_map
+    runner_map = get_runner_map(req)
     if name not in runner_map:
         raise HTTPException(status_code=404, detail=f"파이프라인 '{name}'을 찾을 수 없습니다.")
 
     execution_date = body.execution_date or date.today()
-    runner = _resolve_runner(runner_map[name])
+    runner = resolve_runner(runner_map[name])
     run = runner.run(
         execution_date=execution_date,
         trigger_type="manual",
         force_rerun=body.force,
     )
 
-    step_repo = req.app.state.step_repo
-    return build_run_response_with_steps(run, step_repo)
+    return build_run_response_with_steps(run, get_step_repo(req))
 
 
 @router.get("/pipelines", response_model=list[PipelineInfo])
@@ -67,16 +64,14 @@ def list_runs(name: str, req: Request, page: int = 1, page_size: int = 50):
         "page_size": 50
     }
     """
-    run_repo = req.app.state.run_repo
-    if run_repo is None:
-        raise HTTPException(status_code=503, detail="레포지토리가 초기화되지 않았습니다.")
+    run_repo = get_run_repo(req)
 
     pipeline_names = [p.name for p in req.app.state.settings.pipelines]
     if name not in pipeline_names:
         raise HTTPException(status_code=404, detail=f"파이프라인 '{name}'을 찾을 수 없습니다.")
 
     items, total = run_repo.find_by_pipeline_paginated(name, page=page, page_size=page_size)
-    step_repo = req.app.state.step_repo
+    step_repo = get_step_repo(req)
 
     run_responses = [build_run_response_with_steps(run, step_repo) for run in items]
 
@@ -86,13 +81,10 @@ def list_runs(name: str, req: Request, page: int = 1, page_size: int = 50):
 @router.get("/pipelines/{name}/runs/{run_id}", response_model=PipelineRunResponse)
 def get_run_detail(name: str, run_id: str, req: Request):
     """실행 상세 조회. 단계별 상태 포함."""
-    run_repo = req.app.state.run_repo
-    if run_repo is None:
-        raise HTTPException(status_code=503, detail="레포지토리가 초기화되지 않았습니다.")
+    run_repo = get_run_repo(req)
 
     run = run_repo.find_by_id(run_id)
     if run is None or run.pipeline_name != name:
         raise HTTPException(status_code=404, detail=f"실행 ID '{run_id}'를 찾을 수 없습니다.")
 
-    step_repo = req.app.state.step_repo
-    return build_run_response_with_steps(run, step_repo)
+    return build_run_response_with_steps(run, get_step_repo(req))

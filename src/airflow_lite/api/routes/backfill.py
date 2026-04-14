@@ -1,26 +1,24 @@
 from fastapi import APIRouter, HTTPException, Request
 
-from airflow_lite.api.schemas import BackfillRequest, PipelineRunResponse, build_run_response_with_steps
+from airflow_lite.api._resolver import resolve_backfill_manager
+from airflow_lite.api.dependencies import get_backfill_map, get_step_repo
+from airflow_lite.api.schemas import (
+    BackfillRequest,
+    PipelineRunResponse,
+    build_run_response_with_steps,
+)
 
 router = APIRouter(tags=["backfill"])
-
-
-def _resolve_backfill_manager(entry):
-    if hasattr(entry, "run_backfill"):
-        return entry
-    if callable(entry):
-        return entry()
-    raise TypeError("backfill_map 항목은 manager 또는 manager factory여야 합니다.")
 
 
 @router.post("/pipelines/{name}/backfill", response_model=list[PipelineRunResponse])
 def request_backfill(name: str, body: BackfillRequest, req: Request):
     """백필 요청. start_date~end_date 범위를 월별 분할하여 실행."""
-    backfill_map = req.app.state.backfill_map
+    backfill_map = get_backfill_map(req)
     if name not in backfill_map:
         raise HTTPException(status_code=404, detail=f"파이프라인 '{name}'을 찾을 수 없습니다.")
 
-    manager = _resolve_backfill_manager(backfill_map[name])
+    manager = resolve_backfill_manager(backfill_map[name])
     runs = manager.run_backfill(
         pipeline_name=name,
         start_date=body.start_date,
@@ -28,5 +26,5 @@ def request_backfill(name: str, body: BackfillRequest, req: Request):
         force_rerun=body.force,
     )
 
-    step_repo = req.app.state.step_repo
+    step_repo = get_step_repo(req)
     return [build_run_response_with_steps(run, step_repo) for run in runs]

@@ -4,7 +4,19 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from airflow_lite.api.dependencies import get_export_service, get_language, get_query_service
+from airflow_lite.api._resolver import (
+    resolve_backfill_manager,
+    resolve_runner,
+)
+from airflow_lite.api.dependencies import (
+    get_backfill_map,
+    get_export_service,
+    get_language,
+    get_query_service,
+    get_run_repo,
+    get_runner_map,
+    get_step_repo,
+)
 from airflow_lite.api.language import resolve_request_language
 from airflow_lite.api.paths import (
     MONITOR_ADMIN_PATH,
@@ -47,22 +59,6 @@ from airflow_lite.query import (
 )
 
 router = APIRouter(include_in_schema=False)
-
-
-def _resolve_runner_entry(entry):
-    if hasattr(entry, "run"):
-        return entry
-    if callable(entry):
-        return entry()
-    raise TypeError("runner_map 항목은 runner 또는 runner factory여야 합니다.")
-
-
-def _resolve_backfill_manager_entry(entry):
-    if hasattr(entry, "run_backfill"):
-        return entry
-    if callable(entry):
-        return entry()
-    raise TypeError("backfill_map 항목은 manager 또는 manager factory여야 합니다.")
 
 
 def _html_unavailable(
@@ -258,8 +254,8 @@ def get_monitor_home_page(request: Request, language: str = Depends(get_language
     from airflow_lite.api.routes.health import _check_disk, _check_mart_db, _check_scheduler
 
     settings = request.app.state.settings
-    run_repo = request.app.state.run_repo
-    step_repo = request.app.state.step_repo
+    run_repo = get_run_repo(request)
+    step_repo = get_step_repo(request)
 
     pipeline_rows = build_pipeline_rows(settings, run_repo, step_repo)
     health_checks = [
@@ -288,8 +284,8 @@ def get_monitor_pipeline_list_page(
     language: str = Depends(get_language),
 ):
     settings = request.app.state.settings
-    run_repo = request.app.state.run_repo
-    step_repo = request.app.state.step_repo
+    run_repo = get_run_repo(request)
+    step_repo = get_step_repo(request)
     pipeline_rows = build_pipeline_rows(settings, run_repo, step_repo)
 
     return HTMLResponse(
@@ -313,8 +309,8 @@ def get_monitor_pipeline_detail_page(
     language: str = Depends(get_language),
 ):
     settings = request.app.state.settings
-    run_repo = request.app.state.run_repo
-    step_repo = request.app.state.step_repo
+    run_repo = get_run_repo(request)
+    step_repo = get_step_repo(request)
     page = build_pipeline_detail_view_data(settings, run_repo, step_repo, name)
     if page is None:
         return _html_unavailable(
@@ -346,7 +342,7 @@ async def trigger_pipeline_from_monitor(
         request,
         _first_value(form_data, "lang") or request.query_params.get("lang"),
     )
-    runner_map = getattr(request.app.state, "runner_map", {}) or {}
+    runner_map = get_runner_map(request)
     if name not in runner_map:
         return _html_unavailable(
             "Pipeline action",
@@ -363,7 +359,7 @@ async def trigger_pipeline_from_monitor(
         if execution_date_raw
         else date.today()
     )
-    runner = _resolve_runner_entry(runner_map[name])
+    runner = resolve_runner(runner_map[name])
     run = runner.run(
         execution_date=execution_date,
         trigger_type="manual",
@@ -387,7 +383,7 @@ async def request_pipeline_backfill_from_monitor(
         request,
         _first_value(form_data, "lang") or request.query_params.get("lang"),
     )
-    backfill_map = getattr(request.app.state, "backfill_map", {}) or {}
+    backfill_map = get_backfill_map(request)
     if name not in backfill_map:
         return _html_unavailable(
             "Backfill",
@@ -409,7 +405,7 @@ async def request_pipeline_backfill_from_monitor(
             language=language or request_language,
         )
 
-    manager = _resolve_backfill_manager_entry(backfill_map[name])
+    manager = resolve_backfill_manager(backfill_map[name])
     runs = manager.run_backfill(
         pipeline_name=name,
         start_date=start_date,
@@ -432,8 +428,8 @@ def get_run_detail_page(
     action: str | None = Query(default=None),
     language: str = Depends(get_language),
 ):
-    run_repo = request.app.state.run_repo
-    step_repo = request.app.state.step_repo
+    run_repo = getattr(request.app.state, "run_repo", None)
+    step_repo = getattr(request.app.state, "step_repo", None)
     settings = request.app.state.settings
 
     if run_repo is None:

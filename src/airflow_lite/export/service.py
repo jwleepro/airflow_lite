@@ -34,6 +34,13 @@ class AnalyticsExportNotReadyError(RuntimeError):
     pass
 
 
+# ZIP 압축 방식 매핑 상수
+ZIP_COMPRESSION_MAP: dict[str, int] = {
+    "deflated": zipfile.ZIP_DEFLATED,
+    "stored": zipfile.ZIP_STORED,
+}
+
+
 @dataclass
 class ExportJobRecord:
     job_id: str
@@ -307,12 +314,9 @@ class FilesystemAnalyticsExportService:
 
     @staticmethod
     def _resolve_zip_compression(zip_compression: str) -> int:
-        compression_map = {
-            "deflated": zipfile.ZIP_DEFLATED,
-            "stored": zipfile.ZIP_STORED,
-        }
+        """ZIP 압축 방식을 상수 매핑에서 조회하여 반환."""
         try:
-            return compression_map[zip_compression.lower()]
+            return ZIP_COMPRESSION_MAP[zip_compression.lower()]
         except KeyError as exc:
             raise ValueError(f"unsupported zip compression: {zip_compression}") from exc
 
