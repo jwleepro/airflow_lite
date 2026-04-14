@@ -13,6 +13,8 @@
 
 ## 최근 완료 작업
 
+- `docs/airflow-lite-user-manual.md`에 운영자/사용자용 설치 후 사용 절차, 모니터 화면, 수동 실행, 백필, export, 장애 대응을 정리한 매뉴얼을 추가했다.
+- `README.md` Documentation 섹션에 사용자 매뉴얼 링크를 추가했다.
 - WebUI helper/template layer에서 실제 템플릿이 사용하지 않는 SVG icon globals(`ICON_EXPORTS`, `ICON_API`)를 제거했다.
 - `tests/test_webui_utils.py`에 template environment가 미사용 icon globals를 다시 노출하지 않는 회귀 테스트를 추가했다.
 - `/monitor`를 Airflow식 Home 화면으로 축소하고, 기존 DAG inventory를 `/monitor/pipelines` list view로 분리했다.
@@ -43,6 +45,7 @@
 
 ## 검증 메모
 
+- 문서 변경만 포함되어 테스트는 실행하지 않았다.
 - `python -m pytest tests\test_webui_utils.py -q --basetemp .tmp_pytest`
 - `python -m pytest tests\test_webui_utils.py tests\test_api.py -k "monitor_page_renders_html_with_pipeline_summary or monitor_admin_page_renders_pipeline_section or monitor_analytics_page_renders_dashboard_view or monitor_export_page_creates_and_lists_jobs or root_redirects_to_monitor" -q --basetemp .tmp_pytest`
 - `pytest tests\test_api.py tests\test_export_cleanup.py tests\test_webui_utils.py -q --basetemp .tmp_pytest`
@@ -51,6 +54,6 @@
 
 ## 인수인계
 
-- 브랜치: `codex/ui-dead-code-cleanup-2`
-- Draft PR: `#32` (`[codex] remove unused webui globals`)
-- 사용자 작업 중인 `src/airflow_lite/api/templates/base.html` 수정과 `image.png`는 이번 정리 범위에서 제외했다.
+- 브랜치: `codex/docs-user-manual`
+- Draft PR: `#34` (`[codex] add airflow_lite user manual`)
+- 이번 변경은 문서 범위만 포함하며, 코드/템플릿 동작 변경은 없다.
