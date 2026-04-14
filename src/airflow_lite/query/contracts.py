@@ -132,6 +132,7 @@ class ChartQueryRequest(BaseModel):
     limit: int = Field(default=31, ge=1, le=366)
     window: DateRangeFilterValue | None = None
     filters: dict[str, list[str]] = Field(default_factory=dict)
+    language: str = "en"  # i18n 언어
 
 
 class ChartPoint(BaseModel):

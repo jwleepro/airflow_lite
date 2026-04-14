@@ -30,6 +30,7 @@ from airflow_lite.query.contracts import (
     SummaryQueryRequest,
     SummaryQueryResponse,
 )
+from airflow_lite.query.chart_handlers import CHART_HANDLERS
 from airflow_lite.query.sql_builder import AnalyticsQueryError, AnalyticsSQLBuilder
 from airflow_lite.i18n import DEFAULT_LANGUAGE, translate
 
@@ -126,77 +127,20 @@ class DuckDBAnalyticsQueryService:
         if request.chart_id not in SUPPORTED_CHARTS:
             raise AnalyticsQueryError(f"unsupported chart_id: {request.chart_id}")
 
+        handler = CHART_HANDLERS.get(request.chart_id)
+        if handler is None:
+            raise AnalyticsQueryError(
+                f"no handler for chart_id: {request.chart_id}"
+            )
+
         where_sql, params = self._prepare_file_query(
             request.dataset, request.filters,
             start=request.window.start if request.window else None,
             end=request.window.end if request.window else None,
         )
-        warnings: list[str] = []
-        response_granularity = request.granularity
-        with self._conn.connect(read_only=True) as connection:
-            if request.chart_id == "rows_by_month":
-                if request.granularity.value != "month":
-                    warnings.append(
-                        translate("analytics.chart.rows_by_month.granularity_normalized", language)
-                    )
-                    response_granularity = ChartGranularity.MONTH
-                rows = connection.execute(
-                    f"""
-                    SELECT
-                        strftime(partition_start, '%Y-%m-01') AS bucket,
-                        SUM(row_count) AS value
-                    FROM mart_dataset_files
-                    WHERE {where_sql}
-                    GROUP BY partition_start
-                    ORDER BY partition_start DESC
-                    LIMIT ?
-                    """,
-                    [*params, request.limit],
-                ).fetchall()
-                points = [
-                    ChartPoint(bucket=bucket, value=int(value))
-                    for bucket, value in reversed(rows)
-                ]
-                series = [
-                    ChartSeries(
-                        key="rows",
-                        label=translate("analytics.chart.series.rows", language),
-                        points=points,
-                    )
-                ]
-            else:
-                rows = connection.execute(
-                    f"""
-                    SELECT source_name, COUNT(*) AS value
-                    FROM mart_dataset_files
-                    WHERE {where_sql}
-                    GROUP BY source_name
-                    ORDER BY value DESC, source_name ASC
-                    LIMIT ?
-                    """,
-                    [*params, request.limit],
-                ).fetchall()
-                points = [
-                    ChartPoint(bucket=source_name, value=int(value), label=source_name)
-                    for source_name, value in rows
-                ]
-                series = [
-                    ChartSeries(
-                        key="files",
-                        label=translate("analytics.chart.series.files", language),
-                        points=points,
-                    )
-                ]
 
-        return ChartQueryResponse(
-            dataset=request.dataset,
-            chart_id=request.chart_id,
-            title=translate(SUPPORTED_CHARTS[request.chart_id], language),
-            granularity=response_granularity,
-            filters_applied=request.filters,
-            series=series,
-            warnings=warnings,
-        )
+        with self._conn.connect(read_only=True) as connection:
+            return handler.handle(request, connection, where_sql, params, language)
 
     def query_detail(
         self,

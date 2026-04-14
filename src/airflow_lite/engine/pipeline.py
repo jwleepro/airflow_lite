@@ -103,42 +103,22 @@ class PipelineRunner:
             self.step_repo.create(step_run)
 
             if failed:
-                self.state_machine.transition(step_run, StageState.SKIPPED)
-                self.step_repo.update_status(
-                    step_run.id,
-                    StageState.SKIPPED.value,
-                    finished_at=datetime.now(),
-                )
+                self._mark_skipped(step_run)
                 continue
 
-            self.state_machine.transition(step_run, StageState.RUNNING)
-            self.step_repo.update_status(
-                step_run.id,
-                StageState.RUNNING.value,
-                started_at=datetime.now(),
-            )
+            self._mark_running(step_run)
 
             try:
                 result = self._execute_stage_with_retry(stage, context, step_run)
-                self.state_machine.transition(step_run, StageState.SUCCESS)
-                self.step_repo.update_status(
-                    step_run.id,
-                    StageState.SUCCESS.value,
-                    finished_at=datetime.now(),
-                    records_processed=result.records_processed,
-                )
+                self._mark_success(step_run, records_processed=result.records_processed)
             except Exception as exc:
                 # RetryError는 마지막 시도의 원본 예외로 언래핑
                 original_exc = exc.last_attempt.exception() if isinstance(exc, RetryError) else exc
                 failed = True
-                self.state_machine.transition(step_run, StageState.FAILED)
-                retry_count = self._resolve_retry_count(exc)
-                self.step_repo.update_status(
-                    step_run.id,
-                    StageState.FAILED.value,
-                    finished_at=datetime.now(),
+                self._mark_failed(
+                    step_run,
                     error_message=str(original_exc),
-                    retry_count=retry_count,
+                    retry_count=self._resolve_retry_count(exc),
                 )
                 if stage.retry_config.on_failure_callback:
                     stage.retry_config.on_failure_callback(context, original_exc)
@@ -160,6 +140,51 @@ class PipelineRunner:
 
         return pipeline_run
 
+    def _mark_skipped(self, step_run: StepRun) -> None:
+        self.state_machine.transition(step_run, StageState.SKIPPED)
+        self.step_repo.update_status(
+            step_run.id,
+            StageState.SKIPPED.value,
+            finished_at=datetime.now(),
+        )
+
+    def _mark_running(self, step_run: StepRun) -> None:
+        self.state_machine.transition(step_run, StageState.RUNNING)
+        self.step_repo.update_status(
+            step_run.id,
+            StageState.RUNNING.value,
+            started_at=datetime.now(),
+        )
+
+    def _mark_success(self, step_run: StepRun, *, records_processed: int) -> None:
+        self.state_machine.transition(step_run, StageState.SUCCESS)
+        self.step_repo.update_status(
+            step_run.id,
+            StageState.SUCCESS.value,
+            finished_at=datetime.now(),
+            records_processed=records_processed,
+        )
+
+    def _mark_failed(
+        self, step_run: StepRun, *, error_message: str, retry_count: int
+    ) -> None:
+        self.state_machine.transition(step_run, StageState.FAILED)
+        self.step_repo.update_status(
+            step_run.id,
+            StageState.FAILED.value,
+            finished_at=datetime.now(),
+            error_message=error_message,
+            retry_count=retry_count,
+        )
+
+    def _mark_retry(self, step_run: StepRun, *, attempt_number: int) -> None:
+        """재시도 직전 현재 시도 횟수만 영속화."""
+        self.step_repo.update_status(
+            step_run.id,
+            StageState.RUNNING.value,
+            retry_count=attempt_number,
+        )
+
     @staticmethod
     def _resolve_retry_count(exc: Exception) -> int:
         if isinstance(exc, RetryError):
@@ -176,11 +201,7 @@ class PipelineRunner:
         """
         def before_sleep(retry_state):
             before_sleep_log(logger, logging.WARNING)(retry_state)
-            self.step_repo.update_status(
-                step_run.id,
-                StageState.RUNNING.value,
-                retry_count=retry_state.attempt_number,
-            )
+            self._mark_retry(step_run, attempt_number=retry_state.attempt_number)
 
         retrying = retry(
             stop=stop_after_attempt(stage.retry_config.max_attempts),
