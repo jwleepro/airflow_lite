@@ -8,7 +8,11 @@ from airflow_lite.engine.callbacks import PipelineCallbacks
 from airflow_lite.engine.pipeline import PipelineDefinition, PipelineRunner
 from airflow_lite.engine.stage import RetryConfig, StageDefinition, StageResult
 from airflow_lite.engine.state_machine import StageStateMachine
-from airflow_lite.engine.strategy import FullMigrationStrategy, IncrementalMigrationStrategy
+from airflow_lite.engine.strategy import (
+    FullMigrationStrategy,
+    IncrementalMigrationStrategy,
+    MigrationStrategy,
+)
 from airflow_lite.extract.chunked_reader import ChunkedReader
 from airflow_lite.extract.oracle_client import OracleClient
 from airflow_lite.mart.factory import build_mart_infrastructure
@@ -17,6 +21,12 @@ from airflow_lite.storage.repository import PipelineRunRepository, StepRunReposi
 from airflow_lite.transform.parquet_writer import ParquetWriter
 
 logger = logging.getLogger("airflow_lite.runtime")
+
+
+_STRATEGY_BUILDERS: dict[str, type[MigrationStrategy]] = {
+    "full": FullMigrationStrategy,
+    "incremental": IncrementalMigrationStrategy,
+}
 
 
 class VerificationFailedError(RuntimeError):
@@ -46,10 +56,10 @@ def create_runner_factory(settings, run_repo, step_repo):
         chunk_size = pipeline_config.chunk_size or settings.defaults.chunk_size
         chunked_reader = ChunkedReader(connection=None, chunk_size=chunk_size)
 
-        if pipeline_config.strategy == "full":
-            strategy = FullMigrationStrategy(oracle_client, chunked_reader, parquet_writer)
-        else:
-            strategy = IncrementalMigrationStrategy(oracle_client, chunked_reader, parquet_writer)
+        strategy_cls = _STRATEGY_BUILDERS.get(pipeline_config.strategy)
+        if strategy_cls is None:
+            raise ValueError(f"unsupported migration strategy: {pipeline_config.strategy}")
+        strategy = strategy_cls(oracle_client, chunked_reader, parquet_writer)
 
         retry_config = RetryConfig(
             max_attempts=settings.defaults.retry.max_attempts,

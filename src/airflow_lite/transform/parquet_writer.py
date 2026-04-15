@@ -32,29 +32,23 @@ class ParquetWriter:
         output_file = output_dir / f"{table_name}_{year:04d}_{month:02d}.parquet"
         return output_dir, output_file
 
-    def _list_parquet_files(self, table_name: str, year: int, month: int) -> list[Path]:
+    def _list_partition_files(
+        self, table_name: str, year: int, month: int, *, suffix: str
+    ) -> list[Path]:
         output_dir, output_file = self._get_paths(table_name, year, month)
         if not output_dir.exists():
             return []
-
-        base_stem = output_file.stem
         return sorted(
             path
-            for path in output_dir.glob(f"{base_stem}*.parquet")
-            if path.suffix == ".parquet" and not path.name.endswith(".bak")
+            for path in output_dir.glob(f"{output_file.stem}*{suffix}")
+            if path.suffix == suffix
         )
+
+    def _list_parquet_files(self, table_name: str, year: int, month: int) -> list[Path]:
+        return self._list_partition_files(table_name, year, month, suffix=".parquet")
 
     def _list_backup_files(self, table_name: str, year: int, month: int) -> list[Path]:
-        output_dir, output_file = self._get_paths(table_name, year, month)
-        if not output_dir.exists():
-            return []
-
-        base_stem = output_file.stem
-        return sorted(
-            path
-            for path in output_dir.glob(f"{base_stem}*.bak")
-            if path.suffix == ".bak"
-        )
+        return self._list_partition_files(table_name, year, month, suffix=".bak")
 
     def finalize_partition(self, table_name: str, year: int, month: int) -> None:
         key = self._partition_key(table_name, year, month)
