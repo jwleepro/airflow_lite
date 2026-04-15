@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from airflow_lite.api.analytics_contracts import ExportCreateRequest, ExportFormat
-from airflow_lite.api.presenters.admin_forms import _first_value
+from airflow_lite.api.forms import first_value as _first_value
 from airflow_lite.api.presenters.analytics import extract_selected_filters
 from airflow_lite.export import AnalyticsExportJobNotFoundError
 

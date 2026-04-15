@@ -6,19 +6,13 @@ leaks into HTTP handlers.
 
 from __future__ import annotations
 
+from airflow_lite.api.forms import first_value as _first_value
 from airflow_lite.storage.models import (
     ConnectionModel,
     PipelineModel,
     PoolModel,
     VariableModel,
 )
-
-
-def _first_value(values: dict[str, list[str]], key: str, default: str | None = None) -> str | None:
-    items = values.get(key)
-    if not items:
-        return default
-    return items[0]
 
 
 def _parse_optional_int(value: str | None) -> int | None:
