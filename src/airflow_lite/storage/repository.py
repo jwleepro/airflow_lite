@@ -89,6 +89,15 @@ class PipelineRunRepository:
             )
             conn.commit()
 
+    def mark_running(self, run_id: str, started_at: datetime) -> None:
+        """queued → running 전이 + started_at 기록."""
+        with self.database.connection() as conn:
+            conn.execute(
+                "UPDATE pipeline_runs SET status = 'running', started_at = ? WHERE id = ?",
+                (started_at.isoformat(), run_id),
+            )
+            conn.commit()
+
     def find_by_id(self, run_id: str) -> PipelineRun | None:
         """단건 조회."""
         with self.database.connection() as conn:
@@ -162,6 +171,38 @@ class PipelineRunRepository:
                 LIMIT 1
                 """,
                 (pipeline_name, execution_date.isoformat()),
+            ).fetchone()
+        return _row_to_pipeline_run(row) if row else None
+
+    def find_active_by_execution_date(
+        self, pipeline_name: str, execution_date: date
+    ) -> PipelineRun | None:
+        """queued/running 상태의 실행 조회. 중복 트리거 차단용."""
+        with self.database.connection() as conn:
+            row = conn.execute(
+                """
+                SELECT * FROM pipeline_runs
+                WHERE pipeline_name = ? AND execution_date = ?
+                  AND status IN ('queued', 'running')
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (pipeline_name, execution_date.isoformat()),
+            ).fetchone()
+        return _row_to_pipeline_run(row) if row else None
+
+    def find_any_active_by_pipeline(self, pipeline_name: str) -> PipelineRun | None:
+        """execution_date 와 무관하게 queued/running 상태의 최신 실행 조회."""
+        with self.database.connection() as conn:
+            row = conn.execute(
+                """
+                SELECT * FROM pipeline_runs
+                WHERE pipeline_name = ?
+                  AND status IN ('queued', 'running')
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (pipeline_name,),
             ).fetchone()
         return _row_to_pipeline_run(row) if row else None
 

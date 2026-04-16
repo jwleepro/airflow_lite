@@ -26,7 +26,10 @@ def get_admin_page(request: Request, language: str = Depends(get_language)):
         )
 
     view_data = admin_page.build_admin_view_data(admin_repo)
-    return HTMLResponse(render_admin_page(view_data, language=language))
+    error = request.query_params.get("error")
+    return HTMLResponse(
+        render_admin_page(view_data, language=language, error=error)
+    )
 
 
 async def _handle_admin_form(
@@ -35,9 +38,15 @@ async def _handle_admin_form(
     language: str,
 ) -> RedirectResponse:
     admin_repo = getattr(request.app.state, "admin_repo", None)
+    error: str | None = None
     if admin_repo is not None:
         form_data = await read_form_data(request)
-        handler(admin_repo, form_data)
+        try:
+            handler(admin_repo, form_data)
+        except ValueError as exc:
+            error = str(exc)
+    if error:
+        return redirect(MONITOR_ADMIN_PATH, language=language, error=error)
     return redirect(MONITOR_ADMIN_PATH, language=language)
 
 

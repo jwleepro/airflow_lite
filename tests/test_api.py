@@ -19,6 +19,7 @@ from airflow_lite.api.analytics_contracts import (
 from airflow_lite.query import DuckDBAnalyticsQueryService
 from airflow_lite.export import FilesystemAnalyticsExportService
 from airflow_lite.config.settings import ApiConfig, PipelineConfig, WebUIConfig
+from airflow_lite.service.dispatch_service import PipelineBusyError
 from airflow_lite.storage.models import PipelineModel, PipelineRun, StepRun
 
 
@@ -123,7 +124,16 @@ def mock_step_repo():
 
 
 @pytest.fixture
-def client(mock_runner, mock_backfill_manager, mock_run_repo, mock_step_repo):
+def mock_dispatcher():
+    """dispatch_service mock. submit_manual_run 은 queued 를 가장한 _make_pipeline_run 을 반환."""
+    dispatcher = MagicMock()
+    dispatcher.submit_manual_run.return_value = _make_pipeline_run()
+    dispatcher.submit_backfill.return_value = None
+    return dispatcher
+
+
+@pytest.fixture
+def client(mock_runner, mock_backfill_manager, mock_run_repo, mock_step_repo, mock_dispatcher):
     settings = _make_settings()
     app = create_app(
         settings=settings,
@@ -131,6 +141,7 @@ def client(mock_runner, mock_backfill_manager, mock_run_repo, mock_step_repo):
         backfill_map={"test_pipeline": mock_backfill_manager},
         run_repo=mock_run_repo,
         step_repo=mock_step_repo,
+        dispatch_service=mock_dispatcher,
     )
     return TestClient(app)
 
@@ -373,18 +384,18 @@ def test_monitor_run_detail_page_supports_korean_language_query(client):
     assert "현재 날짜 재실행" in body
 
 
-def test_monitor_trigger_action_redirects_to_run_detail(client, mock_runner):
+def test_monitor_trigger_action_redirects_to_run_detail(client, mock_dispatcher):
     response = client.post("/monitor/pipelines/test_pipeline/trigger", follow_redirects=False)
 
     assert response.status_code == 303
     assert response.headers["location"] == "/monitor/pipelines/test_pipeline/runs/run-001?action=triggered"
-    call_kwargs = mock_runner.run.call_args.kwargs
+    call_kwargs = mock_dispatcher.submit_manual_run.call_args.kwargs
     assert call_kwargs["execution_date"] == date.today()
     assert call_kwargs["trigger_type"] == "manual"
     assert call_kwargs["force_rerun"] is False
 
 
-def test_monitor_force_rerun_action_redirects_with_language(client, mock_runner):
+def test_monitor_force_rerun_action_redirects_with_language(client, mock_dispatcher):
     response = client.post(
         "/monitor/pipelines/test_pipeline/trigger?lang=ko",
         content="execution_date=2026-01-01&force=true",
@@ -394,12 +405,26 @@ def test_monitor_force_rerun_action_redirects_with_language(client, mock_runner)
 
     assert response.status_code == 303
     assert response.headers["location"] == "/monitor/pipelines/test_pipeline/runs/run-001?action=force_rerun&lang=ko"
-    call_kwargs = mock_runner.run.call_args.kwargs
+    call_kwargs = mock_dispatcher.submit_manual_run.call_args.kwargs
     assert call_kwargs["execution_date"] == date(2026, 1, 1)
     assert call_kwargs["force_rerun"] is True
 
 
-def test_monitor_backfill_action_redirects_to_pipeline_detail(client, mock_backfill_manager):
+def test_monitor_trigger_action_returns_409_when_pipeline_busy(client, mock_dispatcher):
+    active_run = _make_pipeline_run(run_id="run-busy", status="running")
+    mock_dispatcher.submit_manual_run.side_effect = PipelineBusyError(
+        "test_pipeline",
+        active_run,
+    )
+
+    response = client.post("/monitor/pipelines/test_pipeline/trigger", follow_redirects=False)
+
+    assert response.status_code == 409
+    assert "Pipeline &#39;test_pipeline&#39; is already active." in response.text
+    assert "run-busy" in response.text
+
+
+def test_monitor_backfill_action_redirects_to_pipeline_detail(client, mock_dispatcher):
     response = client.post(
         "/monitor/pipelines/test_pipeline/backfill",
         content="start_date=2026-01-01&end_date=2026-02-28&force=true",
@@ -407,14 +432,34 @@ def test_monitor_backfill_action_redirects_to_pipeline_detail(client, mock_backf
         follow_redirects=False,
     )
 
+    # 비동기 백필: dispatcher 는 요청만 큐잉하고 즉시 반환. count 는 더 이상 라우트에서 계산하지 않는다.
     assert response.status_code == 303
-    assert response.headers["location"] == "/monitor/pipelines/test_pipeline?action=backfill&count=2"
-    mock_backfill_manager.run_backfill.assert_called_once_with(
+    assert response.headers["location"] == "/monitor/pipelines/test_pipeline?action=backfill"
+    mock_dispatcher.submit_backfill.assert_called_once_with(
         pipeline_name="test_pipeline",
         start_date=date(2026, 1, 1),
         end_date=date(2026, 2, 28),
         force_rerun=True,
     )
+
+
+def test_monitor_backfill_returns_409_when_pipeline_busy(client, mock_dispatcher):
+    active_run = _make_pipeline_run(run_id="run-busy", status="running")
+    mock_dispatcher.submit_backfill.side_effect = PipelineBusyError(
+        "test_pipeline",
+        active_run,
+    )
+
+    response = client.post(
+        "/monitor/pipelines/test_pipeline/backfill",
+        content="start_date=2026-01-01&end_date=2026-02-28&force=true",
+        headers={"content-type": "application/x-www-form-urlencoded"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 409
+    assert "Pipeline &#39;test_pipeline&#39; is already active." in response.text
+    assert "run-busy" in response.text
 
 
 def test_monitor_admin_page_renders_pipeline_section(mock_run_repo, mock_step_repo):
@@ -747,28 +792,61 @@ def test_list_pipelines_multiple(mock_runner, mock_backfill_manager, mock_run_re
 
 # ── POST /api/v1/pipelines/{name}/trigger ────────────────────────────────────
 
-def test_trigger_pipeline_success(client, mock_runner):
+def test_trigger_pipeline_success(client, mock_dispatcher):
     resp = client.post(
         "/api/v1/pipelines/test_pipeline/trigger",
         json={"execution_date": "2026-01-01"},
     )
+    # 이미 성공 처리된 run 을 가장한 mock 이므로 200. 신규 queued 는 202 (별도 테스트에서 검증).
     assert resp.status_code == 200
     data = resp.json()
     assert data["pipeline_name"] == "test_pipeline"
     assert data["trigger_type"] == "manual"
     assert data["status"] == "success"
     assert len(data["steps"]) == 1
-    mock_runner.run.assert_called_once_with(
-        execution_date=date(2026, 1, 1), trigger_type="manual", force_rerun=False
+    mock_dispatcher.submit_manual_run.assert_called_once_with(
+        pipeline_name="test_pipeline",
+        execution_date=date(2026, 1, 1),
+        trigger_type="manual",
+        force_rerun=False,
     )
 
 
-def test_trigger_pipeline_no_date_uses_today(client, mock_runner):
+def test_trigger_pipeline_no_date_uses_today(client, mock_dispatcher):
     resp = client.post("/api/v1/pipelines/test_pipeline/trigger", json={})
     assert resp.status_code == 200
-    call_kwargs = mock_runner.run.call_args.kwargs
+    call_kwargs = mock_dispatcher.submit_manual_run.call_args.kwargs
     assert call_kwargs["execution_date"] == date.today()
     assert call_kwargs["force_rerun"] is False
+
+
+def test_trigger_pipeline_returns_202_when_queued(client, mock_dispatcher):
+    queued = _make_pipeline_run()
+    queued.status = "queued"
+    queued.started_at = None
+    mock_dispatcher.submit_manual_run.return_value = queued
+    resp = client.post("/api/v1/pipelines/test_pipeline/trigger", json={})
+    assert resp.status_code == 202
+    assert resp.json()["status"] == "queued"
+
+
+def test_trigger_returns_409_when_pipeline_busy(client, mock_dispatcher):
+    active_run = _make_pipeline_run(run_id="run-busy", status="running")
+    mock_dispatcher.submit_manual_run.side_effect = PipelineBusyError(
+        "test_pipeline",
+        active_run,
+    )
+
+    resp = client.post(
+        "/api/v1/pipelines/test_pipeline/trigger",
+        json={"execution_date": "2026-01-02", "force": True},
+    )
+
+    assert resp.status_code == 409
+    detail = resp.json()["detail"]
+    assert detail["pipeline_name"] == "test_pipeline"
+    assert detail["run_id"] == "run-busy"
+    assert detail["status"] == "running"
 
 
 def test_trigger_pipeline_not_found(client):
@@ -780,34 +858,17 @@ def test_trigger_pipeline_not_found(client):
     assert "unknown_pipeline" in resp.json()["detail"]
 
 
-def test_trigger_pipeline_accepts_runner_factory(mock_runner, mock_run_repo, mock_step_repo):
-    settings = _make_settings()
-    app = create_app(
-        settings=settings,
-        runner_map={"test_pipeline": lambda: mock_runner},
-        run_repo=mock_run_repo,
-        step_repo=mock_step_repo,
-    )
-    client = TestClient(app)
-
-    resp = client.post(
-        "/api/v1/pipelines/test_pipeline/trigger",
-        json={"execution_date": "2026-01-01"},
-    )
-
-    assert resp.status_code == 200
-    mock_runner.run.assert_called_once()
-
-
 def test_trigger_pipeline_can_enable_force(mock_run_repo, mock_step_repo):
     settings = _make_settings()
     mock_runner = MagicMock()
-    mock_runner.run.return_value = _make_pipeline_run()
+    dispatcher = MagicMock()
+    dispatcher.submit_manual_run.return_value = _make_pipeline_run()
     app = create_app(
         settings=settings,
         runner_map={"test_pipeline": mock_runner},
         run_repo=mock_run_repo,
         step_repo=mock_step_repo,
+        dispatch_service=dispatcher,
     )
     client = TestClient(app)
 
@@ -817,21 +878,21 @@ def test_trigger_pipeline_can_enable_force(mock_run_repo, mock_step_repo):
     )
 
     assert resp.status_code == 200
-    assert mock_runner.run.call_args.kwargs["force_rerun"] is True
+    assert dispatcher.submit_manual_run.call_args.kwargs["force_rerun"] is True
 
 
 # ── POST /api/v1/pipelines/{name}/backfill ───────────────────────────────────
 
-def test_backfill_success(client, mock_backfill_manager):
+def test_backfill_success(client, mock_dispatcher):
+    """비동기 백필: dispatcher 에 태우고 즉시 queued 응답을 돌려준다."""
     resp = client.post(
         "/api/v1/pipelines/test_pipeline/backfill",
         json={"start_date": "2026-01-01", "end_date": "2026-02-28"},
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 202
     data = resp.json()
-    assert len(data) == 2
-    assert data[0]["trigger_type"] == "backfill"
-    mock_backfill_manager.run_backfill.assert_called_once_with(
+    assert data["status"] == "queued"
+    mock_dispatcher.submit_backfill.assert_called_once_with(
         pipeline_name="test_pipeline",
         start_date=date(2026, 1, 1),
         end_date=date(2026, 2, 28),
@@ -839,7 +900,8 @@ def test_backfill_success(client, mock_backfill_manager):
     )
 
 
-def test_backfill_not_found(client):
+def test_backfill_not_found(client, mock_dispatcher):
+    mock_dispatcher.has_backfill.return_value = False
     resp = client.post(
         "/api/v1/pipelines/no_pipeline/backfill",
         json={"start_date": "2026-01-01", "end_date": "2026-01-31"},
@@ -847,46 +909,57 @@ def test_backfill_not_found(client):
     assert resp.status_code == 404
 
 
-def test_backfill_accepts_manager_factory(mock_backfill_manager, mock_run_repo, mock_step_repo):
-    settings = _make_settings()
-    app = create_app(
-        settings=settings,
-        backfill_map={"test_pipeline": lambda: mock_backfill_manager},
-        run_repo=mock_run_repo,
-        step_repo=mock_step_repo,
-    )
-    client = TestClient(app)
-
-    resp = client.post(
-        "/api/v1/pipelines/test_pipeline/backfill",
-        json={"start_date": "2026-01-01", "end_date": "2026-02-28"},
-    )
-
-    assert resp.status_code == 200
-    mock_backfill_manager.run_backfill.assert_called_once()
-
-
-def test_backfill_can_disable_force(mock_run_repo, mock_step_repo):
-    settings = _make_settings()
-    mock_manager = MagicMock()
-    mock_manager.run_backfill.return_value = [
-        _make_pipeline_run(run_id="run-001", execution_date=date(2026, 1, 1), trigger_type="backfill")
-    ]
-    app = create_app(
-        settings=settings,
-        backfill_map={"test_pipeline": mock_manager},
-        run_repo=mock_run_repo,
-        step_repo=mock_step_repo,
-    )
-    client = TestClient(app)
-
+def test_backfill_can_disable_force(client, mock_dispatcher):
     resp = client.post(
         "/api/v1/pipelines/test_pipeline/backfill",
         json={"start_date": "2026-01-01", "end_date": "2026-01-31", "force": False},
     )
 
-    assert resp.status_code == 200
-    assert mock_manager.run_backfill.call_args.kwargs["force_rerun"] is False
+    assert resp.status_code == 202
+    assert mock_dispatcher.submit_backfill.call_args.kwargs["force_rerun"] is False
+
+
+def test_backfill_rejects_invalid_date_range(client, mock_dispatcher):
+    resp = client.post(
+        "/api/v1/pipelines/test_pipeline/backfill",
+        json={"start_date": "2026-02-01", "end_date": "2026-01-31"},
+    )
+
+    assert resp.status_code == 400
+    assert "end_date" in resp.json()["detail"]
+    mock_dispatcher.submit_backfill.assert_not_called()
+
+
+def test_monitor_backfill_rejects_invalid_date_range(client, mock_dispatcher):
+    response = client.post(
+        "/monitor/pipelines/test_pipeline/backfill",
+        content="start_date=2026-02-01&end_date=2026-01-31",
+        headers={"content-type": "application/x-www-form-urlencoded"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 400
+    assert "end_date" in response.text
+    mock_dispatcher.submit_backfill.assert_not_called()
+
+
+def test_backfill_returns_409_when_pipeline_busy(client, mock_dispatcher):
+    active_run = _make_pipeline_run(run_id="run-busy", status="running")
+    mock_dispatcher.submit_backfill.side_effect = PipelineBusyError(
+        "test_pipeline",
+        active_run,
+    )
+
+    resp = client.post(
+        "/api/v1/pipelines/test_pipeline/backfill",
+        json={"start_date": "2026-01-01", "end_date": "2026-01-31"},
+    )
+
+    assert resp.status_code == 409
+    detail = resp.json()["detail"]
+    assert detail["pipeline_name"] == "test_pipeline"
+    assert detail["run_id"] == "run-busy"
+    assert detail["status"] == "running"
 
 
 # ── GET /api/v1/pipelines/{name}/runs ────────────────────────────────────────
@@ -1314,3 +1387,4 @@ def test_analytics_export_endpoints_create_poll_and_download_artifact(
     download_response = client.get(f"/api/v1/analytics/exports/{job_id}/download")
     assert download_response.status_code == 200
     assert "zip" in download_response.headers["content-type"]
+

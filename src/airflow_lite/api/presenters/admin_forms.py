@@ -7,6 +7,7 @@ leaks into HTTP handlers.
 from __future__ import annotations
 
 from airflow_lite.api.forms import first_value as _first_value
+from airflow_lite.scheduler.schedule_validator import validate_schedule
 from airflow_lite.storage.models import (
     ConnectionModel,
     PipelineModel,
@@ -97,6 +98,8 @@ def _pipeline_model_from_form(form_data: dict[str, list[str]]) -> PipelineModel 
 
     if not (name and table and partition_column):
         return None
+
+    validate_schedule(schedule)
 
     return PipelineModel(
         name=name,

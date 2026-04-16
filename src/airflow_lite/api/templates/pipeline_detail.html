@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 
+{% set has_active_run = latest_run and latest_run.status in ['queued', 'running', 'pending'] %}
+{% if has_active_run %}
+<meta http-equiv="refresh" content="5">
+{% endif %}
+
 <section class="panel">
   <div class="panel-head">
     <div>
@@ -9,7 +14,11 @@
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       {% if latest_run %}
+      {% if latest_run.status == 'queued' %}
+      <span class="status queued-badge">{{ t('webui.status.queued') }}</span>
+      {% else %}
       <span class="status {{ tone_of(latest_run.status) }}">{{ fmt(latest_run.status) }}</span>
+      {% endif %}
       {% endif %}
       <a class="button-link" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}">{{ t('webui.pipeline_detail.back_to_pipelines') }}</a>
     </div>

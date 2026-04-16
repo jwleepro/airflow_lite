@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 
+{% if error %}
+<div class="notice notice-danger" role="alert" style="background:#fde8e8;border:1px solid #f1a7a7;color:#8a1f1f;padding:12px 16px;border-radius:6px;margin-bottom:16px;">
+  <strong>{{ t('webui.admin.error.title') }}:</strong> {{ error }}
+</div>
+{% endif %}
+
 <section class="hero-surface">
   <div class="hero-copy">
     <p class="eyebrow">{{ t('webui.admin.eyebrow') }}</p>

@@ -63,7 +63,7 @@ def build_scheduler_config(data: dict | None) -> SchedulerConfig:
     return _build_config(
         SchedulerConfig,
         data,
-        int_fields=("max_instances", "misfire_grace_time_seconds"),
+        int_fields=("max_instances", "misfire_grace_time_seconds", "dispatch_max_workers"),
         prefix="scheduler",
     )
 

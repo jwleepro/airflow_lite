@@ -3,9 +3,10 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
 
-from airflow_lite.api._resolver import resolve_backfill_manager, resolve_runner
+from airflow_lite.api._resolver import resolve_backfill_manager
 from airflow_lite.api.dependencies import (
     get_backfill_map,
+    get_dispatch_service,
     get_language,
     get_run_repo,
     get_runner_map,
@@ -38,10 +39,34 @@ from airflow_lite.api.webui_monitor import (
     render_monitor_home_page,
     render_pipeline_list_page,
 )
+from airflow_lite.api.webui_helpers import t
 from airflow_lite.api.webui_pipeline_detail import render_pipeline_detail_page
 from airflow_lite.api.webui_run_detail import render_run_detail_page
+from airflow_lite.service.dispatch_service import PipelineBusyError
 
 router = APIRouter(include_in_schema=False)
+
+
+def _pipeline_busy_message(language: str, name: str, exc: PipelineBusyError) -> str:
+    if exc.run_id:
+        if language == "ko":
+            run_hint = (
+                f"활성 실행: {exc.run_id}"
+                f" ({exc.status or 'unknown'}, {exc.execution_date.isoformat() if exc.execution_date else 'unknown'})"
+            )
+        else:
+            run_hint = (
+                f"Active run: {exc.run_id}"
+                f" ({exc.status or 'unknown'}, {exc.execution_date.isoformat() if exc.execution_date else 'unknown'})"
+            )
+    else:
+        run_hint = ""
+    return t(
+        language,
+        "webui.errors.pipeline_busy",
+        pipeline_name=name,
+        active_run_hint=run_hint,
+    ).strip()
 
 
 @router.get(MONITOR_PATH, response_class=HTMLResponse)
@@ -154,12 +179,22 @@ async def trigger_pipeline_from_monitor(
         if execution_date_raw
         else date.today()
     )
-    runner = resolve_runner(runner_map[name])
-    run = runner.run(
-        execution_date=execution_date,
-        trigger_type="manual",
-        force_rerun=force,
-    )
+    dispatcher = get_dispatch_service(request)
+    try:
+        run = dispatcher.submit_manual_run(
+            pipeline_name=name,
+            execution_date=execution_date,
+            force_rerun=force,
+            trigger_type="manual",
+        )
+    except PipelineBusyError as exc:
+        return html_unavailable(
+            "Pipeline busy",
+            _pipeline_busy_message(language or request_language, name, exc),
+            active_path=MONITOR_PIPELINES_PATH,
+            status_code=409,
+            language=language or request_language,
+        )
     return redirect(
         monitor_pipeline_run_detail_path(name, run.id),
         language=language or request_language,
@@ -199,19 +234,35 @@ async def request_pipeline_backfill_from_monitor(
             status_code=400,
             language=language or request_language,
         )
+    if end_date < start_date:
+        return html_unavailable(
+            "Backfill",
+            "end_date는 start_date보다 같거나 이후여야 합니다.",
+            active_path=MONITOR_PIPELINES_PATH,
+            status_code=400,
+            language=language or request_language,
+        )
 
-    manager = resolve_backfill_manager(backfill_map[name])
-    runs = manager.run_backfill(
-        pipeline_name=name,
-        start_date=start_date,
-        end_date=end_date,
-        force_rerun=parse_bool_value(_first_value(form_data, "force")),
-    )
+    dispatcher = get_dispatch_service(request)
+    try:
+        dispatcher.submit_backfill(
+            pipeline_name=name,
+            start_date=start_date,
+            end_date=end_date,
+            force_rerun=parse_bool_value(_first_value(form_data, "force")),
+        )
+    except PipelineBusyError as exc:
+        return html_unavailable(
+            "Pipeline busy",
+            _pipeline_busy_message(language or request_language, name, exc),
+            active_path=MONITOR_PIPELINES_PATH,
+            status_code=409,
+            language=language or request_language,
+        )
     return redirect(
         monitor_pipeline_detail_path(name),
         language=language or request_language,
         action="backfill",
-        count=len(runs),
     )
 
 

@@ -72,15 +72,15 @@ def test_load_settings_uses_resolved_path(monkeypatch):
     assert settings is mock_settings
 
 
-def test_build_runtime_services_uses_export_root_path(tmp_path):
+def test_build_runtime_services_uses_export_root_path(tmp_path, monkeypatch):
     settings = _make_settings(tmp_path)
     runner_factory = MagicMock(name="runner_factory")
-
-    runtime = build_runtime_services(
-        settings,
-        "dummy_path.yaml",
-        runner_factory_builder=lambda current_settings, run_repo, step_repo: runner_factory,
+    monkeypatch.setattr(
+        "airflow_lite.bootstrap.create_runner_factory",
+        lambda current_settings, run_repo, step_repo: runner_factory,
     )
+
+    runtime = build_runtime_services(settings, "dummy_path.yaml")
 
     assert runtime.analytics_export_service.root_path == Path(settings.export.root_path)
     assert runtime.analytics_query_service.database_path == get_mart_database_path(settings)

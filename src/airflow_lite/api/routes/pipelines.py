@@ -1,9 +1,10 @@
 from datetime import date
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse
 
-from airflow_lite.api._resolver import resolve_runner
 from airflow_lite.api.dependencies import (
+    get_dispatch_service,
     get_run_repo,
     get_runner_map,
     get_step_repo,
@@ -15,26 +16,33 @@ from airflow_lite.api.schemas import (
     TriggerRequest,
     build_run_response_with_steps,
 )
+from airflow_lite.service.dispatch_service import PipelineBusyError
 
 router = APIRouter(tags=["pipelines"])
 
 
 @router.post("/pipelines/{name}/trigger", response_model=PipelineRunResponse)
 def trigger_pipeline(name: str, body: TriggerRequest, req: Request):
-    """수동 즉시 실행. execution_date 미지정 시 오늘 날짜 사용."""
+    """수동 트리거. queued run 을 즉시 반환(202), 실행은 워커가 소비."""
     runner_map = get_runner_map(req)
     if name not in runner_map:
         raise HTTPException(status_code=404, detail=f"파이프라인 '{name}'을 찾을 수 없습니다.")
 
+    dispatcher = get_dispatch_service(req)
     execution_date = body.execution_date or date.today()
-    runner = resolve_runner(runner_map[name])
-    run = runner.run(
-        execution_date=execution_date,
-        trigger_type="manual",
-        force_rerun=body.force,
-    )
-
-    return build_run_response_with_steps(run, get_step_repo(req))
+    try:
+        run = dispatcher.submit_manual_run(
+            pipeline_name=name,
+            execution_date=execution_date,
+            force_rerun=body.force,
+            trigger_type="manual",
+        )
+    except PipelineBusyError as exc:
+        raise HTTPException(status_code=409, detail=exc.to_detail()) from exc
+    payload = build_run_response_with_steps(run, get_step_repo(req))
+    # 이미 종결된 run(success 재사용)은 200, 새로 큐잉된 건 202 로 접수됨을 명시.
+    status_code = 200 if run.status in ("success", "failed") else 202
+    return JSONResponse(status_code=status_code, content=payload.model_dump(mode="json"))
 
 
 @router.get("/pipelines", response_model=list[PipelineInfo])
