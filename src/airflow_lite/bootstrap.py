@@ -7,9 +7,11 @@ from pathlib import Path
 
 from airflow_lite.config.settings import Settings
 from airflow_lite.engine.backfill import BackfillManager
+from airflow_lite.executor.pipeline_local_executor import PipelineLocalExecutor
 from airflow_lite.export import FilesystemAnalyticsExportService
 from airflow_lite.query import DuckDBAnalyticsQueryService
 from airflow_lite.runtime import create_runner_factory
+from airflow_lite.service.dispatch_service import PipelineDispatchService
 from airflow_lite.storage.database import Database
 from airflow_lite.storage.repository import PipelineRunRepository, StepRunRepository
 from airflow_lite.storage.admin_repository import AdminRepository
@@ -29,6 +31,12 @@ class RuntimeServices:
     backfill_map: dict[str, Callable]
     analytics_query_service: DuckDBAnalyticsQueryService
     analytics_export_service: FilesystemAnalyticsExportService
+    dispatch_executor: PipelineLocalExecutor
+    dispatch_service: PipelineDispatchService
+
+    def shutdown(self) -> None:
+        """런타임 공용 리소스 정리. dispatcher 워커 종료 대기 포함."""
+        self.dispatch_executor.shutdown(wait=True)
 
 
 def resolve_config_path(cli_path: str | None = None) -> str:
@@ -51,18 +59,13 @@ def get_api_bind(settings: Settings) -> tuple[str, int]:
 def build_runtime_services(
     settings: Settings,
     config_path: str,
-    *,
-    runner_factory_builder=None,
 ) -> RuntimeServices:
     db = Database(settings.storage.sqlite_path)
     db.initialize()
     run_repo = PipelineRunRepository(db)
     step_repo = StepRunRepository(db)
     admin_repo = AdminRepository(db, config_path)
-    if runner_factory_builder is None:
-        runner_factory = create_runner_factory(settings, run_repo, step_repo)
-    else:
-        runner_factory = runner_factory_builder(settings, run_repo, step_repo)
+    runner_factory = create_runner_factory(settings, run_repo, step_repo)
 
     runner_map = {
         pipeline.name: (lambda pipeline_name=pipeline.name: runner_factory(pipeline_name))
@@ -90,6 +93,16 @@ def build_runtime_services(
         zip_compression=settings.export.zip_compression,
     )
 
+    dispatch_executor = PipelineLocalExecutor(
+        max_workers=getattr(settings.scheduler, "dispatch_max_workers", 2),
+    )
+    dispatch_service = PipelineDispatchService(
+        runner_map=runner_map,
+        backfill_map=backfill_map,
+        executor=dispatch_executor,
+        run_repo=run_repo,
+    )
+
     return RuntimeServices(
         settings=settings,
         run_repo=run_repo,
@@ -100,4 +113,6 @@ def build_runtime_services(
         backfill_map=backfill_map,
         analytics_query_service=analytics_query_service,
         analytics_export_service=analytics_export_service,
+        dispatch_executor=dispatch_executor,
+        dispatch_service=dispatch_service,
     )

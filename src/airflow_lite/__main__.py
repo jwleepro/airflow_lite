@@ -18,7 +18,11 @@ def _run_foreground():
     runtime = build_runtime_services(settings, config_path)
 
     from airflow_lite.scheduler.scheduler import PipelineScheduler
-    scheduler = PipelineScheduler(settings, runtime.runner_factory, config_path=config_path)
+    scheduler = PipelineScheduler(
+        settings=settings,
+        config_path=config_path,
+        dispatch_service=runtime.dispatch_service,
+    )
     scheduler.register_pipelines()
     scheduler.start()
 
@@ -32,6 +36,7 @@ def _run_foreground():
         admin_repo=runtime.admin_repo,
         analytics_query_service=runtime.analytics_query_service,
         analytics_export_service=runtime.analytics_export_service,
+        dispatch_service=runtime.dispatch_service,
     )
     host, port = get_api_bind(settings)
 
@@ -59,6 +64,7 @@ def _run_foreground():
 
     server.should_exit = True
     scheduler.shutdown(wait=True)
+    runtime.shutdown()
     api_thread.join(timeout=30)
     logger.info("Airflow Lite 종료")
 

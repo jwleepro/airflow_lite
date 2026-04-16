@@ -221,7 +221,6 @@ class TestSvcDoRun:
 
     def test_builds_runtime_services(self, run_ctx):
         run_ctx["build_runtime_services"].assert_called_once()
-        assert "runner_factory_builder" in run_ctx["build_runtime_services"].call_args.kwargs
 
     def test_registers_pipelines(self, run_ctx):
         run_ctx["scheduler"].register_pipelines.assert_called_once()
@@ -324,6 +323,16 @@ class TestSvcStop:
 
         mock_scheduler.shutdown.assert_called_once_with(wait=True)
 
+    def test_shuts_down_runtime_resources(self, svc):
+        mock_runtime = MagicMock()
+        svc.runtime = mock_runtime
+
+        with patch.object(svc, "ReportServiceStatus"), \
+             patch.object(win32event, "SetEvent"):
+            svc.SvcStop()
+
+        mock_runtime.shutdown.assert_called_once_with()
+
     def test_joins_api_thread_with_30s_timeout(self, svc):
         mock_thread = MagicMock()
         mock_thread.is_alive.return_value = True
@@ -418,40 +427,46 @@ class TestCreateRunnerFactory:
 
     def test_returns_callable(self, svc, real_settings, repos):
         run_repo, step_repo = repos
-        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
         assert callable(factory)
 
     def test_factory_returns_pipeline_runner(self, svc, real_settings, repos):
         from airflow_lite.engine.pipeline import PipelineRunner
         run_repo, step_repo = repos
-        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
         runner = factory("full_pipe")
         assert isinstance(runner, PipelineRunner)
 
     def test_factory_uses_full_strategy_for_full_config(self, svc, real_settings, repos):
         from airflow_lite.engine.strategy import FullMigrationStrategy
         run_repo, step_repo = repos
-        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
         runner = factory("full_pipe")
         assert isinstance(runner.pipeline.strategy, FullMigrationStrategy)
 
     def test_factory_uses_incremental_strategy_for_incremental_config(self, svc, real_settings, repos):
         from airflow_lite.engine.strategy import IncrementalMigrationStrategy
         run_repo, step_repo = repos
-        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
         runner = factory("inc_pipe")
         assert isinstance(runner.pipeline.strategy, IncrementalMigrationStrategy)
 
     def test_factory_sets_correct_pipeline_name(self, svc, real_settings, repos):
         run_repo, step_repo = repos
-        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
         runner = factory("full_pipe")
         assert runner.pipeline.name == "full_pipe"
 
     def test_factory_sets_on_failure_callback(self, svc, real_settings, repos):
         """RetryConfig.on_failure_callback이 None이 아니어야 한다."""
         run_repo, step_repo = repos
-        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
         runner = factory("full_pipe")
         etl_stage = runner.pipeline.stages[0]
         assert etl_stage.retry_config.on_failure_callback is not None
@@ -463,7 +478,8 @@ class TestCreateRunnerFactory:
         from airflow_lite.engine.stage import StageContext
 
         run_repo, step_repo = repos
-        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
         runner = factory("full_pipe")
         callback = runner.pipeline.stages[0].retry_config.on_failure_callback
 
@@ -487,7 +503,8 @@ class TestCreateRunnerFactory:
 
     def test_factory_marks_run_failed_when_verify_returns_false(self, svc, real_settings, repos):
         run_repo, step_repo = repos
-        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
         runner = factory("full_pipe")
 
         runner.pipeline.strategy.extract = MagicMock(return_value=iter([]))
@@ -505,7 +522,8 @@ class TestCreateRunnerFactory:
 
     def test_factory_sets_on_run_success_callback(self, svc, real_settings, repos):
         run_repo, step_repo = repos
-        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
         runner = factory("full_pipe")
 
         assert runner.on_run_success is not None
@@ -516,7 +534,8 @@ class TestCreateRunnerFactory:
         from airflow_lite.engine.stage import StageContext
 
         run_repo, step_repo = repos
-        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
         runner = factory("full_pipe")
 
         context = StageContext(
@@ -545,7 +564,8 @@ class TestCreateRunnerFactory:
         real_settings.mart.refresh_on_success = True
         real_settings.mart.pipeline_datasets = {"full_pipe": "ops_dataset"}
 
-        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
         runner = factory("full_pipe")
         context = StageContext(
             pipeline_name="full_pipe",

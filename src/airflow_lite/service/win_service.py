@@ -8,7 +8,6 @@ import servicemanager
 import uvicorn
 
 from airflow_lite.bootstrap import build_runtime_services, get_api_bind, load_settings
-from airflow_lite.runtime import create_runner_factory
 
 logger = logging.getLogger("airflow_lite.service")
 
@@ -22,6 +21,7 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
         win32serviceutil.ServiceFramework.__init__(self, args)
         self.stop_event = win32event.CreateEvent(None, 0, 0, None)
         self.scheduler = None
+        self.runtime = None
         self.uvicorn_server = None
         self.api_thread = None
 
@@ -50,17 +50,13 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
             setup_logging(settings.storage.log_path)
 
             # 3. 런타임 구성 생성
-            runtime = build_runtime_services(
-                settings,
-                config_path,
-                runner_factory_builder=self._create_runner_factory,
-            )
+            self.runtime = build_runtime_services(settings, config_path)
 
             from airflow_lite.scheduler.scheduler import PipelineScheduler
             self.scheduler = PipelineScheduler(
-                settings,
-                runtime.runner_factory,
+                settings=settings,
                 config_path=config_path,
+                dispatch_service=self.runtime.dispatch_service,
             )
             self.scheduler.register_pipelines()
             self.scheduler.start()
@@ -69,13 +65,14 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
             from airflow_lite.api.app import create_app
             app = create_app(
                 settings,
-                runner_map=runtime.runner_map,
-                backfill_map=runtime.backfill_map,
-                run_repo=runtime.run_repo,
-                step_repo=runtime.step_repo,
-                admin_repo=runtime.admin_repo,
-                analytics_query_service=runtime.analytics_query_service,
-                analytics_export_service=runtime.analytics_export_service,
+                runner_map=self.runtime.runner_map,
+                backfill_map=self.runtime.backfill_map,
+                run_repo=self.runtime.run_repo,
+                step_repo=self.runtime.step_repo,
+                admin_repo=self.runtime.admin_repo,
+                analytics_query_service=self.runtime.analytics_query_service,
+                analytics_export_service=self.runtime.analytics_export_service,
+                dispatch_service=self.runtime.dispatch_service,
             )
             host, port = get_api_bind(settings)
 
@@ -117,6 +114,9 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
         if self.uvicorn_server:
             self.uvicorn_server.should_exit = True
 
+        if self.runtime:
+            self.runtime.shutdown()
+
         if self.scheduler:
             self.scheduler.shutdown(wait=True)
 
@@ -125,6 +125,3 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
 
         win32event.SetEvent(self.stop_event)
         logger.info("서비스 종료됨")
-
-    def _create_runner_factory(self, settings, run_repo, step_repo):
-        return create_runner_factory(settings, run_repo, step_repo)

@@ -47,3 +47,10 @@ def get_runner_map(request: Request) -> dict:
 
 def get_backfill_map(request: Request) -> dict:
     return getattr(request.app.state, "backfill_map", {}) or {}
+
+
+def get_dispatch_service(request: Request):
+    dispatch = getattr(request.app.state, "dispatch_service", None)
+    if dispatch is None:
+        raise HTTPException(status_code=503, detail="dispatch_service is not configured.")
+    return dispatch

@@ -732,6 +732,12 @@ table tbody tr:last-child td {
   color: var(--neutral-ink);
 }
 
+.status.queued-badge {
+  background: var(--running-bg);
+  color: var(--running-ink);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
 .pulse {
   animation: pulse 1.6s ease-in-out infinite;
 }

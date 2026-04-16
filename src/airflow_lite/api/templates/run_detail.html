@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 
+{% set is_active = run_status in ['queued', 'running', 'pending'] %}
+{% if is_active %}
+<meta http-equiv="refresh" content="5">
+{% endif %}
+
 <section class="panel">
   <div class="panel-head">
     <div>
@@ -8,7 +13,11 @@
       <h2>{{ pipeline_name }} &nbsp;&middot;&nbsp; {{ fmt(run.execution_date) }}</h2>
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      {% if run_status == 'queued' %}
+      <span class="status queued-badge">{{ t('webui.status.queued') }}</span>
+      {% else %}
       <span class="status {{ run_tone }}">{{ run_status }}</span>
+      {% endif %}
       <a class="button-link" href="{{ lang_url(monitor_pipeline_detail_path(pipeline_name)) }}">{{ t('webui.run_detail.back_to_pipeline') }}</a>
     </div>
   </div>

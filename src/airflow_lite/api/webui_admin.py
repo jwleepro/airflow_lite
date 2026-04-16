@@ -11,7 +11,9 @@ from airflow_lite.api.viewmodels import AdminPageViewData
 from airflow_lite.api.webui_helpers import t
 
 
-def render_admin_page(view_data: AdminPageViewData, *, language: str) -> str:
+def render_admin_page(
+    view_data: AdminPageViewData, *, language: str, error: str | None = None
+) -> str:
     chrome = PageChrome(
         title=t(language, "webui.layout.nav.admin"),
         subtitle=t(language, "webui.admin.subtitle"),
@@ -30,4 +32,5 @@ def render_admin_page(view_data: AdminPageViewData, *, language: str) -> str:
         variables=view_data.variables,
         pools=view_data.pools,
         pipelines=view_data.pipelines,
+        error=error,
     )

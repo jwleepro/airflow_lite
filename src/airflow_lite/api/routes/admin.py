@@ -1,5 +1,6 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request
+from airflow_lite.scheduler.schedule_validator import validate_schedule
 from airflow_lite.storage.models import ConnectionModel, VariableModel, PoolModel, PipelineModel
 from airflow_lite.storage.admin_repository import AdminRepository
 
@@ -99,6 +100,10 @@ def list_pipelines(repo: AdminRepository = Depends(get_admin_repo)):
 
 @router.post("/pipelines")
 def create_pipeline(pipeline: PipelineModel, repo: AdminRepository = Depends(get_admin_repo)):
+    try:
+        validate_schedule(pipeline.schedule)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     repo.create_pipeline(pipeline)
     return {"message": "Pipeline created successfully"}
 
@@ -107,6 +112,10 @@ def create_pipeline(pipeline: PipelineModel, repo: AdminRepository = Depends(get
 def update_pipeline(name: str, pipeline: PipelineModel, repo: AdminRepository = Depends(get_admin_repo)):
     if name != pipeline.name:
         raise HTTPException(status_code=400, detail="Pipeline Name mismatch")
+    try:
+        validate_schedule(pipeline.schedule)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     repo.update_pipeline(pipeline)
     return {"message": "Pipeline updated successfully"}
 

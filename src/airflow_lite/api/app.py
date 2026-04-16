@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
 from airflow_lite.api.paths import API_PREFIX
@@ -39,6 +40,7 @@ def create_app(
     analytics_query_service=None,
     analytics_export_service=None,
     admin_repo=None,
+    dispatch_service=None,
 ) -> FastAPI:
     """FastAPI 앱 팩토리.
 
@@ -60,6 +62,7 @@ def create_app(
     app.state.analytics_query_service = analytics_query_service
     app.state.analytics_export_service = analytics_export_service
     app.state.admin_repo = admin_repo
+    app.state.dispatch_service = dispatch_service
 
     # CORS 미들웨어 설정 — 사내망 전용
     allowed_origins, allowed_origin_regex = _split_cors_origins(settings.api.allowed_origins)
@@ -79,6 +82,11 @@ def create_app(
     from airflow_lite.api.routes.backfill import router as backfill_router
     from airflow_lite.api.routes.health import router as health_router
     from airflow_lite.api.routes.admin import router as admin_router
+
+    # 브라우저 자동 요청 처리 — favicon 없으면 404 로그가 매 페이지마다 찍힘
+    @app.get("/favicon.ico", include_in_schema=False)
+    async def favicon() -> Response:
+        return Response(status_code=204)
 
     # 정적 파일(webui CSS/JS 등) 서빙
     _static_dir = Path(__file__).parent / "static"

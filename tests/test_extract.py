@@ -135,6 +135,64 @@ class TestOracleClientConnection:
         result = self.client.get_connection()
         assert result is new_conn
 
+    def test_get_connection_logs_when_creating_new_connection(self, caplog):
+        mock_conn = MagicMock()
+        self.client._create_connection = MagicMock(return_value=mock_conn)
+
+        with caplog.at_level("INFO", logger="airflow_lite.extract.oracle_client"):
+            result = self.client.get_connection()
+
+        assert result is mock_conn
+        assert any("Oracle connection not initialized" in r.message for r in caplog.records)
+        assert any("host=localhost port=1521 service_name=ORCL" in r.message for r in caplog.records)
+
+    def test_get_connection_logs_reconnect_after_ping_failure(self, caplog):
+        old_conn = MagicMock()
+        old_conn.ping.side_effect = Exception("socket timeout")
+        new_conn = MagicMock()
+        self.client._connection = old_conn
+        self.client._create_connection = MagicMock(return_value=new_conn)
+
+        with caplog.at_level("WARNING", logger="airflow_lite.extract.oracle_client"):
+            result = self.client.get_connection()
+
+        assert result is new_conn
+        assert any("Oracle connection ping failed" in r.message for r in caplog.records)
+        assert any("Oracle connection health check failed, reconnecting" in r.message for r in caplog.records)
+
+    @patch("airflow_lite.extract.oracle_client.oracledb.connect")
+    @patch("airflow_lite.extract.oracle_client.oracledb.makedsn", return_value="dsn://oracle")
+    def test_create_connection_logs_success_context(self, mock_makedsn, mock_connect, caplog):
+        mock_conn = MagicMock()
+        mock_connect.return_value = mock_conn
+
+        with caplog.at_level("INFO", logger="airflow_lite.extract.oracle_client"):
+            result = self.client._create_connection()
+
+        assert result is mock_conn
+        assert any("Opening Oracle connection" in r.message for r in caplog.records)
+        assert any("Oracle connection established" in r.message for r in caplog.records)
+        assert any("host=localhost port=1521 service_name=ORCL" in r.message for r in caplog.records)
+
+    @patch("airflow_lite.extract.oracle_client.oracledb.DatabaseError", Exception)
+    @patch("airflow_lite.extract.oracle_client.oracledb.connect")
+    @patch("airflow_lite.extract.oracle_client.oracledb.makedsn", return_value="dsn://oracle")
+    def test_create_connection_logs_retryable_failure_context(
+        self,
+        mock_makedsn,
+        mock_connect,
+        caplog,
+    ):
+        mock_connect.side_effect = _make_oracle_error(12170)
+
+        with caplog.at_level("WARNING", logger="airflow_lite.extract.oracle_client"):
+            with pytest.raises(RetryableOracleError):
+                self.client._create_connection()
+
+        assert any("Oracle connection failed after" in r.message for r in caplog.records)
+        assert any("code=12170" in r.message for r in caplog.records)
+        assert any("retryable=True" in r.message for r in caplog.records)
+
     def test_is_alive_returns_true_when_ping_succeeds(self):
         mock_conn = MagicMock()
         mock_conn.ping.return_value = None

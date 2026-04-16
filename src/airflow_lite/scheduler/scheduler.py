@@ -1,49 +1,80 @@
 from datetime import date
 from typing import TYPE_CHECKING
-import re
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.interval import IntervalTrigger
 import logging
 
 from airflow_lite.bootstrap import DEFAULT_CONFIG_PATH
-from airflow_lite.runtime import run_scheduled_pipeline
+from airflow_lite.scheduler.schedule_validator import build_trigger
+from airflow_lite.service.dispatch_service import PipelineBusyError
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from airflow_lite.config.settings import Settings
+    from airflow_lite.service.dispatch_service import PipelineDispatchService
 
 logger = logging.getLogger("airflow_lite.scheduler")
-INTERVAL_PATTERN = re.compile(r"^interval:(\d+)([smhd]?)$", re.IGNORECASE)
+
+# 모듈 레벨 dispatcher 참조. APScheduler 의 SQLAlchemyJobStore 가 잡을 pickle 로 저장하므로,
+# 콜백에 bound method 를 넘기면 PipelineScheduler(및 Lock 을 가진 dispatcher) 가 같이 직렬화되어 실패한다.
+# 프로세스 싱글톤 한 개만 사용하면 충분하므로 모듈 레벨에서 잡아둔다.
+_process_dispatcher: "PipelineDispatchService | None" = None
+
+
+def _set_process_dispatcher(dispatcher: "PipelineDispatchService") -> None:
+    global _process_dispatcher
+    _process_dispatcher = dispatcher
+
+
+def _scheduled_dispatcher_callback(pipeline_name: str) -> None:
+    """APScheduler 잡 콜백 (모듈 레벨 함수라 pickle 안전).
+
+    현재 프로세스에 등록된 dispatcher 를 통해 queued run 을 생성하고 즉시 반환한다.
+    실제 실행은 PipelineLocalExecutor 워커가 소비한다.
+    """
+    dispatcher = _process_dispatcher
+    if dispatcher is None:
+        logger.error("스케줄 dispatcher 가 초기화되지 않았습니다: %s", pipeline_name)
+        return
+    try:
+        dispatcher.submit_manual_run(
+            pipeline_name=pipeline_name,
+            execution_date=date.today(),
+            force_rerun=False,
+            trigger_type="scheduled",
+        )
+    except PipelineBusyError as exc:
+        logger.info(
+            "스케줄 dispatcher 스킵: pipeline=%s run_id=%s status=%s",
+            pipeline_name,
+            exc.run_id,
+            exc.status,
+        )
+    except Exception:
+        logger.exception("스케줄 dispatcher 호출 실패: %s", pipeline_name)
 
 
 class PipelineScheduler:
-    """APScheduler BackgroundScheduler를 래핑하여 파이프라인 스케줄링을 관리한다.
+    """APScheduler BackgroundScheduler 를 래핑하여 파이프라인 스케줄링을 관리한다.
 
     설계 제약:
     - SQLite JobStore 사용 (상태 영속화)
     - 동일 파이프라인 동시 실행 방지 (max_instances=1)
-    - misfire_grace_time으로 놓친 실행 처리
+    - misfire_grace_time 으로 놓친 실행 처리
+    - 모든 스케줄 트리거는 PipelineDispatchService 를 경유하여 queued run 생성 후 워커에 위임한다.
     """
 
     def __init__(
         self,
         settings: "Settings",
-        runner_factory: "Callable | None" = None,
+        dispatch_service: "PipelineDispatchService",
         config_path: str = DEFAULT_CONFIG_PATH,
     ):
-        """
-        Args:
-            settings: YAML 설정 객체
-            runner_factory: pipeline_name을 받아 PipelineRunner를 생성하는 팩토리
-        """
         self.settings = settings
-        self.runner_factory = runner_factory
         self.config_path = config_path
+        self.dispatch_service = dispatch_service
+        _set_process_dispatcher(dispatch_service)
 
-        # APScheduler 설정
         self.scheduler = BackgroundScheduler(
             jobstores={
                 "default": SQLAlchemyJobStore(
@@ -60,16 +91,16 @@ class PipelineScheduler:
     def register_pipelines(self) -> None:
         """설정의 모든 파이프라인을 스케줄러에 등록.
 
-        각 파이프라인의 schedule을 CronTrigger 또는 IntervalTrigger로 변환하여 등록.
-        replace_existing=True로 재등록 시 안전하게 덮어쓰기.
+        모든 잡 콜백은 _scheduled_dispatcher_callback (모듈 레벨) 경유로 통일된다.
+        replace_existing=True 로 재등록 시 안전하게 덮어쓴다.
         """
         for pipeline_config in self.settings.pipelines:
-            trigger = self._build_trigger(pipeline_config.schedule)
+            trigger = build_trigger(pipeline_config.schedule)
             self.scheduler.add_job(
-                func=run_scheduled_pipeline,
+                func=_scheduled_dispatcher_callback,
                 trigger=trigger,
                 id=pipeline_config.name,
-                args=[self.config_path, pipeline_config.name],
+                args=[pipeline_config.name],
                 replace_existing=True,
             )
             logger.info(
@@ -77,46 +108,7 @@ class PipelineScheduler:
                 f"(schedule: {pipeline_config.schedule})"
             )
 
-    def _build_trigger(self, schedule: str):
-        """schedule 문자열을 APScheduler trigger로 변환한다.
-
-        지원 형식:
-        - Cron: '0 2 * * *'
-        - Interval: 'interval:30m', 'interval:6h', 'interval:15'
-          기본 단위는 초.
-        """
-        match = INTERVAL_PATTERN.fullmatch(schedule.strip())
-        if match:
-            value = int(match.group(1))
-            unit = (match.group(2) or "s").lower()
-            unit_map = {
-                "s": "seconds",
-                "m": "minutes",
-                "h": "hours",
-                "d": "days",
-            }
-            return IntervalTrigger(**{unit_map[unit]: value})
-
-        return CronTrigger.from_crontab(schedule)
-
-    def _run_pipeline(self, pipeline_name: str) -> None:
-        """스케줄러에 의해 호출되는 파이프라인 실행 함수.
-
-        execution_date는 오늘 날짜, trigger_type은 'scheduled'.
-        예외는 로깅 후 삼키며, APScheduler 잡 제거를 방지한다.
-        """
-        try:
-            if self.runner_factory is None:
-                run_scheduled_pipeline(self.config_path, pipeline_name)
-                return
-
-            runner = self.runner_factory(pipeline_name)
-            runner.run(execution_date=date.today(), trigger_type="scheduled")
-        except Exception:
-            logger.exception("스케줄 실행 실패: %s", pipeline_name)
-
     def start(self) -> None:
-        """스케줄러 시작."""
         self.scheduler.start()
         logger.info("스케줄러 시작됨")
 
@@ -124,7 +116,7 @@ class PipelineScheduler:
         """Graceful shutdown: 실행 중인 작업 완료 대기 후 종료.
 
         Args:
-            wait: True면 실행 중인 작업 완료까지 대기, False면 즉시 종료
+            wait: True 면 실행 중인 작업 완료까지 대기, False 면 즉시 종료
         """
         self.scheduler.shutdown(wait=wait)
         logger.info(f"스케줄러 종료됨 (wait={wait})")

@@ -137,6 +137,7 @@ class SchedulerConfig:
     coalesce: bool = True
     max_instances: int = 1
     misfire_grace_time_seconds: int = 3600
+    dispatch_max_workers: int = 2
 
 
 @dataclass

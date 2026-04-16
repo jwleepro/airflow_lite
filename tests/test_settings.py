@@ -513,6 +513,7 @@ scheduler:
   coalesce: false
   max_instances: 2
   misfire_grace_time_seconds: 120
+  dispatch_max_workers: 3
 
 webui:
   monitor_refresh_seconds: 15
@@ -540,11 +541,39 @@ webui:
         assert settings.scheduler.coalesce is False
         assert settings.scheduler.max_instances == 2
         assert settings.scheduler.misfire_grace_time_seconds == 120
+        assert settings.scheduler.dispatch_max_workers == 3
         assert isinstance(settings.webui, WebUIConfig)
         assert settings.webui.monitor_refresh_seconds == 15
         assert settings.webui.analytics_refresh_seconds == 45
         assert settings.webui.default_dataset == "custom_ops"
         assert settings.webui.default_language == "ko"
+
+    def test_load_coerces_scheduler_dispatch_max_workers_from_env(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DISPATCH_MAX_WORKERS", "4")
+        config_text = """\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines: []
+
+scheduler:
+  dispatch_max_workers: ${DISPATCH_MAX_WORKERS}
+"""
+
+        with patch("builtins.open", mock_open(read_data=config_text)):
+            settings = Settings.load("pipelines.yaml")
+
+        assert settings.scheduler.dispatch_max_workers == 4
+        assert isinstance(settings.scheduler.dispatch_max_workers, int)
 
     def test_scheduler_and_webui_config_defaults(self):
         config_text = """\

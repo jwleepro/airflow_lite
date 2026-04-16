@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS pipeline_runs (
     pipeline_name   TEXT NOT NULL,
     execution_date  TEXT NOT NULL,        -- YYYY-MM-DD
     status          TEXT NOT NULL DEFAULT 'pending',
-                    -- pending | running | success | failed
+                    -- pending | queued | running | success | failed
     started_at      TEXT,                 -- ISO 8601
     finished_at     TEXT,                 -- ISO 8601
     trigger_type    TEXT NOT NULL DEFAULT 'scheduled',

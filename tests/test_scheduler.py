@@ -1,4 +1,3 @@
-import time
 import pytest
 from datetime import date
 from unittest.mock import MagicMock, patch
@@ -12,6 +11,7 @@ from airflow_lite.config.settings import (
     Settings,
     StorageConfig,
 )
+from airflow_lite.service.dispatch_service import PipelineBusyError
 
 
 # ── fixtures ───────────────────────────────────────────────────────────────────
@@ -62,15 +62,14 @@ def settings(tmp_path, pipeline_configs):
 
 
 @pytest.fixture
-def runner_factory():
+def dispatch_service():
     return MagicMock()
 
 
 @pytest.fixture
-def scheduler(settings, runner_factory):
-    sched = PipelineScheduler(settings=settings, runner_factory=runner_factory)
+def scheduler(settings, dispatch_service):
+    sched = PipelineScheduler(settings=settings, dispatch_service=dispatch_service)
     yield sched
-    # 시작된 경우 종료
     if sched.scheduler.running:
         sched.scheduler.shutdown(wait=False)
 
@@ -84,7 +83,7 @@ def test_scheduler_init_applies_job_defaults(scheduler):
     assert defaults["misfire_grace_time"] == 3600
 
 
-def test_scheduler_init_uses_configured_job_defaults(tmp_path, pipeline_configs, runner_factory):
+def test_scheduler_init_uses_configured_job_defaults(tmp_path, pipeline_configs, dispatch_service):
     settings = _make_settings(str(tmp_path / "custom.db"), pipeline_configs)
     settings.scheduler = SchedulerConfig(
         coalesce=False,
@@ -92,7 +91,7 @@ def test_scheduler_init_uses_configured_job_defaults(tmp_path, pipeline_configs,
         misfire_grace_time_seconds=900,
     )
 
-    scheduler = PipelineScheduler(settings=settings, runner_factory=runner_factory)
+    scheduler = PipelineScheduler(settings=settings, dispatch_service=dispatch_service)
 
     defaults = scheduler.scheduler._job_defaults
     assert defaults["coalesce"] is False
@@ -106,15 +105,15 @@ def test_scheduler_init_uses_sqlalchemy_jobstore(scheduler):
     assert isinstance(jobstore, SQLAlchemyJobStore)
 
 
-def test_scheduler_init_sqlite_url_matches_settings(settings, runner_factory):
-    sched = PipelineScheduler(settings=settings, runner_factory=runner_factory)
+def test_scheduler_init_sqlite_url_matches_settings(settings, dispatch_service):
+    sched = PipelineScheduler(settings=settings, dispatch_service=dispatch_service)
     jobstore = sched.scheduler._jobstores["default"]
     assert str(settings.storage.sqlite_path) in str(jobstore.engine.url)
 
 
-# ── register_pipelines(): CronTrigger 등록 ────────────────────────────────────
+# ── register_pipelines(): 잡 등록 ────────────────────────────────────────────
 
-def test_register_pipelines_adds_all_jobs(scheduler, pipeline_configs):
+def test_register_pipelines_adds_all_jobs(scheduler):
     scheduler.register_pipelines()
     jobs = scheduler.scheduler.get_jobs()
     job_ids = {j.id for j in jobs}
@@ -127,7 +126,6 @@ def test_register_pipelines_sets_correct_cron(scheduler):
     job_b = scheduler.scheduler.get_job("pipeline_b")
     assert job_a is not None
     assert job_b is not None
-    # CronTrigger 필드 검증: hour/minute 확인
     fields_a = {f.name: str(f) for f in job_a.trigger.fields}
     assert fields_a["hour"] == "2"
     assert fields_a["minute"] == "0"
@@ -136,12 +134,8 @@ def test_register_pipelines_sets_correct_cron(scheduler):
     assert fields_b["minute"] == "30"
 
 
-def test_register_pipelines_replace_existing(settings, runner_factory):
-    """재등록 시 replace_existing=True 동작: 동일 id 잡이 교체된다.
-
-    SQLite jobstore는 pickle 직렬화를 사용하므로 MemoryJobStore로 검증한다.
-    register_pipelines()를 두 번 호출해도 같은 id 잡이 교체되어 개수가 유지된다.
-    """
+def test_register_pipelines_replace_existing(settings, dispatch_service):
+    """재등록 시 replace_existing=True 동작 검증. MemoryJobStore 로 관찰한다."""
     from apscheduler.jobstores.memory import MemoryJobStore
     from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -151,30 +145,26 @@ def test_register_pipelines_replace_existing(settings, runner_factory):
     )
     scheduler_obj = PipelineScheduler.__new__(PipelineScheduler)
     scheduler_obj.settings = settings
-    scheduler_obj.runner_factory = runner_factory
+    scheduler_obj.dispatch_service = dispatch_service
     scheduler_obj.config_path = "config/pipelines.yaml"
     scheduler_obj.scheduler = sched_mem
 
-    # start() 후에야 jobstore가 활성화되어 replace_existing이 즉시 적용됨
     sched_mem.start()
     scheduler_obj.register_pipelines()
     assert len(sched_mem.get_jobs()) == 2
-
-    # 재등록해도 개수 유지 (replace_existing=True)
     scheduler_obj.register_pipelines()
     assert len(sched_mem.get_jobs()) == 2
-
     sched_mem.shutdown(wait=False)
 
 
-def test_register_pipelines_empty(tmp_path, runner_factory):
-    settings = _make_settings(str(tmp_path / "empty.db"), [])
-    sched = PipelineScheduler(settings=settings, runner_factory=runner_factory)
+def test_register_pipelines_empty(tmp_path, dispatch_service):
+    empty_settings = _make_settings(str(tmp_path / "empty.db"), [])
+    sched = PipelineScheduler(settings=empty_settings, dispatch_service=dispatch_service)
     sched.register_pipelines()
     assert sched.scheduler.get_jobs() == []
 
 
-def test_register_pipelines_supports_interval_schedule(tmp_path, runner_factory):
+def test_register_pipelines_supports_interval_schedule(tmp_path, dispatch_service):
     pipelines = [
         PipelineConfig(
             name="interval_pipeline",
@@ -185,7 +175,7 @@ def test_register_pipelines_supports_interval_schedule(tmp_path, runner_factory)
         )
     ]
     settings = _make_settings(str(tmp_path / "interval.db"), pipelines)
-    sched = PipelineScheduler(settings=settings, runner_factory=runner_factory)
+    sched = PipelineScheduler(settings=settings, dispatch_service=dispatch_service)
 
     sched.register_pipelines()
 
@@ -194,20 +184,64 @@ def test_register_pipelines_supports_interval_schedule(tmp_path, runner_factory)
     assert job.trigger.__class__.__name__ == "IntervalTrigger"
 
 
-def test_start_after_register_pipelines_supports_sqlalchemy_jobstore(settings, runner_factory):
-    """로컬 runner_factory가 있어도 등록된 job은 직렬화 가능해야 한다."""
-    sched = PipelineScheduler(settings=settings, runner_factory=runner_factory)
-    sched.register_pipelines()
+# ── _scheduled_dispatcher_callback: dispatcher 경유 검증 ──────────────────────
 
-    try:
-        sched.start()
-        assert sched.scheduler.running
-    finally:
-        if sched.scheduler.running:
-            sched.shutdown(wait=False)
+def test_scheduled_dispatcher_callback_invokes_submit_manual_run(scheduler, dispatch_service):
+    """스케줄 콜백이 dispatcher.submit_manual_run 을 올바른 인자로 호출하는지."""
+    from airflow_lite.scheduler.scheduler import _scheduled_dispatcher_callback
+
+    fixed_date = date(2024, 1, 15)
+    with patch("airflow_lite.scheduler.scheduler.date") as mock_date_cls:
+        mock_date_cls.today.return_value = fixed_date
+        _scheduled_dispatcher_callback("pipeline_a")
+
+    dispatch_service.submit_manual_run.assert_called_once_with(
+        pipeline_name="pipeline_a",
+        execution_date=fixed_date,
+        force_rerun=False,
+        trigger_type="scheduled",
+    )
+
+
+def test_scheduled_dispatcher_callback_logs_busy_skip(scheduler, dispatch_service, caplog):
+    import logging
+
+    from airflow_lite.scheduler.scheduler import _scheduled_dispatcher_callback
+
+    dispatch_service.submit_manual_run.side_effect = PipelineBusyError(
+        "pipeline_a",
+    )
+
+    with caplog.at_level(logging.INFO, logger="airflow_lite.scheduler"):
+        _scheduled_dispatcher_callback("pipeline_a")
+
+    assert any("스케줄 dispatcher 스킵" in r.message for r in caplog.records)
+
+
+def test_scheduled_dispatcher_callback_swallows_exceptions(scheduler, dispatch_service, caplog):
+    """dispatcher 예외는 APScheduler 로 전파되지 않고 로그로 남아야 한다."""
+    import logging
+    from airflow_lite.scheduler.scheduler import _scheduled_dispatcher_callback
+
+    dispatch_service.submit_manual_run.side_effect = RuntimeError("dispatch failure")
+
+    with caplog.at_level(logging.ERROR, logger="airflow_lite.scheduler"):
+        _scheduled_dispatcher_callback("pipeline_a")
+
+    assert any("스케줄 dispatcher 호출 실패" in r.message for r in caplog.records)
 
 
 # ── start() / shutdown() 생명주기 ─────────────────────────────────────────────
+
+def test_start_after_register_pipelines_succeeds(scheduler):
+    scheduler.register_pipelines()
+    try:
+        scheduler.start()
+        assert scheduler.scheduler.running
+    finally:
+        if scheduler.scheduler.running:
+            scheduler.shutdown(wait=False)
+
 
 def test_start_makes_scheduler_running(scheduler):
     assert not scheduler.scheduler.running
@@ -227,123 +261,3 @@ def test_shutdown_wait_true(scheduler):
     scheduler.start()
     scheduler.shutdown(wait=True)
     assert not scheduler.scheduler.running
-
-
-# ── _run_pipeline(): runner_factory 호출 ─────────────────────────────────────
-
-def test_run_pipeline_calls_factory_with_name(scheduler, runner_factory):
-    mock_runner = MagicMock()
-    runner_factory.return_value = mock_runner
-
-    scheduler._run_pipeline("pipeline_a")
-
-    runner_factory.assert_called_once_with("pipeline_a")
-
-
-def test_run_pipeline_calls_runner_run_with_today(scheduler, runner_factory):
-    mock_runner = MagicMock()
-    runner_factory.return_value = mock_runner
-
-    fixed_date = date(2024, 1, 15)
-    with patch("airflow_lite.scheduler.scheduler.date") as mock_date_cls:
-        mock_date_cls.today.return_value = fixed_date
-        scheduler._run_pipeline("pipeline_a")
-
-    mock_runner.run.assert_called_once_with(
-        execution_date=fixed_date,
-        trigger_type="scheduled",
-    )
-
-
-def test_run_pipeline_trigger_type_is_scheduled(scheduler, runner_factory):
-    mock_runner = MagicMock()
-    runner_factory.return_value = mock_runner
-
-    scheduler._run_pipeline("pipeline_b")
-
-    _, kwargs = mock_runner.run.call_args
-    assert kwargs["trigger_type"] == "scheduled"
-
-
-# ── max_instances=1 동시 실행 방지 확인 ──────────────────────────────────────
-
-def test_max_instances_is_one_in_job_defaults(scheduler):
-    """job_defaults에 max_instances=1이 설정되어 있는지 확인."""
-    assert scheduler.scheduler._job_defaults["max_instances"] == 1
-
-
-# ── coalesce=True 누적 실행 병합 확인 ────────────────────────────────────────
-
-def test_coalesce_is_true_in_job_defaults(scheduler):
-    """job_defaults에 coalesce=True가 설정되어 있는지 확인."""
-    assert scheduler.scheduler._job_defaults["coalesce"] is True
-
-
-# ── misfire_grace_time 확인 ──────────────────────────────────────────────────
-
-def test_misfire_grace_time_is_3600(scheduler):
-    """misfire_grace_time이 3600초(1시간)인지 확인."""
-    assert scheduler.scheduler._job_defaults["misfire_grace_time"] == 3600
-
-
-# ── graceful shutdown: 실행 중 작업 완료 대기 ────────────────────────────────
-
-def test_run_pipeline_logs_error_on_factory_failure(scheduler, runner_factory, caplog):
-    """runner_factory 실패 시 예외가 전파되지 않고 에러가 로깅된다."""
-    import logging
-    runner_factory.side_effect = KeyError("unknown_pipeline")
-    with caplog.at_level(logging.ERROR, logger="airflow_lite.scheduler"):
-        scheduler._run_pipeline("unknown_pipeline")  # 예외 미전파 확인
-    assert any("스케줄 실행 실패" in r.message for r in caplog.records)
-
-
-def test_run_pipeline_logs_error_on_runner_failure(scheduler, runner_factory, caplog):
-    """runner.run() 실패 시 예외가 전파되지 않고 에러가 로깅된다."""
-    import logging
-    mock_runner = MagicMock()
-    mock_runner.run.side_effect = RuntimeError("DB 연결 오류")
-    runner_factory.return_value = mock_runner
-    with caplog.at_level(logging.ERROR, logger="airflow_lite.scheduler"):
-        scheduler._run_pipeline("pipeline_a")  # 예외 미전파 확인
-    assert any("스케줄 실행 실패" in r.message for r in caplog.records)
-
-
-def test_run_pipeline_does_not_reraise(scheduler, runner_factory):
-    """예외가 발생해도 _run_pipeline은 예외를 전파하지 않는다."""
-    runner_factory.side_effect = Exception("심각한 오류")
-    scheduler._run_pipeline("pipeline_a")  # SystemExit/Exception 없이 완료되어야 함
-
-
-def test_graceful_shutdown_waits_for_running_job(tmp_path, runner_factory):
-    """shutdown(wait=True) 호출 시 실행 중인 작업이 완료될 때까지 대기한다.
-
-    APScheduler의 BackgroundScheduler는 내부 스레드풀을 사용한다.
-    wait=True 시 실행 중인 작업이 완료될 때까지 블로킹됨을 직접 검증한다.
-    """
-    import threading
-    from apscheduler.schedulers.background import BackgroundScheduler
-
-    job_started = threading.Event()
-    job_finished = threading.Event()
-
-    # 직접 BackgroundScheduler에 실행 시간이 있는 잡을 등록하여 검증
-    sched_internal = BackgroundScheduler(
-        job_defaults={"coalesce": True, "max_instances": 1, "misfire_grace_time": 3600}
-    )
-
-    def long_job():
-        job_started.set()
-        time.sleep(0.3)
-        job_finished.set()
-
-    sched_internal.add_job(long_job, "interval", seconds=1)
-    sched_internal.start()
-
-    # 잡이 시작될 때까지 대기
-    job_started.wait(timeout=3)
-
-    # 잡 실행 중에 shutdown(wait=True) 호출 → 잡 완료까지 블로킹
-    sched_internal.shutdown(wait=True)
-
-    # shutdown 완료 후 잡도 완료되어 있어야 함
-    assert job_finished.is_set()
