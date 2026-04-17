@@ -38,7 +38,8 @@ def _make_oracle_error(code: int):
 
 def _make_context(
     table="TEST_TABLE",
-    partition_column="DATE_COL",
+    source_where_template="DATE_COL >= :data_interval_start AND DATE_COL < :data_interval_end",
+    source_bind_params=None,
     strategy="full",
     execution_date=date(2026, 3, 1),
     chunk_size=100,
@@ -47,7 +48,8 @@ def _make_context(
 ) -> StageContext:
     table_config = MagicMock()
     table_config.table = table
-    table_config.partition_column = partition_column
+    table_config.source_where_template = source_where_template
+    table_config.source_bind_params = source_bind_params or {}
     table_config.strategy = strategy
     table_config.incremental_key = incremental_key
     table_config.columns = columns
@@ -520,22 +522,39 @@ class TestFullMigrationStrategy:
     def test_build_full_query_march(self):
         strategy = self._make_strategy(Path("."))
         ctx = _make_context(execution_date=date(2026, 3, 1))
-        query = strategy._build_full_query(ctx)
-        assert "DATE '2026-03-01'" in query
-        assert "DATE '2026-04-01'" in query
+        query, params = strategy._build_full_query(ctx)
+        assert "DATE_COL >= :data_interval_start" in query
+        assert "DATE_COL < :data_interval_end" in query
+        assert params["data_interval_start"] == pd.Timestamp("2026-03-01").to_pydatetime()
+        assert params["data_interval_end"] == pd.Timestamp("2026-04-01").to_pydatetime()
 
     def test_build_full_query_december_wraps_year(self):
         strategy = self._make_strategy(Path("."))
         ctx = _make_context(execution_date=date(2026, 12, 1))
-        query = strategy._build_full_query(ctx)
-        assert "DATE '2026-12-01'" in query
-        assert "DATE '2027-01-01'" in query
+        _, params = strategy._build_full_query(ctx)
+        assert params["data_interval_start"] == pd.Timestamp("2026-12-01").to_pydatetime()
+        assert params["data_interval_end"] == pd.Timestamp("2027-01-01").to_pydatetime()
 
     def test_build_full_query_uses_configured_columns(self):
         strategy = self._make_strategy(Path("."))
         ctx = _make_context(columns=["ID", "VAL", "DATE_COL"])
-        query = strategy._build_full_query(ctx)
+        query, _ = strategy._build_full_query(ctx)
         assert query.startswith("SELECT ID, VAL, DATE_COL FROM TEST_TABLE")
+
+    def test_build_full_query_supports_custom_bind_templates(self):
+        strategy = self._make_strategy(Path("."))
+        ctx = _make_context(
+            source_where_template="TRAN_YEAR = :year AND TRAN_MONTH = :month",
+            source_bind_params={
+                "year": "{{ data_interval_start.year }}",
+                "month": "{{ data_interval_start.month }}",
+            },
+            execution_date=date(2026, 4, 1),
+        )
+        query, params = strategy._build_full_query(ctx)
+        assert "WHERE TRAN_YEAR = :year AND TRAN_MONTH = :month" in query
+        assert params["year"] == 2026
+        assert params["month"] == 4
 
     def test_extract_sets_connection_and_chunk_size(self, tmp_path):
         mock_conn = MagicMock()
@@ -661,10 +680,11 @@ class TestIncrementalMigrationStrategy:
             incremental_key="UPDATED_AT",
             execution_date=date(2026, 3, 15),
         )
-        query = strategy._build_incremental_query(ctx)
+        query, params = strategy._build_incremental_query(ctx)
         assert "UPDATED_AT" in query
         assert "2026-03-15" in query
         assert "2026-03-16" in query
+        assert params["data_interval_start_month"] == 3
 
     def test_build_incremental_query_uses_configured_columns(self):
         oracle_client = MagicMock()
@@ -678,7 +698,7 @@ class TestIncrementalMigrationStrategy:
             execution_date=date(2026, 3, 15),
             columns=["ID", "UPDATED_AT"],
         )
-        query = strategy._build_incremental_query(ctx)
+        query, _ = strategy._build_incremental_query(ctx)
         assert query.startswith("SELECT ID, UPDATED_AT FROM TEST_TABLE")
 
     def test_load_always_appends(self):

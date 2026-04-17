@@ -183,7 +183,8 @@ def build_pipeline_detail_view_data(settings, run_repo, step_repo, pipeline_name
         "pipeline": {
             "name": pipeline_cfg.name,
             "table": pipeline_cfg.table,
-            "partition_column": pipeline_cfg.partition_column,
+            "source_where_template": getattr(pipeline_cfg, "source_where_template", None),
+            "source_bind_params": getattr(pipeline_cfg, "source_bind_params", None),
             "strategy": pipeline_cfg.strategy,
             "schedule": pipeline_cfg.schedule,
             "chunk_size": pipeline_cfg.chunk_size,

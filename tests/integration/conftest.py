@@ -193,7 +193,7 @@ def full_pipeline_config():
     return PipelineConfig(
         name="test_full_migration",
         table=TEST_FULL_TABLE,
-        partition_column="LOG_DATE",
+        source_where_template="LOG_DATE >= :data_interval_start AND LOG_DATE < :data_interval_end",
         strategy="full",
         schedule="0 2 * * *",
     )
@@ -204,7 +204,7 @@ def incr_pipeline_config():
     return PipelineConfig(
         name="test_incr_migration",
         table=TEST_INCR_TABLE,
-        partition_column="STATUS_DATE",
+        source_where_template="STATUS_DATE >= :data_interval_start AND STATUS_DATE < :data_interval_end",
         strategy="incremental",
         schedule="0 */6 * * *",
         incremental_key="UPDATED_AT",

@@ -79,7 +79,7 @@ defaults:
 pipelines:
   - name: "test_pipeline"
     table: "TEST_TABLE"
-    partition_column: "DATE_COL"
+    source_where_template: "DATE_COL >= :data_interval_start AND DATE_COL < :data_interval_end"
     strategy: "full"
     schedule: "0 2 * * *"
 """
@@ -96,6 +96,14 @@ def oracle_env_vars(monkeypatch):
     monkeypatch.setenv("ORACLE_SERVICE", "ORCL")
     monkeypatch.setenv("ORACLE_USER", "scott")
     monkeypatch.setenv("ORACLE_PASSWORD", "tiger")
+
+
+@pytest.fixture(autouse=True)
+def fernet_env_var(monkeypatch):
+    monkeypatch.setenv(
+        "AIRFLOW_LITE_FERNET_KEY",
+        "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+    )
 
 
 @pytest.fixture

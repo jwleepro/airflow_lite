@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-from airflow_lite.storage.crypto import Crypto
-
-DECRYPT_FAILED = "---DECRYPTION_FAILED---"
+from airflow_lite.storage.crypto import DECRYPT_FAILED, Crypto
 
 
-def decode_password(raw_password: str | None) -> str | None:
+def decode_password(raw_password: str | None, crypto: Crypto) -> str | None:
     if raw_password is None:
         return None
-    decrypted = Crypto.decrypt(raw_password)
+    decrypted = crypto.decrypt(raw_password)
     if decrypted == DECRYPT_FAILED:
         return raw_password
     return decrypted

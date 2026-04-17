@@ -105,7 +105,7 @@ def test_pipeline_crud(admin_repo):
     pipeline = PipelineModel(
         name="production_log",
         table="PRODUCTION_LOG",
-        partition_column="LOG_DATE",
+        source_where_template="LOG_DATE >= :data_interval_start AND LOG_DATE < :data_interval_end",
         strategy="incremental",
         schedule="0 */6 * * *",
         chunk_size=5000,
@@ -135,6 +135,24 @@ def test_pipeline_crud(admin_repo):
 
     admin_repo.delete_pipeline("production_log")
     assert admin_repo.get_pipeline("production_log") is None
+
+
+def test_pipeline_crud_supports_source_where_template_and_bind_params(admin_repo):
+    pipeline = PipelineModel(
+        name="production_log_template",
+        table="PRODUCTION_LOG",
+        source_where_template="TRAN_YEAR = :year AND TRAN_MONTH = :month",
+        source_bind_params='{"year":"{{ data_interval_start.year }}","month":"{{ data_interval_start.month }}"}',
+        strategy="full",
+        schedule="0 2 * * *",
+    )
+
+    admin_repo.create_pipeline(pipeline)
+
+    fetched = admin_repo.get_pipeline("production_log_template")
+    assert fetched is not None
+    assert fetched.source_where_template == "TRAN_YEAR = :year AND TRAN_MONTH = :month"
+    assert fetched.source_bind_params == '{"month":"{{ data_interval_start.month }}","year":"{{ data_interval_start.year }}"}'
 
 
 def test_migrate_from_yaml_imports_admin_entities_and_removes_legacy_sections(tmp_path):
@@ -175,7 +193,7 @@ pools:
 pipelines:
   - name: "production_log"
     table: "PRODUCTION_LOG"
-    partition_column: "LOG_DATE"
+    source_where_template: "LOG_DATE >= :data_interval_start AND LOG_DATE < :data_interval_end"
     strategy: "incremental"
     schedule: "0 */6 * * *"
     chunk_size: 5000

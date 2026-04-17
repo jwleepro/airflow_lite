@@ -34,7 +34,7 @@ def _make_settings(tmp_path: Path) -> Settings:
             PipelineConfig(
                 name="pipe_a",
                 table="TABLE_A",
-                partition_column="DATE_COL",
+                source_where_template="DATE_COL >= :data_interval_start AND DATE_COL < :data_interval_end",
                 strategy="full",
                 schedule="0 2 * * *",
             )

@@ -41,14 +41,14 @@ def pipeline_configs():
         PipelineConfig(
             name="pipeline_a",
             table="TABLE_A",
-            partition_column="DATE_COL",
+            source_where_template="DATE_COL >= :data_interval_start AND DATE_COL < :data_interval_end",
             strategy="full",
             schedule="0 2 * * *",
         ),
         PipelineConfig(
             name="pipeline_b",
             table="TABLE_B",
-            partition_column="DATE_COL",
+            source_where_template="STATUS_DATE >= :data_interval_start AND STATUS_DATE < :data_interval_end",
             strategy="incremental",
             schedule="30 3 * * *",
             incremental_key="UPDATED_AT",
@@ -169,7 +169,7 @@ def test_register_pipelines_supports_interval_schedule(tmp_path, dispatch_servic
         PipelineConfig(
             name="interval_pipeline",
             table="TABLE_C",
-            partition_column="DATE_COL",
+            source_where_template="DATE_COL >= :data_interval_start AND DATE_COL < :data_interval_end",
             strategy="full",
             schedule="interval:15m",
         )

@@ -64,7 +64,8 @@ class PoolVM:
 class PipelineVM:
     name: str
     table: str
-    partition_column: str
+    source_where_template: str | None = None
+    source_bind_params: str | None = None
     strategy: str = "full"
     schedule: str = "0 2 * * *"
     chunk_size: int | None = None
@@ -76,7 +77,8 @@ class PipelineVM:
         return cls(
             name=model.name,
             table=model.table,
-            partition_column=model.partition_column,
+            source_where_template=model.source_where_template,
+            source_bind_params=model.source_bind_params,
             strategy=model.strategy,
             schedule=model.schedule,
             chunk_size=model.chunk_size,

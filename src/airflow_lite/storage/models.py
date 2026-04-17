@@ -60,7 +60,8 @@ class PoolModel:
 class PipelineModel:
     name: str
     table: str
-    partition_column: str
+    source_where_template: str | None = None
+    source_bind_params: str | dict | None = None
     strategy: str = "full"
     schedule: str = "0 2 * * *"
     chunk_size: int | None = None
