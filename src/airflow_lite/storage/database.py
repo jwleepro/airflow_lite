@@ -2,6 +2,9 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
+from airflow_lite.pipeline_config_validation import build_legacy_source_where_template
+from airflow_lite.storage._sqlite_schema import ensure_columns, table_exists
+
 
 class Database:
     def __init__(self, db_path: str):
@@ -30,6 +33,7 @@ class Database:
         conn = self.get_connection()
         try:
             self._execute_script_atomically(conn, schema_sql)
+            self._migrate_pipeline_config_query_fields(conn)
             self._migrate_pipeline_runs_unique_constraint(conn)
             self._drop_pipeline_runs_success_unique_index(conn)
         finally:
@@ -151,3 +155,41 @@ class Database:
         self._execute_script_atomically(
             conn, "DROP INDEX IF EXISTS idx_pipeline_runs_success_unique;"
         )
+
+    def _migrate_pipeline_config_query_fields(self, conn: sqlite3.Connection) -> None:
+        if not table_exists(conn, "pipeline_configs"):
+            return
+        columns = ensure_columns(
+            conn,
+            "pipeline_configs",
+            [
+                ("source_where_template", "TEXT"),
+                ("source_bind_params", "TEXT"),
+            ],
+        )
+        if "partition_column" in columns:
+            self._backfill_legacy_source_where(conn)
+
+    def _backfill_legacy_source_where(self, conn: sqlite3.Connection) -> None:
+        """레거시 partition_column 값을 source_where_template 로 일회성 변환.
+
+        템플릿 문자열 조립은 build_legacy_source_where_template 한 곳에 일원화되어 있다.
+        """
+        rows = conn.execute(
+            """
+            SELECT name, partition_column
+            FROM pipeline_configs
+            WHERE (source_where_template IS NULL OR TRIM(source_where_template) = '')
+              AND partition_column IS NOT NULL
+              AND TRIM(partition_column) <> ''
+            """
+        ).fetchall()
+        for row in rows:
+            template = build_legacy_source_where_template(row["partition_column"])
+            if template is None:
+                continue
+            conn.execute(
+                "UPDATE pipeline_configs SET source_where_template = ? WHERE name = ?",
+                (template, row["name"]),
+            )
+        conn.commit()

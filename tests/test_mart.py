@@ -120,7 +120,7 @@ def test_refresh_coordinator_discovers_partition_files_and_maps_backfill_mode(
         table_config=PipelineConfig(
             name="ops_pipe",
             table="OPS_TABLE",
-            partition_column="LOG_DATE",
+            source_where_template="LOG_DATE >= :data_interval_start AND LOG_DATE < :data_interval_end",
             strategy="full",
             schedule="0 2 * * *",
         ),
@@ -249,7 +249,7 @@ def test_refresh_coordinator_skips_when_partition_has_no_parquet_files(
         table_config=PipelineConfig(
             name="ops_pipe",
             table="OPS_TABLE",
-            partition_column="LOG_DATE",
+            source_where_template="LOG_DATE >= :data_interval_start AND LOG_DATE < :data_interval_end",
             strategy="incremental",
             schedule="0 2 * * *",
             incremental_key="UPDATED_AT",

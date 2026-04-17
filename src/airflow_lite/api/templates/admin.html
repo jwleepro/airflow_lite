@@ -170,7 +170,7 @@
       <table class="air-table">
         <thead>
           <tr>
-            <th>{{ t('webui.admin.col.name') }}</th><th>{{ t('webui.admin.col.table') }}</th><th>{{ t('webui.admin.col.partition_column') }}</th><th>{{ t('webui.admin.col.strategy') }}</th><th>{{ t('webui.admin.col.schedule') }}</th><th>{{ t('webui.admin.col.chunk_size') }}</th><th>{{ t('webui.admin.col.columns') }}</th><th>{{ t('webui.admin.col.incremental_key') }}</th><th></th>
+            <th>{{ t('webui.admin.col.name') }}</th><th>{{ t('webui.admin.col.table') }}</th><th>{{ t('webui.admin.col.source_where_template') }}</th><th>{{ t('webui.admin.col.source_bind_params') }}</th><th>{{ t('webui.admin.col.strategy') }}</th><th>{{ t('webui.admin.col.schedule') }}</th><th>{{ t('webui.admin.col.chunk_size') }}</th><th>{{ t('webui.admin.col.columns') }}</th><th>{{ t('webui.admin.col.incremental_key') }}</th><th></th>
           </tr>
         </thead>
         <tbody>
@@ -180,7 +180,8 @@
           <tr>
             <td>{{ fmt(p.name) }}</td>
             <td>{{ fmt(p.table) }}</td>
-            <td>{{ fmt(p.partition_column) }}</td>
+            <td><pre class="code-chip">{{ fmt(p.source_where_template) }}</pre></td>
+            <td><pre class="code-chip">{{ fmt(p.source_bind_params) }}</pre></td>
             <td>{{ fmt(p.strategy) }}</td>
             <td>{{ fmt(p.schedule) }}</td>
             <td>{{ fmt(p.chunk_size) }}</td>
@@ -195,11 +196,12 @@
             </td>
           </tr>
           <tr id="{{ edit_row_id }}" class="edit-row" style="display:none;">
-            <td colspan="9">
+            <td colspan="10">
               <form method="post" action="{{ MONITOR_ADMIN_PATH }}/pipelines/edit" class="form-grid">
                 <label class="filter-field"><span>{{ t('webui.admin.col.name') }}</span><input type="text" name="name" value="{{ p.name }}" readonly></label>
                 <label class="filter-field"><span>{{ t('webui.admin.col.table') }}</span><input type="text" name="table" value="{{ p.table }}" required></label>
-                <label class="filter-field"><span>{{ t('webui.admin.col.partition_column') }}</span><input type="text" name="partition_column" value="{{ p.partition_column }}" required></label>
+                <label class="filter-field field-span-2"><span>{{ t('webui.admin.col.source_where_template') }}</span><textarea name="source_where_template" rows="4" placeholder="TRAN_TIME >= :data_interval_start&#10;AND TRAN_TIME &lt; :data_interval_end">{{ p.source_where_template or '' }}</textarea></label>
+                <label class="filter-field field-span-2"><span>{{ t('webui.admin.col.source_bind_params') }}</span><textarea name="source_bind_params" rows="4" placeholder='{"year":"&lt;jinja:data_interval_start.year&gt;","month":"&lt;jinja:data_interval_start.month&gt;"}'>{{ p.source_bind_params or '' }}</textarea></label>
                 <label class="filter-field">
                   <span>{{ t('webui.admin.col.strategy') }}</span>
                   <select name="strategy" onchange="toggleIncrementalField(this, '{{ edit_row_id }}')">
@@ -219,17 +221,19 @@
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="9" class="empty">{{ t('webui.admin.pipelines.empty') }}</td></tr>
+          <tr><td colspan="10" class="empty">{{ t('webui.admin.pipelines.empty') }}</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
     <div class="editor-box">
       <h3>{{ t('webui.admin.pipelines.add') }}</h3>
+      <p class="section-note">{{ t('webui.admin.pipelines.partition_note') }}</p>
       <form method="post" action="{{ MONITOR_ADMIN_PATH }}/pipelines" class="form-grid">
         <label class="filter-field"><span>{{ t('webui.admin.col.name') }}</span><input type="text" name="name" required></label>
         <label class="filter-field"><span>{{ t('webui.admin.col.table') }}</span><input type="text" name="table" required></label>
-        <label class="filter-field"><span>{{ t('webui.admin.col.partition_column') }}</span><input type="text" name="partition_column" required></label>
+        <label class="filter-field field-span-2"><span>{{ t('webui.admin.col.source_where_template') }}</span><textarea name="source_where_template" rows="4" placeholder="TRAN_TIME >= :data_interval_start&#10;AND TRAN_TIME &lt; :data_interval_end"></textarea></label>
+        <label class="filter-field field-span-2"><span>{{ t('webui.admin.col.source_bind_params') }}</span><textarea name="source_bind_params" rows="4" placeholder='{"year":"&lt;jinja:data_interval_start.year&gt;","month":"&lt;jinja:data_interval_start.month&gt;"}'></textarea></label>
         <label class="filter-field">
           <span>{{ t('webui.admin.col.strategy') }}</span>
           <select name="strategy" onchange="toggleIncrementalField(this, 'new-pipeline')">

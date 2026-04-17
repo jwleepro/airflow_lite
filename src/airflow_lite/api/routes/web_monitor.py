@@ -300,7 +300,8 @@ def get_run_detail_page(
     pipeline_cfg = next((p for p in settings.pipelines if p.name == name), None)
     pipeline_meta = {
         "table": getattr(pipeline_cfg, "table", None),
-        "partition_column": getattr(pipeline_cfg, "partition_column", None),
+        "source_where_template": getattr(pipeline_cfg, "source_where_template", None),
+        "source_bind_params": getattr(pipeline_cfg, "source_bind_params", None),
         "strategy": getattr(pipeline_cfg, "strategy", None),
         "schedule": getattr(pipeline_cfg, "schedule", schedule),
         "chunk_size": getattr(pipeline_cfg, "chunk_size", None),

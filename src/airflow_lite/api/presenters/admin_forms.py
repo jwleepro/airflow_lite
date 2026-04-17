@@ -7,6 +7,7 @@ leaks into HTTP handlers.
 from __future__ import annotations
 
 from airflow_lite.api.forms import first_value as _first_value
+from airflow_lite.pipeline_config_validation import coerce_source_query_for_storage
 from airflow_lite.scheduler.schedule_validator import validate_schedule
 from airflow_lite.storage.models import (
     ConnectionModel,
@@ -89,14 +90,18 @@ def delete_pool(admin_repo, form_data: dict[str, list[str]]) -> None:
 def _pipeline_model_from_form(form_data: dict[str, list[str]]) -> PipelineModel | None:
     name = _first_value(form_data, "name", "") or ""
     table = _first_value(form_data, "table", "") or ""
-    partition_column = _first_value(form_data, "partition_column", "") or ""
     strategy = _first_value(form_data, "strategy", "full") or "full"
     schedule = _first_value(form_data, "schedule", "0 2 * * *") or "0 2 * * *"
     incremental_key = _first_value(form_data, "incremental_key")
     if strategy != "incremental":
         incremental_key = None
+    source_where_template, source_bind_params = coerce_source_query_for_storage(
+        _first_value(form_data, "source_where_template"),
+        _first_value(form_data, "source_bind_params"),
+        strategy=strategy,
+    )
 
-    if not (name and table and partition_column):
+    if not (name and table):
         return None
 
     validate_schedule(schedule)
@@ -104,7 +109,8 @@ def _pipeline_model_from_form(form_data: dict[str, list[str]]) -> PipelineModel 
     return PipelineModel(
         name=name,
         table=table,
-        partition_column=partition_column,
+        source_where_template=source_where_template,
+        source_bind_params=source_bind_params,
         strategy=strategy,
         schedule=schedule,
         chunk_size=_parse_optional_int(_first_value(form_data, "chunk_size")),

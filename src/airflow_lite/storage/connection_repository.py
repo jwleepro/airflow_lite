@@ -6,7 +6,7 @@ from airflow_lite.storage.database import Database
 from airflow_lite.storage.models import ConnectionModel
 
 
-def _row_to_model(row) -> ConnectionModel:
+def _row_to_model(row, crypto: Crypto) -> ConnectionModel:
     return ConnectionModel(
         conn_id=row["conn_id"],
         conn_type=row["conn_type"],
@@ -14,15 +14,16 @@ def _row_to_model(row) -> ConnectionModel:
         port=row["port"],
         schema=row["schema"],
         login=row["login"],
-        password=decode_password(row["password"]),
+        password=decode_password(row["password"], crypto),
         extra=row["extra"],
         description=row["description"],
     )
 
 
 class ConnectionRepository:
-    def __init__(self, database: Database):
+    def __init__(self, database: Database, crypto: Crypto):
         self.db = database
+        self.crypto = crypto
 
     def get(self, conn_id: str) -> Optional[ConnectionModel]:
         with self.db.connection() as conn:
@@ -30,17 +31,17 @@ class ConnectionRepository:
                 "SELECT * FROM connections WHERE conn_id = ?",
                 (conn_id,),
             ).fetchone()
-            return _row_to_model(row) if row else None
+            return _row_to_model(row, self.crypto) if row else None
 
     def list(self) -> list[ConnectionModel]:
         with self.db.connection() as conn:
             rows = conn.execute(
                 "SELECT * FROM connections ORDER BY conn_id"
             ).fetchall()
-            return [_row_to_model(row) for row in rows]
+            return [_row_to_model(row, self.crypto) for row in rows]
 
     def create(self, model: ConnectionModel) -> None:
-        encrypted_password = Crypto.encrypt(model.password)
+        encrypted_password = self.crypto.encrypt(model.password)
         with self.db.connection() as conn:
             conn.execute(
                 """
@@ -63,7 +64,7 @@ class ConnectionRepository:
             conn.commit()
 
     def update(self, model: ConnectionModel) -> None:
-        encrypted_password = Crypto.encrypt(model.password)
+        encrypted_password = self.crypto.encrypt(model.password)
         with self.db.connection() as conn:
             conn.execute(
                 """

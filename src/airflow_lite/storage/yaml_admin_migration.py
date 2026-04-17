@@ -5,6 +5,7 @@ import ruamel.yaml
 
 from airflow_lite.storage._helpers import decode_password, normalize_columns
 from airflow_lite.storage.connection_repository import ConnectionRepository
+from airflow_lite.storage.crypto import Crypto
 from airflow_lite.storage.database import Database
 from airflow_lite.storage.models import (
     ConnectionModel,
@@ -15,6 +16,10 @@ from airflow_lite.storage.models import (
 from airflow_lite.storage.pipeline_repository import PipelineRepository
 from airflow_lite.storage.pool_repository import PoolRepository
 from airflow_lite.storage.variable_repository import VariableRepository
+from airflow_lite.pipeline_config_validation import (
+    coerce_source_query_from_mapping,
+    serialize_source_bind_params,
+)
 
 
 def _as_list(value: Any) -> list[dict[str, Any]]:
@@ -23,7 +28,7 @@ def _as_list(value: Any) -> list[dict[str, Any]]:
     return [item for item in value if isinstance(item, dict)]
 
 
-def _build_connection_model(item: dict[str, Any]) -> ConnectionModel | None:
+def _build_connection_model(item: dict[str, Any], crypto: Crypto) -> ConnectionModel | None:
     conn_id = item.get("conn_id")
     if not conn_id:
         return None
@@ -34,7 +39,7 @@ def _build_connection_model(item: dict[str, Any]) -> ConnectionModel | None:
         port=item.get("port"),
         schema=item.get("schema"),
         login=item.get("login"),
-        password=decode_password(item.get("password")),
+        password=decode_password(item.get("password"), crypto),
         extra=item.get("extra"),
         description=item.get("description"),
     )
@@ -70,9 +75,12 @@ def _build_pool_model(item: dict[str, Any]) -> PoolModel | None:
 def _build_pipeline_model(item: dict[str, Any]) -> PipelineModel | None:
     name = item.get("name")
     table = item.get("table")
-    partition_column = item.get("partition_column")
-    if not name or not table or not partition_column:
+    if not name or not table:
         return None
+    strategy = str(item.get("strategy", "full"))
+    source_where_template, source_bind_params = coerce_source_query_from_mapping(
+        item, strategy=strategy
+    )
 
     chunk_raw = item.get("chunk_size")
     try:
@@ -83,8 +91,9 @@ def _build_pipeline_model(item: dict[str, Any]) -> PipelineModel | None:
     return PipelineModel(
         name=str(name),
         table=str(table),
-        partition_column=str(partition_column),
-        strategy=str(item.get("strategy", "full")),
+        source_where_template=source_where_template,
+        source_bind_params=serialize_source_bind_params(source_bind_params),
+        strategy=strategy,
         schedule=str(item.get("schedule", "0 2 * * *")),
         chunk_size=chunk_size,
         columns=normalize_columns(item.get("columns")),
@@ -108,6 +117,7 @@ def migrate_yaml_to_sqlite(
     variables: VariableRepository,
     pools: PoolRepository,
     pipelines: PipelineRepository,
+    crypto: Crypto,
 ) -> None:
     """서버 기동 시 YAML 관리 데이터(legacy)를 SQLite로 1회 import."""
     if not config_path or not os.path.exists(config_path):
@@ -137,7 +147,7 @@ def migrate_yaml_to_sqlite(
                 port=oracle_data.get("port"),
                 schema=oracle_data.get("service_name"),
                 login=oracle_data.get("user"),
-                password=decode_password(oracle_data.get("password")),
+                password=decode_password(oracle_data.get("password"), crypto),
                 description="Oracle Source Database",
             )
         )
@@ -145,7 +155,7 @@ def migrate_yaml_to_sqlite(
 
     if connections_empty:
         for item in _as_list(data.get("connections")):
-            model = _build_connection_model(item)
+            model = _build_connection_model(item, crypto)
             if model and connections.get(model.conn_id) is None:
                 connections.create(model)
                 migrated = True

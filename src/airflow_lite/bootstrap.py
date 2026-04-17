@@ -64,7 +64,7 @@ def build_runtime_services(
     db.initialize()
     run_repo = PipelineRunRepository(db)
     step_repo = StepRunRepository(db)
-    admin_repo = AdminRepository(db, config_path)
+    admin_repo = AdminRepository(db, config_path, crypto=settings.crypto)
     runner_factory = create_runner_factory(settings, run_repo, step_repo)
 
     runner_map = {

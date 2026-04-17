@@ -70,7 +70,7 @@ class TestPipelineRunnerE2E:
         bad_config = PipelineConfig(
             name="test_bad_pipeline",
             table="AIRFLOW_TEST_NONEXISTENT",
-            partition_column="LOG_DATE",
+            source_where_template="LOG_DATE >= :data_interval_start AND LOG_DATE < :data_interval_end",
             strategy="full",
             schedule="0 2 * * *",
         )
@@ -89,7 +89,7 @@ class TestPipelineRunnerE2E:
         bad_config = PipelineConfig(
             name="test_err_pipeline",
             table="AIRFLOW_TEST_NONEXISTENT",
-            partition_column="LOG_DATE",
+            source_where_template="LOG_DATE >= :data_interval_start AND LOG_DATE < :data_interval_end",
             strategy="full",
             schedule="0 2 * * *",
         )

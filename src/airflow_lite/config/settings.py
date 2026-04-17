@@ -4,8 +4,12 @@ import sqlite3
 import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from airflow_lite.i18n import require_supported_language
+from airflow_lite.pipeline_config_validation import coerce_source_query_from_mapping
+from airflow_lite.storage._helpers import decode_password
+from airflow_lite.storage._sqlite_schema import table_columns, table_exists
 from airflow_lite.storage.crypto import Crypto
 
 # 환경변수 치환 패턴: ${VAR_NAME}
@@ -78,9 +82,10 @@ class DefaultConfig:
 class PipelineConfig:
     name: str
     table: str
-    partition_column: str
-    strategy: str  # "full" | "incremental"
-    schedule: str
+    source_where_template: str | None = None
+    source_bind_params: dict[str, Any] = field(default_factory=dict)
+    strategy: str = "full"  # "full" | "incremental"
+    schedule: str = "0 2 * * *"
     chunk_size: int | None = None
     columns: list[str] | None = None
     incremental_key: str | None = None
@@ -176,6 +181,16 @@ def _build_pipeline_configs(pipeline_items: list[dict]) -> list[PipelineConfig]:
             pipeline_values["chunk_size"] = _coerce_int(
                 pipeline_values["chunk_size"], f"pipelines[{index}].chunk_size"
             )
+        (
+            pipeline_values["source_where_template"],
+            pipeline_values["source_bind_params"],
+        ) = coerce_source_query_from_mapping(
+            pipeline_values,
+            strategy=pipeline_values.get("strategy", "full"),
+        )
+        pipeline_values.pop("partition_column", None)
+        pipeline_values.pop("partition_year_column", None)
+        pipeline_values.pop("partition_month_column", None)
         pipeline_values["columns"] = _normalize_columns(pipeline_values.get("columns"))
         pipelines.append(PipelineConfig(**pipeline_values))
     return pipelines
@@ -193,24 +208,7 @@ def _normalize_columns(value) -> list[str] | None:
     return None
 
 
-def _table_exists(connection: sqlite3.Connection, table_name: str) -> bool:
-    row = connection.execute(
-        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
-        (table_name,),
-    ).fetchone()
-    return row is not None
-
-
-def _decode_connection_password(raw_password: str | None) -> str | None:
-    if raw_password is None:
-        return None
-    decrypted = Crypto.decrypt(raw_password)
-    if decrypted == "---DECRYPTION_FAILED---":
-        return raw_password
-    return decrypted
-
-
-def _load_oracle_from_sqlite(sqlite_path: str) -> OracleConfig | None:
+def _load_oracle_from_sqlite(sqlite_path: str, crypto: Crypto) -> OracleConfig | None:
     db_path = Path(sqlite_path)
     if not db_path.exists():
         return None
@@ -218,7 +216,7 @@ def _load_oracle_from_sqlite(sqlite_path: str) -> OracleConfig | None:
     connection = sqlite3.connect(str(db_path))
     connection.row_factory = sqlite3.Row
     try:
-        if not _table_exists(connection, "connections"):
+        if not table_exists(connection, "connections"):
             return None
         row = connection.execute(
             """
@@ -236,7 +234,7 @@ def _load_oracle_from_sqlite(sqlite_path: str) -> OracleConfig | None:
             port=_coerce_int(row["port"], "oracle.port"),
             service_name=row["schema"],
             user=row["login"],
-            password=_decode_connection_password(row["password"]) or "",
+            password=decode_password(row["password"], crypto) or "",
         )
     finally:
         connection.close()
@@ -250,38 +248,54 @@ def _load_pipelines_from_sqlite(sqlite_path: str) -> list[PipelineConfig] | None
     connection = sqlite3.connect(str(db_path))
     connection.row_factory = sqlite3.Row
     try:
-        if not _table_exists(connection, "pipeline_configs"):
+        if not table_exists(connection, "pipeline_configs"):
             return None
+        available_columns = table_columns(connection, "pipeline_configs")
+        required_columns = [
+            "name",
+            "source_table",
+            "strategy",
+            "schedule",
+            "chunk_size",
+            "columns",
+            "incremental_key",
+        ]
+        optional_columns = [
+            col
+            for col in ("source_where_template", "source_bind_params", "partition_column")
+            if col in available_columns
+        ]
+        select_columns = required_columns[:2] + optional_columns + required_columns[2:]
         rows = connection.execute(
-            """
+            f"""
             SELECT
-                name,
-                source_table,
-                partition_column,
-                strategy,
-                schedule,
-                chunk_size,
-                columns,
-                incremental_key
+                {", ".join(select_columns)}
             FROM pipeline_configs
             ORDER BY name
             """
         ).fetchall()
         if not rows:
             return None
-        return [
-            PipelineConfig(
-                name=row["name"],
-                table=row["source_table"],
-                partition_column=row["partition_column"],
-                strategy=row["strategy"],
-                schedule=row["schedule"],
-                chunk_size=row["chunk_size"],
-                columns=_normalize_columns(row["columns"]),
-                incremental_key=row["incremental_key"],
+        pipelines: list[PipelineConfig] = []
+        for row in rows:
+            row_dict = dict(row)
+            source_where_template, source_bind_params = coerce_source_query_from_mapping(
+                row_dict, strategy=row_dict["strategy"]
             )
-            for row in rows
-        ]
+            pipelines.append(
+                PipelineConfig(
+                    name=row_dict["name"],
+                    table=row_dict["source_table"],
+                    source_where_template=source_where_template,
+                    source_bind_params=source_bind_params,
+                    strategy=row_dict["strategy"],
+                    schedule=row_dict["schedule"],
+                    chunk_size=row_dict["chunk_size"],
+                    columns=_normalize_columns(row_dict["columns"]),
+                    incremental_key=row_dict["incremental_key"],
+                )
+            )
+        return pipelines
     finally:
         connection.close()
 
@@ -301,6 +315,7 @@ class Settings:
         export=None,
         scheduler=None,
         webui=None,
+        crypto: Crypto | None = None,
     ):
         self.oracle = oracle
         self.storage = storage
@@ -312,6 +327,7 @@ class Settings:
         self.export = export or ExportConfig()
         self.scheduler = scheduler or SchedulerConfig()
         self.webui = webui or WebUIConfig()
+        self.crypto = crypto or Crypto.from_env()
 
     @classmethod
     def load(cls, config_path: str) -> "Settings":
@@ -322,15 +338,16 @@ class Settings:
         data = _walk_and_substitute(raw)
         storage = StorageConfig(**data["storage"])
 
-        oracle = _load_oracle_from_sqlite(storage.sqlite_path)
-        if oracle is None:
-            if "oracle" not in data:
-                raise ValueError(
-                    "Oracle 설정을 찾을 수 없습니다. "
-                    "YAML oracle 섹션 또는 SQLite connections(conn_id='oracle')를 확인하세요."
-                )
+        security_data = data.get("security") or {}
+        crypto = Crypto.from_key_or_env(security_data.get("fernet_key"))
+
+        oracle = _load_oracle_from_sqlite(storage.sqlite_path, crypto)
+        if oracle is None and "oracle" in data:
             oracle_data = _coerce_int_fields(dict(data["oracle"]), ("port",), "oracle")
             oracle = OracleConfig(**oracle_data)
+        # oracle 이 None 인 상태로도 기동을 허용한다. Admin UI 에서 connections 에
+        # oracle 을 등록한 뒤 재기동하면 정상화된다. 실제 연결은 파이프라인 실행 시점에
+        # OracleClient 가 시도하므로, 파이프라인이 없으면 접속 실패도 발생하지 않는다.
 
         defaults_data = data.get("defaults", {})
         retry_data = _coerce_int_fields(
@@ -378,4 +395,5 @@ class Settings:
             export=export,
             scheduler=scheduler,
             webui=webui,
+            crypto=crypto,
         )

@@ -207,7 +207,8 @@
         <div><dt>{{ t('webui.run_detail.meta.finished') }}</dt><dd>{{ fmt(run.finished_at) }}</dd></div>
         <div><dt>{{ t('webui.admin.col.table') }}</dt><dd>{{ fmt(pipeline_meta.table) }}</dd></div>
         <div><dt>{{ t('webui.admin.col.strategy') }}</dt><dd>{{ fmt(pipeline_meta.strategy) }}</dd></div>
-        <div><dt>{{ t('webui.admin.col.partition_column') }}</dt><dd>{{ fmt(pipeline_meta.partition_column) }}</dd></div>
+        <div><dt>{{ t('webui.admin.col.source_where_template') }}</dt><dd><pre class="inline-code-block">{{ fmt(pipeline_meta.source_where_template) }}</pre></dd></div>
+        <div><dt>{{ t('webui.admin.col.source_bind_params') }}</dt><dd><pre class="inline-code-block">{{ fmt(pipeline_meta.source_bind_params) }}</pre></dd></div>
         <div><dt>{{ t('webui.admin.col.incremental_key') }}</dt><dd>{{ fmt(pipeline_meta.incremental_key) }}</dd></div>
       </dl>
     </div>

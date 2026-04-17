@@ -102,9 +102,9 @@ def list_pipelines(repo: AdminRepository = Depends(get_admin_repo)):
 def create_pipeline(pipeline: PipelineModel, repo: AdminRepository = Depends(get_admin_repo)):
     try:
         validate_schedule(pipeline.schedule)
+        repo.create_pipeline(pipeline)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    repo.create_pipeline(pipeline)
     return {"message": "Pipeline created successfully"}
 
 
@@ -114,9 +114,9 @@ def update_pipeline(name: str, pipeline: PipelineModel, repo: AdminRepository = 
         raise HTTPException(status_code=400, detail="Pipeline Name mismatch")
     try:
         validate_schedule(pipeline.schedule)
+        repo.update_pipeline(pipeline)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    repo.update_pipeline(pipeline)
     return {"message": "Pipeline updated successfully"}
 
 

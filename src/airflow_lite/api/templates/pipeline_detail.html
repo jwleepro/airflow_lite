@@ -267,7 +267,8 @@
     <dl class="meta-grid">
       <div><dt>{{ t('webui.admin.col.name') }}</dt><dd>{{ fmt(pipeline.name) }}</dd></div>
       <div><dt>{{ t('webui.admin.col.table') }}</dt><dd>{{ fmt(pipeline.table) }}</dd></div>
-      <div><dt>{{ t('webui.admin.col.partition_column') }}</dt><dd>{{ fmt(pipeline.partition_column) }}</dd></div>
+      <div><dt>{{ t('webui.admin.col.source_where_template') }}</dt><dd><pre class="inline-code-block">{{ fmt(pipeline.source_where_template) }}</pre></dd></div>
+      <div><dt>{{ t('webui.admin.col.source_bind_params') }}</dt><dd><pre class="inline-code-block">{{ fmt(pipeline.source_bind_params) }}</pre></dd></div>
       <div><dt>{{ t('webui.admin.col.strategy') }}</dt><dd>{{ fmt(pipeline.strategy) }}</dd></div>
       <div><dt>{{ t('webui.admin.col.schedule') }}</dt><dd><code>{{ fmt(pipeline.schedule) }}</code></dd></div>
       <div><dt>{{ t('webui.monitor.table.next_run') }}</dt><dd>{{ fmt(pipeline.next_run, fallback='—') }}</dd></div>

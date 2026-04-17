@@ -1,6 +1,7 @@
 from typing import Optional
 
 from airflow_lite.storage.connection_repository import ConnectionRepository
+from airflow_lite.storage.crypto import Crypto
 from airflow_lite.storage.database import Database
 from airflow_lite.storage.models import (
     ConnectionModel,
@@ -20,10 +21,16 @@ class AdminRepository:
     내부적으로 리소스별 Repository에 위임한다. 기존 호출부 호환용.
     """
 
-    def __init__(self, database: Database, config_path: str = ""):
+    def __init__(
+        self,
+        database: Database,
+        config_path: str = "",
+        crypto: Crypto | None = None,
+    ):
         self.db = database
         self.config_path = config_path
-        self.connections = ConnectionRepository(database)
+        self.crypto = crypto or Crypto.from_env()
+        self.connections = ConnectionRepository(database, self.crypto)
         self.variables = VariableRepository(database)
         self.pools = PoolRepository(database)
         self.pipelines = PipelineRepository(database)
@@ -34,6 +41,7 @@ class AdminRepository:
             variables=self.variables,
             pools=self.pools,
             pipelines=self.pipelines,
+            crypto=self.crypto,
         )
 
     # --- Connections ---

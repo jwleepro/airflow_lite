@@ -82,6 +82,35 @@ class TestSettingsLoad:
         assert settings.pipelines[0].name == "test_pipeline"
         assert settings.pipelines[0].strategy == "full"
 
+    def test_load_without_oracle_section_returns_none(self, tmp_path):
+        """YAML 에 oracle 섹션이 없고 SQLite connections 도 비어 있을 때,
+        Settings.load 는 예외 없이 oracle=None 으로 기동을 허용해야 한다.
+        (빈 DB 초기 기동 → Admin UI 에서 connection 등록 시나리오)"""
+        config_path = tmp_path / "pipelines.yaml"
+        sqlite_path = (tmp_path / "empty.db").as_posix()
+        parquet_path = (tmp_path / "parquet").as_posix()
+        log_path = (tmp_path / "logs").as_posix()
+        config_path.write_text(
+            f"""\
+security:
+  fernet_key: Zm9vYmFyZm9vYmFyZm9vYmFyZm9vYmFyZm9vYmFyZm8=
+
+storage:
+  parquet_base_path: {parquet_path}
+  sqlite_path: {sqlite_path}
+  log_path: {log_path}
+
+defaults:
+  chunk_size: 10000
+""",
+            encoding="utf-8",
+        )
+
+        settings = Settings.load(str(config_path))
+
+        assert settings.oracle is None
+        assert settings.pipelines == []
+
     def test_load_missing_env_var(self, sample_yaml, monkeypatch):
         monkeypatch.delenv("ORACLE_HOST", raising=False)
         with pytest.raises(EnvironmentError) as exc_info:
@@ -113,7 +142,7 @@ api:
 pipelines:
   - name: "test_pipeline"
     table: "TEST_TABLE"
-    partition_column: "DATE_COL"
+    source_where_template: "DATE_COL >= :data_interval_start AND DATE_COL < :data_interval_end"
     strategy: "full"
     schedule: "0 2 * * *"
     chunk_size: ${PIPELINE_CHUNK_SIZE}
@@ -260,7 +289,7 @@ storage:
 pipelines:
   - name: "from_yaml"
     table: "OPS_TABLE"
-    partition_column: "DATE_COL"
+    source_where_template: "DATE_COL >= :data_interval_start AND DATE_COL < :data_interval_end"
     strategy: "full"
     schedule: "0 2 * * *"
 """,
@@ -270,6 +299,84 @@ pipelines:
         settings = Settings.load(str(config_path))
 
         assert [pipeline.name for pipeline in settings.pipelines] == ["from_yaml"]
+
+    def test_load_supports_source_where_template_and_bind_params_from_sqlite(self, tmp_path):
+        sqlite_path = tmp_path / "airflow_lite.db"
+        with sqlite3.connect(sqlite_path) as connection:
+            connection.execute(
+                """
+                CREATE TABLE connections (
+                    conn_id TEXT PRIMARY KEY,
+                    conn_type TEXT NOT NULL,
+                    host TEXT,
+                    port INTEGER,
+                    schema TEXT,
+                    login TEXT,
+                    password TEXT,
+                    extra TEXT,
+                    description TEXT
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE pipeline_configs (
+                    name TEXT PRIMARY KEY,
+                    source_table TEXT NOT NULL,
+                    source_where_template TEXT,
+                    source_bind_params TEXT,
+                    strategy TEXT NOT NULL,
+                    schedule TEXT NOT NULL,
+                    chunk_size INTEGER,
+                    columns TEXT,
+                    incremental_key TEXT
+                )
+                """
+            )
+            connection.execute(
+                """
+                INSERT INTO connections
+                (conn_id, conn_type, host, port, schema, login, password)
+                VALUES ('oracle', 'oracle', 'db.internal', 1521, 'ORCL', 'scott', 'tiger')
+                """
+            )
+            connection.execute(
+                """
+                INSERT INTO pipeline_configs
+                    (
+                        name,
+                        source_table,
+                        source_where_template,
+                        source_bind_params,
+                        strategy,
+                        schedule,
+                        chunk_size
+                    )
+                    VALUES
+                    ('production_log', 'PRODUCTION_LOG', 'TRAN_YEAR = :year AND TRAN_MONTH = :month', '{"year":"{{ data_interval_start.year }}","month":"{{ data_interval_start.month }}"}', 'full', '0 2 * * *', 5000)
+                """
+            )
+            connection.commit()
+
+        config_path = tmp_path / "pipelines.yaml"
+        config_path.write_text(
+            f"""\
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "{sqlite_path.as_posix()}"
+  log_path: "/tmp/logs"
+""",
+            encoding="utf-8",
+        )
+
+        settings = Settings.load(str(config_path))
+
+        assert len(settings.pipelines) == 1
+        assert settings.pipelines[0].source_where_template == "TRAN_YEAR = :year AND TRAN_MONTH = :month"
+        assert settings.pipelines[0].source_bind_params == {
+            "year": "{{ data_interval_start.year }}",
+            "month": "{{ data_interval_start.month }}",
+        }
 
 
 class TestAlertingConfig:

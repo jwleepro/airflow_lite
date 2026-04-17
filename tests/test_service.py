@@ -402,14 +402,14 @@ class TestCreateRunnerFactory:
                 PipelineConfig(
                     name="full_pipe",
                     table="T_FULL",
-                    partition_column="DT",
+                    source_where_template="DT >= :data_interval_start AND DT < :data_interval_end",
                     strategy="full",
                     schedule="0 2 * * *",
                 ),
                 PipelineConfig(
                     name="inc_pipe",
                     table="T_INC",
-                    partition_column="DT",
+                    source_where_template="DT >= :data_interval_start AND DT < :data_interval_end",
                     strategy="incremental",
                     schedule="0 */6 * * *",
                     incremental_key="UPDATED_AT",

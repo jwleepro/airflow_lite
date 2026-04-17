@@ -8,13 +8,7 @@ import pandas as pd
 import pyarrow as pa
 
 from airflow_lite.engine.stage import StageContext
-
-
-def _next_month_start(year: int, month: int) -> tuple[int, int]:
-    """다음 월의 (year, month) 반환."""
-    if month == 12:
-        return year + 1, 1
-    return year, month + 1
+from airflow_lite.pipeline_config_validation import render_source_query
 
 
 def _build_select_columns(context: StageContext) -> str:
@@ -67,11 +61,40 @@ class OracleParquetMigrationStrategy(MigrationStrategy, ABC):
     def _select_prefix(context: StageContext) -> str:
         return f"SELECT {_build_select_columns(context)} FROM {context.table_config.table}"
 
+    @staticmethod
+    def _build_source_filter(context: StageContext) -> tuple[str | None, dict]:
+        return render_source_query(
+            getattr(context.table_config, "source_where_template", None),
+            getattr(context.table_config, "source_bind_params", None),
+            execution_date=context.execution_date,
+        )
+
+    def _compose_query(
+        self,
+        context: StageContext,
+        extra_predicates: list[str] | tuple[str, ...] = (),
+    ) -> tuple[str, dict]:
+        """source_where_template 과 추가 predicate 을 AND 결합해 쿼리 생성.
+
+        predicate 이 하나도 없을 경우 호출 측 계약 위반이므로 예외.
+        """
+        source_where, bind_params = self._build_source_filter(context)
+        predicates: list[str] = []
+        if source_where:
+            predicates.append(f"({source_where})" if extra_predicates else source_where)
+        predicates.extend(extra_predicates)
+        if not predicates:
+            raise ValueError("full 전략은 source_where_template 이 필요합니다.")
+        return (
+            f"{self._select_prefix(context)} WHERE {' AND '.join(predicates)}",
+            bind_params,
+        )
+
 
 class FullMigrationStrategy(OracleParquetMigrationStrategy):
     """전체 이관: 월별 파티션 전체를 덮어쓰기.
 
-    extract: partition_column 기반 WHERE절로 해당 월 전체 데이터 추출
+    extract: source_where_template 기반 WHERE절로 해당 월 전체 데이터 추출
     load: 기존 Parquet 파일을 .bak으로 이동 후 새 파일 생성
     verify: Oracle 건수 vs Parquet 행 수 비교
     """
@@ -82,7 +105,7 @@ class FullMigrationStrategy(OracleParquetMigrationStrategy):
         self._had_backup = False
 
     def extract(self, context: StageContext) -> Iterator[pd.DataFrame]:
-        query = self._build_full_query(context)
+        query, params = self._build_full_query(context)
         self._configure_chunk_reader(context)
         self._is_first_chunk = True
         table_name, year, month = self._partition_target(context)
@@ -90,28 +113,15 @@ class FullMigrationStrategy(OracleParquetMigrationStrategy):
 
         def _iter_chunks() -> Iterator[pd.DataFrame]:
             try:
-                yield from self.chunked_reader.read_chunks(query)
+                yield from self.chunked_reader.read_chunks(query, params)
             finally:
                 self.parquet_writer.finalize_partition(table_name, year, month)
 
         return _iter_chunks()
 
-    def _build_full_query(self, context: StageContext) -> str:
-        """월별 파티션 쿼리 생성.
-        예: SELECT * FROM PRODUCTION_LOG
-            WHERE LOG_DATE >= DATE '2026-03-01'
-              AND LOG_DATE < DATE '2026-04-01'
-        """
-        partition_col = context.table_config.partition_column
-        year = context.execution_date.year
-        month = context.execution_date.month
-
-        next_year, next_month = _next_month_start(year, month)
-        return (
-            f"{self._select_prefix(context)} "
-            f"WHERE {partition_col} >= DATE '{year:04d}-{month:02d}-01' "
-            f"AND {partition_col} < DATE '{next_year:04d}-{next_month:02d}-01'"
-        )
+    def _build_full_query(self, context: StageContext) -> tuple[str, dict]:
+        """월별 전체 이관 쿼리와 bind params 생성."""
+        return self._compose_query(context)
 
     # transform()은 부모 MigrationStrategy의 기본 구현 사용
 
@@ -137,11 +147,12 @@ class FullMigrationStrategy(OracleParquetMigrationStrategy):
 
     def verify(self, context: StageContext) -> bool:
         """Oracle 건수 vs Parquet 행 수 비교"""
-        count_query = f"SELECT COUNT(*) FROM ({self._build_full_query(context)})"
+        source_query, bind_params = self._build_full_query(context)
+        count_query = f"SELECT COUNT(*) FROM ({source_query})"
         conn = self.oracle_client.get_connection()
         cursor = conn.cursor()
         try:
-            cursor.execute(count_query)
+            cursor.execute(count_query, bind_params)
             oracle_count = cursor.fetchone()[0]
         finally:
             cursor.close()
@@ -181,7 +192,7 @@ class IncrementalMigrationStrategy(OracleParquetMigrationStrategy):
         self._written_files: list[str] = []
 
     def extract(self, context: StageContext) -> Iterator[pd.DataFrame]:
-        query = self._build_incremental_query(context)
+        query, params = self._build_incremental_query(context)
         self._configure_chunk_reader(context)
         self._extract_count = 0
         self._loaded_count = 0
@@ -194,21 +205,23 @@ class IncrementalMigrationStrategy(OracleParquetMigrationStrategy):
         self._written_files = []
 
         def _iter_chunks() -> Iterator[pd.DataFrame]:
-            for chunk in self.chunked_reader.read_chunks(query):
+            for chunk in self.chunked_reader.read_chunks(query, params):
                 self._extract_count += len(chunk)
                 yield chunk
 
         return _iter_chunks()
 
-    def _build_incremental_query(self, context: StageContext) -> str:
+    def _build_incremental_query(self, context: StageContext) -> tuple[str, dict]:
         """incremental_key 기반 WHERE절 생성 (execution_date 당일 변경분)."""
         incremental_key = context.table_config.incremental_key
         exec_date = context.execution_date
         next_date = exec_date + timedelta(days=1)
-        return (
-            f"{self._select_prefix(context)} "
-            f"WHERE {incremental_key} >= DATE '{exec_date.strftime('%Y-%m-%d')}' "
-            f"AND {incremental_key} < DATE '{next_date.strftime('%Y-%m-%d')}'"
+        return self._compose_query(
+            context,
+            [
+                f"{incremental_key} >= DATE '{exec_date.strftime('%Y-%m-%d')}'",
+                f"{incremental_key} < DATE '{next_date.strftime('%Y-%m-%d')}'",
+            ],
         )
 
     # transform()은 부모 MigrationStrategy의 기본 구현 사용
