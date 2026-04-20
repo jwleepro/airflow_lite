@@ -184,7 +184,7 @@ class TestSvcDoRun:
 
         with patch("airflow_lite.service.win_service.load_settings") as mock_load_settings, \
              patch("airflow_lite.service.win_service.build_runtime_services", return_value=mock_runtime) as mock_build_runtime, \
-             patch("airflow_lite.logging_config.setup.setup_logging") as mock_logging, \
+             patch("airflow_lite.logging_config.structured.setup_structlog") as mock_logging, \
              patch("airflow_lite.scheduler.scheduler.PipelineScheduler",
                    return_value=mock_scheduler), \
              patch("airflow_lite.api.app.create_app"), \

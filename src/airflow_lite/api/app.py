@@ -50,6 +50,9 @@ def create_app(
     - CORS: 사내망 IP 대역만 허용 [NFR-11]
     - API prefix: /api/v1
     """
+    from airflow_lite.logging_config.structured import setup_structlog
+    setup_structlog(settings.storage.log_path)
+
     app = FastAPI(
         title="Airflow Lite API",
         version="1.0.0",

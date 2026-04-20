@@ -15,6 +15,8 @@ import structlog
 
 from .context import get_context_dict
 
+_logging_configured = False
+
 
 def add_request_context(
     logger: Any,
@@ -55,6 +57,11 @@ def setup_structlog(
         level: 로그 레벨 (기본 INFO)
         json_output: True면 JSON Lines 포맷 (운영 환경), False면 컬러 콘솔 (개발)
     """
+    global _logging_configured
+    if _logging_configured:
+        return
+    _logging_configured = True
+
     log_path = Path(log_dir)
     log_path.mkdir(parents=True, exist_ok=True)
 

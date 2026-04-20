@@ -46,8 +46,8 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
             config_path, settings = load_settings()
 
             # 2. 로깅 설정
-            from airflow_lite.logging_config.setup import setup_logging
-            setup_logging(settings.storage.log_path)
+            from airflow_lite.logging_config.structured import setup_structlog
+            setup_structlog(settings.storage.log_path)
 
             # 3. 런타임 구성 생성
             self.runtime = build_runtime_services(settings, config_path)
