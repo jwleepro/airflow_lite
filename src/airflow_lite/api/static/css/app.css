@@ -870,8 +870,12 @@ table tbody tr:last-child td {
 
 .detail-layout {
   display: grid;
-  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  grid-template-columns: minmax(320px, 1fr) minmax(0, 2fr);
   gap: 18px;
+}
+
+.detail-sidebar {
+  min-width: 0;
 }
 
 .detail-main {

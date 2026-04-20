@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,37 @@ import structlog
 from .context import get_context_dict
 
 _logging_configured = False
+
+
+def _to_legacy_timestamp(value: Any) -> str:
+    """ISO 타임스탬프를 기존 파일 로그 형식으로 변환."""
+    if isinstance(value, str):
+        try:
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if dt.tzinfo is not None:
+                dt = dt.astimezone().replace(tzinfo=None)
+            return dt.strftime("%Y-%m-%d %H:%M:%S,%f")[:-3]
+        except ValueError:
+            pass
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S,%f")[:-3]
+
+
+def _legacy_file_renderer(
+    logger: Any,
+    method_name: str,
+    event_dict: dict[str, Any],
+) -> str:
+    """기존 파일 로그 포맷 유지: asctime [LEVEL] logger - message."""
+    payload = dict(event_dict)
+    timestamp = _to_legacy_timestamp(payload.pop("timestamp", None))
+    level = str(payload.pop("level", "info")).upper()
+    logger_name = str(payload.pop("logger", ""))
+    event = payload.pop("event", "")
+    message = event if isinstance(event, str) else str(event)
+    extras = " ".join(f"{k}={v}" for k, v in payload.items())
+    if extras:
+        return f"{timestamp} [{level}] {logger_name} - {message} {extras}"
+    return f"{timestamp} [{level}] {logger_name} - {message}"
 
 
 def add_request_context(
@@ -87,9 +119,12 @@ def setup_structlog(
     ]
 
     if json_output:
-        renderer: structlog.typing.Processor = structlog.processors.JSONRenderer()
+        file_renderer: structlog.typing.Processor = structlog.processors.JSONRenderer()
+        console_renderer: structlog.typing.Processor = structlog.processors.JSONRenderer()
     else:
-        renderer = structlog.dev.ConsoleRenderer(colors=True)
+        # 파일 로그는 기존 평문 포맷을 유지하고, 콘솔만 컬러 출력한다.
+        file_renderer = _legacy_file_renderer
+        console_renderer = structlog.dev.ConsoleRenderer(colors=True)
 
     structlog.configure(
         processors=[
@@ -102,16 +137,23 @@ def setup_structlog(
         cache_logger_on_first_use=True,
     )
 
-    formatter = structlog.stdlib.ProcessorFormatter(
+    file_formatter = structlog.stdlib.ProcessorFormatter(
         foreign_pre_chain=shared_processors,
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
-            renderer,
+            file_renderer,
+        ],
+    )
+    console_formatter = structlog.stdlib.ProcessorFormatter(
+        foreign_pre_chain=shared_processors,
+        processors=[
+            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            console_renderer,
         ],
     )
 
-    file_handler.setFormatter(formatter)
-    console_handler.setFormatter(formatter)
+    file_handler.setFormatter(file_formatter)
+    console_handler.setFormatter(console_formatter)
 
     root_logger = logging.getLogger("airflow_lite")
     root_logger.setLevel(level)

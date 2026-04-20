@@ -232,12 +232,36 @@ def test_monitor_pipeline_list_page_renders_html_with_pipeline_summary(client):
     assert '/monitor/pipelines/test_pipeline"' in body
     assert "/monitor/pipelines/test_pipeline/runs/run-001" in body
     assert "run-grid" in body
+    assert "Recent Runs (latest→oldest)" in body
     assert "manual" in body
     assert "success" in body
     assert "Trigger" in body
     assert "Force rerun" in body
     assert "Force rerun runs again for the latest run date." in body
     assert "/monitor/pipelines/test_pipeline/trigger" in body
+
+
+def test_monitor_pipeline_list_page_recent_runs_render_latest_to_oldest():
+    settings = _make_settings()
+    older_run = _make_pipeline_run(run_id="run-001", execution_date=date(2026, 1, 1), status="failed")
+    newer_run = _make_pipeline_run(run_id="run-002", execution_date=date(2026, 1, 2), status="success")
+
+    run_repo = MagicMock()
+    run_repo.find_by_id.return_value = newer_run
+    run_repo.find_by_pipeline_paginated.return_value = ([newer_run, older_run], 2)
+    run_repo.find_by_pipeline.return_value = [newer_run, older_run]
+
+    step_repo = MagicMock()
+    step_repo.find_by_pipeline_run.return_value = []
+
+    app = create_app(settings=settings, run_repo=run_repo, step_repo=step_repo)
+    local_client = TestClient(app)
+
+    response = local_client.get("/monitor/pipelines")
+
+    assert response.status_code == 200
+    body = response.text
+    assert body.index('title="2026-01-02 · success"') < body.index('title="2026-01-01 · failed"')
 
 
 def test_monitor_page_uses_webui_refresh_setting(mock_run_repo, mock_step_repo):
@@ -327,10 +351,63 @@ def test_monitor_pipeline_detail_page_renders_dag_details_tabs(client):
     assert "Runs" in response.text
     assert "Tasks" in response.text
     assert "Details" in response.text
+    assert "Grid columns are ordered latest run → oldest run" in response.text
     assert "Trigger now" in response.text
     assert "Re-run latest" in response.text
     assert "Backfill control" in response.text
     assert "/monitor/pipelines/test_pipeline/runs/run-001" in response.text
+
+
+def test_monitor_pipeline_detail_grid_view_uses_step_row_index_for_tones():
+    settings = _make_settings()
+    older_run = _make_pipeline_run(run_id="run-001", execution_date=date(2026, 1, 1), status="success")
+    newer_run = _make_pipeline_run(run_id="run-002", execution_date=date(2026, 1, 2), status="running")
+
+    run_repo = MagicMock()
+    run_repo.find_by_id.return_value = newer_run
+    run_repo.find_by_pipeline_paginated.return_value = ([newer_run, older_run], 2)
+    run_repo.find_by_pipeline.return_value = [newer_run, older_run]
+
+    step_repo = MagicMock()
+    step_repo.find_by_pipeline_run.side_effect = lambda run_id: (
+        [
+            StepRun(id=f"{run_id}-extract", pipeline_run_id=run_id, step_name="extract", status="success"),
+            StepRun(id=f"{run_id}-load", pipeline_run_id=run_id, step_name="load", status="failed"),
+        ]
+        if run_id == "run-001"
+        else [
+            StepRun(id=f"{run_id}-extract", pipeline_run_id=run_id, step_name="extract", status="failed"),
+            StepRun(id=f"{run_id}-load", pipeline_run_id=run_id, step_name="load", status="success"),
+        ]
+    )
+
+    app = create_app(
+        settings=settings,
+        runner_map={"test_pipeline": MagicMock()},
+        backfill_map={"test_pipeline": MagicMock()},
+        run_repo=run_repo,
+        step_repo=step_repo,
+    )
+    local_client = TestClient(app)
+
+    response = local_client.get("/monitor/pipelines/test_pipeline")
+
+    assert response.status_code == 200
+    body = response.text
+    assert body.index('class="grid-col-header" title="2026-01-02"') < body.index(
+        'class="grid-col-header" title="2026-01-01"'
+    )
+    assert 'class="run-block ok" title="2026-01-01 · extract"' in body
+    assert 'class="run-block bad" title="2026-01-02 · extract"' in body
+    assert 'class="run-block bad" title="2026-01-01 · load"' in body
+    assert 'class="run-block ok" title="2026-01-02 · load"' in body
+
+    run_response = local_client.get("/monitor/pipelines/test_pipeline/runs/run-002")
+    assert run_response.status_code == 200
+    run_body = run_response.text
+    assert run_body.index('class="grid-col-header" title="2026-01-02"') < run_body.index(
+        'class="grid-col-header" title="2026-01-01"'
+    )
 
 
 def test_monitor_pipeline_detail_page_supports_korean_language_query(client):
@@ -342,6 +419,7 @@ def test_monitor_pipeline_detail_page_supports_korean_language_query(client):
     assert "DAG 상세" in body
     assert "그리드 뷰" in body
     assert "태스크" in body
+    assert "그리드 열 순서: 최신 실행 → 오래된 실행" in body
     assert "즉시 실행" in body
     assert "백필 제어" in body
 
@@ -365,6 +443,7 @@ def test_monitor_run_detail_page_renders_dag_run_tabs(client):
     assert "Details" in body
     assert "Graph View" in body
     assert "Persistent grid view" in body
+    assert "Grid columns are ordered latest run → oldest run" in body
     assert "pipeline:" in body
     assert "dag_run:" in body
     assert "test_pipeline" in body
@@ -380,6 +459,7 @@ def test_monitor_run_detail_page_supports_korean_language_query(client):
     body = response.text
     assert '<html lang="ko">' in body
     assert "실행 이벤트 피드" in body
+    assert "그리드 열 순서: 최신 실행 → 오래된 실행" in body
     assert "파이프라인 스냅샷" in body
     assert "실행 메타데이터" in body
     assert "현재 날짜 재실행" in body

@@ -87,7 +87,7 @@ def _build_grid_data(grid_runs: list[dict]) -> dict:
                 seen.add(name)
 
     runs_data = []
-    for run in reversed(grid_runs):
+    for run in grid_runs:
         step_map = {
             s.get("step_name", ""): tone_of(s.get("status", ""))
             for s in run.get("steps", [])
