@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 
 from fastapi import APIRouter, HTTPException, Request
@@ -16,12 +17,15 @@ from airflow_lite.api.schemas import (
     TriggerRequest,
     build_run_response_with_steps,
 )
+from airflow_lite.logging_config.decorators import log_execution
 from airflow_lite.service.dispatch_service import PipelineBusyError
 
 router = APIRouter(tags=["pipelines"])
+logger = logging.getLogger("airflow_lite.api.routes.pipelines")
 
 
 @router.post("/pipelines/{name}/trigger", response_model=PipelineRunResponse)
+@log_execution(log_args=True, level=logging.INFO)
 def trigger_pipeline(name: str, body: TriggerRequest, req: Request):
     """수동 트리거. queued run 을 즉시 반환(202), 실행은 워커가 소비."""
     runner_map = get_runner_map(req)
@@ -46,6 +50,7 @@ def trigger_pipeline(name: str, body: TriggerRequest, req: Request):
 
 
 @router.get("/pipelines", response_model=list[PipelineInfo])
+@log_execution(level=logging.DEBUG)
 def list_pipelines(req: Request):
     """설정에 정의된 모든 파이프라인 목록 조회."""
     settings = req.app.state.settings
@@ -61,6 +66,7 @@ def list_pipelines(req: Request):
 
 
 @router.get("/pipelines/{name}/runs", response_model=PaginatedResponse)
+@log_execution(log_args=True, level=logging.DEBUG)
 def list_runs(name: str, req: Request, page: int = 1, page_size: int = 50):
     """파이프라인 실행 이력 조회 (pagination).
 
@@ -87,6 +93,7 @@ def list_runs(name: str, req: Request, page: int = 1, page_size: int = 50):
 
 
 @router.get("/pipelines/{name}/runs/{run_id}", response_model=PipelineRunResponse)
+@log_execution(log_args=True, level=logging.DEBUG)
 def get_run_detail(name: str, run_id: str, req: Request):
     """실행 상세 조회. 단계별 상태 포함."""
     run_repo = get_run_repo(req)

@@ -1,13 +1,18 @@
+import logging
+
 from fastapi import APIRouter, HTTPException, Request
 
 from airflow_lite.api.dependencies import get_dispatch_service
 from airflow_lite.api.schemas import BackfillRequest
+from airflow_lite.logging_config.decorators import log_execution
 from airflow_lite.service.dispatch_service import PipelineBusyError
 
 router = APIRouter(tags=["backfill"])
+logger = logging.getLogger("airflow_lite.api.routes.backfill")
 
 
 @router.post("/pipelines/{name}/backfill", status_code=202)
+@log_execution(log_args=True, level=logging.INFO)
 def request_backfill(name: str, body: BackfillRequest, req: Request):
     """백필 요청. dispatcher 를 통해 비동기 실행. start_date~end_date 범위를 월별 분할하여 워커가 실행."""
     dispatcher = get_dispatch_service(req)
