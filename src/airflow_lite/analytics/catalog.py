@@ -170,6 +170,18 @@ def build_dashboard_definition(
         ],
         export_actions=[
             DashboardActionDefinition(
+                key="xlsx_export",
+                label=translate("analytics.action.xlsx_export.label", language),
+                type=DashboardActionType.EXPORT,
+                status=DashboardActionStatus.AVAILABLE,
+                scope=DashboardActionScope.DASHBOARD,
+                endpoint=ANALYTICS_EXPORTS_PATH,
+                request_method=DashboardRequestMethod.POST,
+                filter_keys=COMMON_FILTER_KEYS,
+                format="xlsx",
+                description=translate("analytics.action.xlsx_export.description", language),
+            ),
+            DashboardActionDefinition(
                 key="csv_zip_export",
                 label=translate("analytics.action.csv_zip_export.label", language),
                 type=DashboardActionType.EXPORT,

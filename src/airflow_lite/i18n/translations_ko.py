@@ -21,6 +21,8 @@ KO: dict[str, str] = {
 "analytics.chart.rows_by_month.granularity_normalized": "rows_by_month는 월 단위 버킷만 지원하여 granularity를 month로 보정했습니다.",
 "analytics.action.source_file_detail.label": "소스 파일 상세",
 "analytics.action.source_file_detail.description": "소스별 파일 레코드와 파티션 구간 상세를 조회합니다.",
+"analytics.action.xlsx_export.label": "엑셀 내보내기 (.xlsx, 10만행 이하)",
+"analytics.action.xlsx_export.description": "소규모 결과(최대 100,000행)용 내보내기입니다. 더 큰 결과는 csv.zip 또는 parquet를 사용하세요.",
 "analytics.action.csv_zip_export.label": "CSV ZIP 내보내기",
 "analytics.action.csv_zip_export.description": "후속 분석을 위한 대용량 결과 내보내기 워크플로입니다.",
 "analytics.action.parquet_export.label": "Parquet 내보내기",
