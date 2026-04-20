@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 
@@ -16,6 +18,7 @@ from airflow_lite.api.analytics_contracts import (
 )
 from airflow_lite.api.dependencies import get_export_service, get_language, get_query_service
 from airflow_lite.api.errors import raise_export_http_error, raise_query_http_error
+from airflow_lite.logging_config.decorators import log_execution
 from airflow_lite.export import (
     AnalyticsExportJobNotFoundError,
     AnalyticsExportNotReadyError,
@@ -27,9 +30,11 @@ from airflow_lite.query import (
 )
 
 router = APIRouter(tags=["analytics"])
+logger = logging.getLogger("airflow_lite.api.routes.analytics")
 
 
 @router.post("/analytics/summary", response_model=SummaryQueryResponse)
+@log_execution(log_args=True, level=logging.INFO)
 def query_summary(body: SummaryQueryRequest, request: Request, language: str = Depends(get_language)):
     query_service = get_query_service(request)
     try:
@@ -39,6 +44,7 @@ def query_summary(body: SummaryQueryRequest, request: Request, language: str = D
 
 
 @router.post("/analytics/charts/{chart_id}/query", response_model=ChartQueryResponse)
+@log_execution(log_args=True, level=logging.INFO)
 def query_chart(
     chart_id: str,
     body: ChartQueryRequest,
@@ -56,6 +62,7 @@ def query_chart(
 
 
 @router.post("/analytics/details/{detail_key}/query", response_model=DetailQueryResponse)
+@log_execution(log_args=True, level=logging.INFO)
 def query_detail(
     detail_key: str,
     body: DetailQueryRequest,
@@ -73,6 +80,7 @@ def query_detail(
 
 
 @router.post("/analytics/exports", response_model=ExportCreateResponse)
+@log_execution(log_args=True, level=logging.INFO)
 def create_export(body: ExportCreateRequest, request: Request):
     export_service = get_export_service(request)
     try:
@@ -82,6 +90,7 @@ def create_export(body: ExportCreateRequest, request: Request):
 
 
 @router.get("/analytics/exports/{job_id}", response_model=ExportJobResponse)
+@log_execution(log_args=True, level=logging.DEBUG)
 def get_export_job(job_id: str, request: Request):
     export_service = get_export_service(request)
     try:
@@ -91,6 +100,7 @@ def get_export_job(job_id: str, request: Request):
 
 
 @router.get("/analytics/exports/{job_id}/download")
+@log_execution(log_args=True, level=logging.INFO)
 def download_export(job_id: str, request: Request):
     export_service = get_export_service(request)
     try:
@@ -102,6 +112,7 @@ def download_export(job_id: str, request: Request):
 
 
 @router.delete("/analytics/exports/{job_id}")
+@log_execution(log_args=True, level=logging.INFO)
 def delete_export_job(job_id: str, request: Request):
     export_service = get_export_service(request)
     try:
@@ -112,6 +123,7 @@ def delete_export_job(job_id: str, request: Request):
 
 
 @router.delete("/analytics/exports")
+@log_execution(level=logging.INFO)
 def delete_all_completed_exports(request: Request):
     export_service = get_export_service(request)
     count = export_service.delete_all_completed()
@@ -119,6 +131,7 @@ def delete_all_completed_exports(request: Request):
 
 
 @router.get("/analytics/filters", response_model=AnalyticsFilterMetadataResponse)
+@log_execution(log_args=True, level=logging.DEBUG)
 def get_filters(request: Request, dataset: str = Query(...), language: str = Depends(get_language)):
     query_service = get_query_service(request)
     try:
@@ -128,6 +141,7 @@ def get_filters(request: Request, dataset: str = Query(...), language: str = Dep
 
 
 @router.get("/analytics/dashboards/{dashboard_id}", response_model=DashboardDefinitionResponse)
+@log_execution(log_args=True, level=logging.DEBUG)
 def get_dashboard_definition(
     dashboard_id: str,
     request: Request,
