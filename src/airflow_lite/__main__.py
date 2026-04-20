@@ -10,10 +10,10 @@ def _run_foreground():
 
     import uvicorn
 
-    from airflow_lite.logging_config.setup import setup_logging
+    from airflow_lite.logging_config.structured import setup_structlog
 
     config_path, settings = load_settings(sys.argv[2] if len(sys.argv) > 2 else None)
-    setup_logging(settings.storage.log_path)
+    setup_structlog(settings.storage.log_path)
     logger = logging.getLogger("airflow_lite")
     runtime = build_runtime_services(settings, config_path)
 

@@ -8,5 +8,6 @@
 """
 
 from .setup import setup_logging
+from .structured import setup_structlog
 
-__all__ = ["setup_logging"]
+__all__ = ["setup_logging", "setup_structlog"]
