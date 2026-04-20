@@ -96,7 +96,7 @@ def build_pipeline_detail_view_data(settings, run_repo, step_repo, pipeline_name
     }
 
     grid_runs = []
-    for run in reversed(run_dicts):
+    for run in run_dicts:
         step_map = {
             step.get("step_name", ""): tone_of(step.get("status", ""))
             for step in run.get("steps", [])

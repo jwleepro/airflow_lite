@@ -144,6 +144,7 @@
 
   <div class="tab-pane" id="tab-grid">
     {% if grid.runs %}
+    <p class="muted side-note">{{ t('webui.pipeline_detail.grid.description') }}</p>
     <div class="table-wrap">
       <table class="air-table">
         <thead>
@@ -158,11 +159,12 @@
         </thead>
         <tbody>
           {% for step_name in grid.step_names %}
+          {% set step_idx = loop.index0 %}
           <tr>
             <td><strong>{{ fmt(step_name) }}</strong></td>
             {% for gr in grid.runs %}
             <td style="text-align:center;">
-              <span class="run-block {{ gr.step_tones[loop.index0] }}" title="{{ gr.execution_date }} · {{ step_name }}" style="display:inline-block;width:18px;height:18px;"></span>
+              <span class="run-block {{ gr.step_tones[step_idx] }}" title="{{ gr.execution_date }} · {{ step_name }}" style="display:inline-block;width:18px;height:18px;"></span>
             </td>
             {% endfor %}
           </tr>

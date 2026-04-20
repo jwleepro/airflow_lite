@@ -106,7 +106,7 @@
           <td>
             {% if row.recent_runs %}
             <div class="run-grid">
-              {% for r in row.recent_runs|reverse %}
+              {% for r in row.recent_runs %}
               <span class="run-block {{ tone_of(r.status or '') }}" title="{{ (r.execution_date or '') }} · {{ (r.status or '') }}"></span>
               {% endfor %}
             </div>
