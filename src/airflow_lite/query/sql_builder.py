@@ -53,6 +53,7 @@ class AnalyticsSQLBuilder:
     }
 
     EXPORT_ACTIONS: dict[str, ExportFormat] = {
+        "xlsx_export": ExportFormat.XLSX,
         "csv_zip_export": ExportFormat.CSV_ZIP,
         "parquet_export": ExportFormat.PARQUET,
     }

@@ -33,6 +33,10 @@ EN: dict[str, str] = {
 "analytics.action.source_file_detail.description": (
     "Detail grid for source-level file records and partition slices."
 ),
+"analytics.action.xlsx_export.label": "Excel Export (.xlsx, <=100k rows)",
+"analytics.action.xlsx_export.description": (
+    "Small-result export (up to 100,000 rows). Use csv.zip or parquet for larger results."
+),
 "analytics.action.csv_zip_export.label": "CSV Zip Export",
 "analytics.action.csv_zip_export.description": "Large-result export workflow for downstream analysis.",
 "analytics.action.parquet_export.label": "Parquet Export",

@@ -26,6 +26,12 @@ from airflow_lite.query.service import AnalyticsExportPlan
 
 logger = logging.getLogger("airflow_lite.export.service")
 
+FILE_SUFFIX_BY_FORMAT = {
+    ExportFormat.CSV_ZIP: "zip",
+    ExportFormat.PARQUET: "parquet",
+    ExportFormat.XLSX: "xlsx",
+}
+
 
 class AnalyticsExportNotReadyError(RuntimeError):
     pass
@@ -71,7 +77,9 @@ class FilesystemAnalyticsExportService:
         self._maybe_cleanup()
         plan = self.query_service.build_export_plan(request)
         now = datetime.now()
-        suffix = "zip" if request.format is ExportFormat.CSV_ZIP else "parquet"
+        suffix = FILE_SUFFIX_BY_FORMAT.get(request.format)
+        if suffix is None:
+            raise ValueError(f"unsupported export format: {request.format.value}")
         job_id = uuid4().hex
         file_name = f"{plan.file_stem}-{job_id[:8]}.{suffix}"
         record = ExportJobRecord(

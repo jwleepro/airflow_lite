@@ -100,6 +100,25 @@ def test_build_export_plan_returns_expected_shape(tmp_path, analytics_mart_build
     assert plan.params == ["mes_ops", "OPS_TABLE"]
 
 
+def test_build_export_plan_supports_xlsx_action(tmp_path, analytics_mart_builder):
+    database_path = tmp_path / "analytics.duckdb"
+    analytics_mart_builder(database_path)
+    service = DuckDBAnalyticsQueryService(database_path)
+
+    plan = service.build_export_plan(
+        ExportCreateRequest(
+            dataset="mes_ops",
+            action_key="xlsx_export",
+            format=ExportFormat.XLSX,
+            filters={"source": ["OPS_TABLE"]},
+        )
+    )
+
+    assert plan.action_key == "xlsx_export"
+    assert plan.format is ExportFormat.XLSX
+    assert plan.file_stem == "mes_ops-source-files-xlsx_export"
+
+
 def test_query_filters_returns_source_and_partition_options(tmp_path, analytics_mart_builder):
     database_path = tmp_path / "analytics.duckdb"
     analytics_mart_builder(database_path)
@@ -170,6 +189,8 @@ def test_get_dashboard_definition_returns_dashboard_metadata(tmp_path, analytics
     assert response.drilldown_actions[0].status.value == "available"
     assert response.export_actions[0].status.value == "available"
     assert response.export_actions[0].endpoint == "/api/v1/analytics/exports"
+    export_action_keys = [action.key for action in response.export_actions]
+    assert export_action_keys == ["xlsx_export", "csv_zip_export", "parquet_export"]
     assert response.warnings == []
 
 
