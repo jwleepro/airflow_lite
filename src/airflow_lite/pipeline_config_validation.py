@@ -8,6 +8,7 @@ from typing import Any, Mapping
 from jinja2.nativetypes import NativeEnvironment
 
 _LEGACY_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_$#]*$")
+_BIND_NAME_PATTERN = re.compile(r":(\w+)")
 _NATIVE_ENV = NativeEnvironment()
 
 
@@ -158,7 +159,11 @@ def render_source_query(
     merged_params = build_default_bind_params(render_context)
     for key, value in custom_bind_params.items():
         merged_params[key] = _render_template_value(value, render_context)
-    return str(rendered_where).strip(), merged_params
+
+    where_str = str(rendered_where).strip()
+    used_names = set(_BIND_NAME_PATTERN.findall(where_str))
+    filtered_params = {k: v for k, v in merged_params.items() if k in used_names}
+    return where_str, filtered_params
 
 
 def _render_template_value(value: Any, context: dict[str, Any]) -> Any:

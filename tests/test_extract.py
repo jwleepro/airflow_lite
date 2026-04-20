@@ -684,7 +684,8 @@ class TestIncrementalMigrationStrategy:
         assert "UPDATED_AT" in query
         assert "2026-03-15" in query
         assert "2026-03-16" in query
-        assert params["data_interval_start_month"] == 3
+        assert "data_interval_start" in params
+        assert "data_interval_end" in params
 
     def test_build_incremental_query_uses_configured_columns(self):
         oracle_client = MagicMock()

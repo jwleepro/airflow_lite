@@ -60,4 +60,5 @@ config/pipelines.yaml
 .ipynb_checkpoints/
 
 # claude local settings
+.claude/settings.json
 .claude/settings.local.json
