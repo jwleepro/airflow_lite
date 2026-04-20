@@ -1,5 +1,7 @@
 from datetime import date, datetime
 
+from airflow_lite.logging_config.decorators import log_db_operation
+
 from .database import Database
 from .models import PipelineRun, StepRun
 
@@ -50,6 +52,7 @@ class PipelineRunRepository:
     def __init__(self, database: Database):
         self.database = database
 
+    @log_db_operation("pipeline_runs")
     def create(self, run: PipelineRun) -> PipelineRun:
         """INSERT. id는 UUID 자동 생성."""
         with self.database.connection() as conn:
@@ -74,6 +77,7 @@ class PipelineRunRepository:
             conn.commit()
         return run
 
+    @log_db_operation("pipeline_runs")
     def update_status(
         self, run_id: str, status: str, finished_at: datetime | None = None
     ) -> None:
@@ -89,6 +93,7 @@ class PipelineRunRepository:
             )
             conn.commit()
 
+    @log_db_operation("pipeline_runs")
     def mark_running(self, run_id: str, started_at: datetime) -> None:
         """queued → running 전이 + started_at 기록."""
         with self.database.connection() as conn:
@@ -98,6 +103,7 @@ class PipelineRunRepository:
             )
             conn.commit()
 
+    @log_db_operation("pipeline_runs")
     def find_by_id(self, run_id: str) -> PipelineRun | None:
         """단건 조회."""
         with self.database.connection() as conn:
@@ -106,6 +112,7 @@ class PipelineRunRepository:
             ).fetchone()
         return _row_to_pipeline_run(row) if row else None
 
+    @log_db_operation("pipeline_runs")
     def find_by_pipeline(
         self, pipeline_name: str, limit: int = 50
     ) -> list[PipelineRun]:
@@ -122,6 +129,7 @@ class PipelineRunRepository:
             ).fetchall()
         return [_row_to_pipeline_run(r) for r in rows]
 
+    @log_db_operation("pipeline_runs")
     def find_by_pipeline_paginated(
         self, pipeline_name: str, page: int = 1, page_size: int = 50
     ) -> tuple[list[PipelineRun], int]:
@@ -143,6 +151,7 @@ class PipelineRunRepository:
             ).fetchall()
         return [_row_to_pipeline_run(r) for r in rows], total
 
+    @log_db_operation("pipeline_runs")
     def find_by_execution_date(
         self, pipeline_name: str, execution_date: date
     ) -> PipelineRun | None:
@@ -159,6 +168,7 @@ class PipelineRunRepository:
             ).fetchone()
         return _row_to_pipeline_run(row) if row else None
 
+    @log_db_operation("pipeline_runs")
     def find_latest_success_by_execution_date(
         self, pipeline_name: str, execution_date: date
     ) -> PipelineRun | None:
@@ -174,6 +184,7 @@ class PipelineRunRepository:
             ).fetchone()
         return _row_to_pipeline_run(row) if row else None
 
+    @log_db_operation("pipeline_runs")
     def find_active_by_execution_date(
         self, pipeline_name: str, execution_date: date
     ) -> PipelineRun | None:
@@ -191,6 +202,7 @@ class PipelineRunRepository:
             ).fetchone()
         return _row_to_pipeline_run(row) if row else None
 
+    @log_db_operation("pipeline_runs")
     def find_any_active_by_pipeline(self, pipeline_name: str) -> PipelineRun | None:
         """execution_date 와 무관하게 queued/running 상태의 최신 실행 조회."""
         with self.database.connection() as conn:
@@ -213,6 +225,7 @@ class StepRunRepository:
     def __init__(self, database: Database):
         self.database = database
 
+    @log_db_operation("step_runs")
     def create(self, step_run: StepRun) -> StepRun:
         """INSERT. id는 UUID 자동 생성."""
         with self.database.connection() as conn:
@@ -239,6 +252,7 @@ class StepRunRepository:
             conn.commit()
         return step_run
 
+    @log_db_operation("step_runs")
     def update_status(self, step_id: str, status: str, **kwargs) -> None:
         """status 업데이트. kwargs로 finished_at, records_processed,
         error_message, retry_count 등 선택적 필드 업데이트."""
@@ -260,6 +274,7 @@ class StepRunRepository:
             conn.execute(sql, params)
             conn.commit()
 
+    @log_db_operation("step_runs")
     def find_by_pipeline_run(self, pipeline_run_id: str) -> list[StepRun]:
         """특정 파이프라인 실행의 모든 단계 조회."""
         with self.database.connection() as conn:
