@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from airflow_lite.logging_config.middleware import RequestContextMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
@@ -63,6 +65,9 @@ def create_app(
     app.state.analytics_export_service = analytics_export_service
     app.state.admin_repo = admin_repo
     app.state.dispatch_service = dispatch_service
+
+    # Request Context 미들웨어 (request_id 주입, 요청/응답 로깅)
+    app.add_middleware(RequestContextMiddleware)
 
     # CORS 미들웨어 설정 — 사내망 전용
     allowed_origins, allowed_origin_regex = _split_cors_origins(settings.api.allowed_origins)
