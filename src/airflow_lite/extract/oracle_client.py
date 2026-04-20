@@ -131,7 +131,11 @@ class OracleClient:
         if self._connection is not None:
             try:
                 self._connection.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning(
+                    "Oracle connection close failed (%s): %s",
+                    self._connection_target(),
+                    exc,
+                )
             finally:
                 self._connection = None
