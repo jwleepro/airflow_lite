@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -20,7 +21,10 @@ from airflow_lite.query.contracts import (
     ExportJobResponse,
     ExportJobStatus,
 )
+from airflow_lite.logging_config.decorators import log_execution
 from airflow_lite.query.service import AnalyticsExportPlan
+
+logger = logging.getLogger("airflow_lite.export.service")
 
 
 class AnalyticsExportNotReadyError(RuntimeError):
@@ -62,6 +66,7 @@ class FilesystemAnalyticsExportService:
         self.cleanup_expired(force=True)
 
     # --- Public API ---
+    @log_execution(log_args=True, level=logging.INFO)
     def create_export(self, request: ExportCreateRequest) -> ExportCreateResponse:
         self._maybe_cleanup()
         plan = self.query_service.build_export_plan(request)
@@ -90,10 +95,12 @@ class FilesystemAnalyticsExportService:
             created_at=record.created_at,
         )
 
+    @log_execution(log_args=True, level=logging.DEBUG)
     def get_job(self, job_id: str) -> ExportJobResponse:
         self._maybe_cleanup()
         return self._records.read(job_id).to_response()
 
+    @log_execution(level=logging.DEBUG)
     def list_jobs(
         self, *, dataset: str | None = None, limit: int = 50
     ) -> list[ExportJobResponse]:
@@ -106,6 +113,7 @@ class FilesystemAnalyticsExportService:
         records.sort(key=lambda item: (item.created_at, item.job_id), reverse=True)
         return [record.to_response() for record in records[:limit]]
 
+    @log_execution(log_args=True, level=logging.INFO)
     def get_download_path(self, job_id: str) -> tuple[Path, str]:
         self._maybe_cleanup()
         record = self._records.read(job_id)
@@ -114,6 +122,7 @@ class FilesystemAnalyticsExportService:
             raise AnalyticsExportNotReadyError(f"export job is not ready: {job_id}")
         return artifact_path, record.file_name
 
+    @log_execution(log_args=True, level=logging.INFO)
     def delete_job(self, job_id: str) -> None:
         """Admin action: delete a specific export job and its artifact."""
         record = self._records.read(job_id)
@@ -122,6 +131,7 @@ class FilesystemAnalyticsExportService:
             unlink_with_retry(artifact_path)
         unlink_with_retry(self.jobs_path / f"{job_id}.json")
 
+    @log_execution(level=logging.INFO)
     def delete_all_completed(self) -> int:
         """Admin action: delete all completed export jobs. Returns count deleted."""
         count = 0

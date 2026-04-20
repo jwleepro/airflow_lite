@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
@@ -30,9 +31,12 @@ from airflow_lite.query.contracts import (
     SummaryQueryRequest,
     SummaryQueryResponse,
 )
+from airflow_lite.logging_config.decorators import log_execution
 from airflow_lite.query.chart_handlers import CHART_HANDLERS
 from airflow_lite.query.sql_builder import AnalyticsQueryError, AnalyticsSQLBuilder
 from airflow_lite.i18n import DEFAULT_LANGUAGE, translate
+
+logger = logging.getLogger("airflow_lite.query.service")
 
 
 class AnalyticsDatasetNotFoundError(LookupError):
@@ -71,6 +75,7 @@ class DuckDBAnalyticsQueryService:
         self._conn = connection_manager or DuckDBConnectionManager(database_path)
         self._sql = sql_builder or AnalyticsSQLBuilder()
 
+    @log_execution(log_args=True, level=logging.INFO)
     def query_summary(
         self,
         request: SummaryQueryRequest,
@@ -118,6 +123,7 @@ class DuckDBAnalyticsQueryService:
             warnings=[],
         )
 
+    @log_execution(log_args=True, level=logging.INFO)
     def query_chart(
         self,
         request: ChartQueryRequest,
@@ -142,6 +148,7 @@ class DuckDBAnalyticsQueryService:
         with self._conn.connect(read_only=True) as connection:
             return handler.handle(request, connection, where_sql, params, language)
 
+    @log_execution(log_args=True, level=logging.INFO)
     def query_detail(
         self,
         request: DetailQueryRequest,
@@ -194,6 +201,7 @@ class DuckDBAnalyticsQueryService:
             warnings=[],
         )
 
+    @log_execution(log_args=True, level=logging.DEBUG)
     def build_export_plan(self, request: ExportCreateRequest) -> AnalyticsExportPlan:
         expected_format = self._sql.EXPORT_ACTIONS.get(request.action_key)
         if expected_format is None:
@@ -217,6 +225,7 @@ class DuckDBAnalyticsQueryService:
             file_stem=f"{request.dataset}-{detail_key}-{request.action_key}",
         )
 
+    @log_execution(log_args=True, level=logging.DEBUG)
     def get_filter_metadata(
         self,
         dataset: str,
