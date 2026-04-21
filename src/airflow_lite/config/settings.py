@@ -171,6 +171,9 @@ class MartConfig:
 
 
 from ._coerce import coerce_int as _coerce_int, coerce_int_fields as _coerce_int_fields
+from airflow_lite.pipeline_config_validation import coerce_source_query_from_mapping
+from airflow_lite.storage._helpers import decode_password
+from airflow_lite.storage._sqlite_schema import table_columns, table_exists
 
 
 def _build_pipeline_configs(pipeline_items: list[dict]) -> list[PipelineConfig]:
@@ -331,69 +334,5 @@ class Settings:
 
     @classmethod
     def load(cls, config_path: str) -> "Settings":
-        path = Path(config_path)
-        with open(path, "r", encoding="utf-8") as f:
-            raw = yaml.safe_load(f)
-
-        data = _walk_and_substitute(raw)
-        storage = StorageConfig(**data["storage"])
-
-        security_data = data.get("security") or {}
-        crypto = Crypto.from_key_or_env(security_data.get("fernet_key"))
-
-        oracle = _load_oracle_from_sqlite(storage.sqlite_path, crypto)
-        if oracle is None and "oracle" in data:
-            oracle_data = _coerce_int_fields(dict(data["oracle"]), ("port",), "oracle")
-            oracle = OracleConfig(**oracle_data)
-        # oracle 이 None 인 상태로도 기동을 허용한다. Admin UI 에서 connections 에
-        # oracle 을 등록한 뒤 재기동하면 정상화된다. 실제 연결은 파이프라인 실행 시점에
-        # OracleClient 가 시도하므로, 파이프라인이 없으면 접속 실패도 발생하지 않는다.
-
-        defaults_data = data.get("defaults", {})
-        retry_data = _coerce_int_fields(
-            dict(defaults_data.get("retry", {})),
-            ("max_attempts", "min_wait_seconds", "max_wait_seconds"),
-            "defaults.retry",
-        )
-        retry = RetryDefaults(**retry_data)
-        parquet = ParquetDefaults(**defaults_data.get("parquet", {}))
-        defaults = DefaultConfig(
-            chunk_size=_coerce_int(defaults_data.get("chunk_size", 10000), "defaults.chunk_size"),
-            retry=retry,
-            parquet=parquet,
-        )
-
-        pipelines = _load_pipelines_from_sqlite(storage.sqlite_path)
-        if pipelines is None:
-            pipelines = _build_pipeline_configs(data.get("pipelines", []))
-
-        # 빌더 모듈 사용
-        from .builders import (
-            build_alerting_config,
-            build_api_config,
-            build_export_config,
-            build_mart_config,
-            build_scheduler_config,
-            build_webui_config,
-        )
-
-        api = build_api_config(data.get("api"))
-        alerting = build_alerting_config(data.get("alerting"))
-        mart = build_mart_config(data.get("mart"))
-        export = build_export_config(data.get("export"))
-        scheduler = build_scheduler_config(data.get("scheduler"))
-        webui = build_webui_config(data.get("webui"))
-
-        return cls(
-            oracle=oracle,
-            storage=storage,
-            defaults=defaults,
-            pipelines=pipelines,
-            api=api,
-            alerting=alerting,
-            mart=mart,
-            export=export,
-            scheduler=scheduler,
-            webui=webui,
-            crypto=crypto,
-        )
+        from .loader import SettingsLoader
+        return SettingsLoader(config_path).load()

@@ -243,6 +243,7 @@ def test_pipeline_lock_serializes_concurrent_executions(executor, pipeline_repo)
         trigger_type="manual",
     )
 
+    dispatcher._concurrency.reserve("demo")
     future_one = executor.submit(dispatcher._safe_execute, runner, first)
     assert runner.first_started.wait(timeout=2)
 

@@ -10,6 +10,7 @@ from airflow_lite.engine.stage import (
 )
 from airflow_lite.engine.state_machine import InvalidTransitionError, StageStateMachine
 from airflow_lite.engine.pipeline import PipelineDefinition, PipelineRunner
+from airflow_lite.engine.run_state_manager import RunStateManager
 from airflow_lite.storage.models import PipelineRun, StepRun
 
 
@@ -23,6 +24,7 @@ def state_machine(step_repo):
 @pytest.fixture
 def make_runner(pipeline_repo, step_repo, state_machine):
     """PipelineRunner 팩토리 픽스처."""
+    run_state_manager = RunStateManager(state_machine, step_repo)
     def _factory(stages, pipeline_name="test_pipeline", on_run_success=None):
         pipeline = PipelineDefinition(
             name=pipeline_name,
@@ -33,8 +35,7 @@ def make_runner(pipeline_repo, step_repo, state_machine):
         return PipelineRunner(
             pipeline=pipeline,
             run_repo=pipeline_repo,
-            step_repo=step_repo,
-            state_machine=state_machine,
+            run_state_manager=run_state_manager,
             on_run_success=on_run_success,
         )
     return _factory
