@@ -54,16 +54,3 @@ class PoolModel:
     pool_name: str
     slots: int = 1
     description: str | None = None
-
-
-@dataclass
-class PipelineModel:
-    name: str
-    table: str
-    source_where_template: str | None = None
-    source_bind_params: str | dict | None = None
-    strategy: str = "full"
-    schedule: str = "0 2 * * *"
-    chunk_size: int | None = None
-    columns: str | None = None
-    incremental_key: str | None = None

@@ -49,7 +49,7 @@ Airflow Lite는 다음과 같은 환경에 최적화되어 있습니다:
 
 **적합하지 않은 경우**
 - 실시간 CDC, Kafka, 스트리밍 워크로드
-- 분산 실행, DAG 저작, 범용 워크플로 오케스트레이션
+- 분산 실행, 범용 워크플로 오케스트레이션
 - 멀티 서버, Kubernetes, Celery 기반 스케일아웃
 
 > **Apache Airflow를 대체하려는 프로젝트가 아닙니다.**
@@ -123,7 +123,7 @@ Oracle 11g → [ingest] → Parquet raw → [mart] → DuckDB → [serve] → Fa
 pip install -e ".[phase2]"
 ```
 
-### 2. 설정
+### 2. 기본 설정 파일 준비
 
 `config/pipelines.yaml` 준비:
 
@@ -141,12 +141,8 @@ storage:
   sqlite_path: "D:/data/airflow_lite.db"
   log_path: "D:/data/logs"
 
-pipelines:
-  - name: "production_log"
-    table: "PRODUCTION_LOG"
-    partition_column: "LOG_DATE"
-    strategy: "full"
-    schedule: "0 2 * * *"
+defaults:
+  chunk_size: 10000
 
 mart:
   enabled: true
@@ -154,7 +150,26 @@ mart:
   refresh_on_success: true
 ```
 
-### 3. 실행
+### 3. DAG 파일 준비
+
+`dags/default.py` 파일을 생성해 파이프라인을 코드로 정의한다.
+
+```python
+from airflow_lite.dag_api import Pipeline
+
+pipelines = [
+    Pipeline(
+        id="production_log",
+        table="PRODUCTION_LOG",
+        source_where_template="LOG_DATE >= :data_interval_start AND LOG_DATE < :data_interval_end",
+        strategy="full",
+        schedule="0 2 * * *",
+        chunk_size=5000,
+    ),
+]
+```
+
+### 4. 실행
 
 **Windows 서비스**
 
@@ -176,7 +191,7 @@ python -m airflow_lite service stop
 python -m airflow_lite service remove
 ```
 
-### 4. 확인
+### 5. 확인
 
 - Swagger UI: `http://localhost:8000/docs`
 - OpenAPI 스키마: `http://localhost:8000/openapi.json`
@@ -202,14 +217,22 @@ python -m airflow_lite service remove
 
 기본 설정 파일 경로: `config/pipelines.yaml`
 
+파이프라인 정의 파일 경로: `dags/*.py` (기본값). 필요 시 `AIRFLOW_LITE_DAGS_DIR` 환경변수로 DAG 디렉터리를 지정할 수 있다.
+
 ### 설정 규칙
 
 - `${VAR_NAME}` 패턴은 프로세스 환경변수로 치환
-- `strategy`는 `full` 또는 `incremental`
-- `incremental` 파이프라인은 `incremental_key` 필수
 - 정수 필드(`oracle.port`, `defaults.chunk_size` 등)는 자동 변환
 - `api`, `alerting`, `mart`, `webui` 섹션은 선택 사항
 - `webui.default_language`는 `en` 또는 `ko` (기본값: `en`)
+- `pipelines` 섹션은 legacy fallback 용도이며, DAG 파일에서 파이프라인이 로드되면 사용되지 않음
+
+### DAG 정의 규칙
+
+- DAG 파일은 `dags/` 아래 `.py` 파일로 관리
+- 각 파일은 `pipelines` 리스트를 노출해야 함
+- `pipelines` 항목은 `airflow_lite.dag_api.Pipeline` 또는 `PipelineConfig` 인스턴스여야 함
+- `_`로 시작하는 파일은 로드 대상에서 제외됨(`_migrated.py`는 예외)
 
 <details>
 <summary><strong>전체 설정 예시</strong></summary>
@@ -272,13 +295,6 @@ alerting:
 webui:
   monitor_refresh_seconds: 30
   default_language: ko
-
-pipelines:
-  - name: "production_log"
-    table: "PRODUCTION_LOG"
-    partition_column: "LOG_DATE"
-    strategy: "full"
-    schedule: "0 2 * * *"
 ```
 
 </details>
@@ -289,11 +305,13 @@ pipelines:
 
 ### 서비스 런타임 흐름
 
-1. `config/pipelines.yaml`에서 설정 로드
-2. 로깅과 SQLite 메타데이터 데이터베이스 초기화
-3. APScheduler에 스케줄 작업 등록
-4. FastAPI 애플리케이션을 백그라운드 스레드에서 시작
-5. `PipelineRunner`를 통해 각 파이프라인 실행
+1. `config/pipelines.yaml`에서 공통 설정(oracle/storage/defaults 등)을 로드
+2. `dags/*.py`에서 파이프라인 정의를 로드
+3. DAG가 비어 있으면 YAML `pipelines`를 legacy fallback으로 로드
+4. 로깅과 SQLite 메타데이터 데이터베이스 초기화
+5. APScheduler에 스케줄 작업 등록
+6. FastAPI 애플리케이션을 백그라운드 스레드에서 시작
+7. `PipelineRunner`를 통해 각 파이프라인 실행
 
 ### 파이프라인 Stage
 
@@ -433,11 +451,12 @@ Invoke-RestMethod `
 src/airflow_lite/
 ├── __main__.py              # CLI 진입점
 ├── bootstrap.py             # 런타임 서비스 팩토리
+├── dag_api.py               # DAG 파일용 Pipeline 정의 API
 ├── alerting/                # 이메일·웹훅 알림
 ├── analytics/               # KPI 계산, 차트/대시보드 카탈로그
 ├── api/                     # FastAPI 앱 팩토리, 라우트
 │   └── routes/              #   pipelines, backfill, analytics
-├── config/                  # YAML 설정 로더
+├── config/                  # YAML + DAG 설정 로더
 ├── engine/                  # 파이프라인 실행, 전략, 상태 전이, 백필
 ├── executor/                # 로컬 워커 풀
 ├── export/                  # 비동기 analytics export (xlsx/csv/parquet)

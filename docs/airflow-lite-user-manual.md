@@ -41,13 +41,14 @@ Oracle 11g -> Parquet raw -> DuckDB mart -> FastAPI -> Web UI
 - 서비스 계정의 파일 경로 접근 권한 확인
 - 방화벽에서 API 포트 접근 가능 여부 확인
 
-주요 입력 파일은 `config/pipelines.yaml`이다.
+주요 입력 파일은 `config/pipelines.yaml`과 `dags/*.py`이다.
 
 ## 4. 주요 경로와 구성요소
 
 ### 4.1 설정 파일
 
-- `config/pipelines.yaml`: Oracle 연결, 저장 경로, 파이프라인 정의, API, alerting, mart 설정
+- `config/pipelines.yaml`: Oracle 연결, 저장 경로, defaults, API, alerting, mart 설정
+- `dags/*.py`: 파이프라인 정의 source of truth
 
 ### 4.2 주요 데이터 경로
 
@@ -90,7 +91,6 @@ pip install -e ".[phase2,dev]"
 - `oracle`
 - `storage`
 - `defaults`
-- `pipelines`
 - 필요 시 `mart`, `api`, `alerting`, `webui`
 
 예시:
@@ -112,13 +112,6 @@ storage:
 defaults:
   chunk_size: 10000
 
-pipelines:
-  - name: "production_log"
-    table: "PRODUCTION_LOG"
-    partition_column: "LOG_DATE"
-    strategy: "full"
-    schedule: "0 2 * * *"
-
 mart:
   enabled: true
   root_path: "D:/data/mart"
@@ -128,10 +121,37 @@ mart:
 주의:
 
 - `${...}` 값은 환경변수로 치환된다.
-- `incremental` 전략이면 `incremental_key`가 필요하다.
 - 경로는 서비스 계정이 읽기/쓰기 가능해야 한다.
 
-### 5.3 포그라운드 실행
+### 5.3 DAG 파일 준비
+
+파이프라인 등록은 Admin UI가 아니라 `dags/*.py` 코드로 수행한다.
+
+예시: `dags/default.py`
+
+```python
+from airflow_lite.dag_api import Pipeline
+
+pipelines = [
+    Pipeline(
+        id="production_log",
+        table="PRODUCTION_LOG",
+        source_where_template="LOG_DATE >= :data_interval_start AND LOG_DATE < :data_interval_end",
+        strategy="full",
+        schedule="0 2 * * *",
+        chunk_size=5000,
+    ),
+]
+```
+
+운영 규칙:
+
+- `pipelines` 리스트를 모듈 전역으로 노출해야 한다.
+- 각 항목은 `Pipeline` 또는 `PipelineConfig` 타입이어야 한다.
+- `_`로 시작하는 파일은 기본적으로 로드되지 않는다(`_migrated.py` 제외).
+- `AIRFLOW_LITE_DAGS_DIR` 환경변수로 DAG 디렉터리를 오버라이드할 수 있다.
+
+### 5.4 포그라운드 실행
 
 개발 또는 최초 점검 시에는 포그라운드 실행이 가장 단순하다.
 
@@ -147,7 +167,7 @@ python -m airflow_lite run D:\path\to\pipelines.yaml
 
 정상 기동 시 API와 스케줄러가 함께 올라온다.
 
-### 5.4 Windows 서비스 설치
+### 5.5 Windows 서비스 설치
 
 운영 환경에서는 Windows 서비스로 실행하는 것을 기본으로 한다.
 
@@ -276,9 +296,8 @@ python -m airflow_lite service remove
 - connections
 - variables
 - pools
-- pipelines
 
-운영 중 직접 수정하기 전에는 현재 서비스와 설정 파일 기준이 일치하는지 먼저 확인한다.
+파이프라인 정의 변경은 Admin 화면이 아니라 DAG 파일 배포로 수행한다.
 
 ## 8. 수동 실행 방법
 
@@ -363,6 +382,7 @@ Export는 분석 화면의 현재 필터 기준으로 생성하는 흐름이 가
 - Python 패키지 설치 누락 여부
 - Oracle Client 경로와 환경변수 설정
 - `config/pipelines.yaml` 문법 오류
+- `dags/*.py` 문법/임포트 오류
 - 서비스 계정 권한
 - 포트 충돌 여부
 
@@ -419,7 +439,7 @@ python -m airflow_lite run
 
 변경 작업은 아래 순서로 하는 것이 안전하다.
 
-1. 설정 파일 수정
+1. `config/pipelines.yaml` 또는 `dags/*.py` 수정
 2. 포그라운드 모드 또는 테스트 환경에서 점검
 3. 서비스 재시작
 4. `/monitor`에서 상태 확인

@@ -2,7 +2,7 @@ import pytest
 import yaml
 from airflow_lite.storage.database import Database
 from airflow_lite.storage.admin_repository import AdminRepository
-from airflow_lite.storage.models import ConnectionModel, PipelineModel, VariableModel, PoolModel
+from airflow_lite.storage.models import ConnectionModel, VariableModel, PoolModel
 
 @pytest.fixture
 def db(tmp_path):
@@ -101,60 +101,6 @@ def test_pool_crud(admin_repo):
     assert admin_repo.get_pool("test_pool") is None
 
 
-def test_pipeline_crud(admin_repo):
-    pipeline = PipelineModel(
-        name="production_log",
-        table="PRODUCTION_LOG",
-        source_where_template="LOG_DATE >= :data_interval_start AND LOG_DATE < :data_interval_end",
-        strategy="incremental",
-        schedule="0 */6 * * *",
-        chunk_size=5000,
-        columns="LOG_ID, LOG_DATE, STATUS",
-        incremental_key="UPDATED_AT",
-    )
-
-    admin_repo.create_pipeline(pipeline)
-
-    fetched = admin_repo.get_pipeline("production_log")
-    assert fetched is not None
-    assert fetched.table == "PRODUCTION_LOG"
-    assert fetched.columns == "LOG_ID,LOG_DATE,STATUS"
-
-    listed = admin_repo.list_pipelines()
-    assert len(listed) == 1
-    assert listed[0].name == "production_log"
-
-    pipeline.strategy = "full"
-    pipeline.incremental_key = None
-    pipeline.columns = "LOG_ID, STATUS"
-    admin_repo.update_pipeline(pipeline)
-    updated = admin_repo.get_pipeline("production_log")
-    assert updated.strategy == "full"
-    assert updated.incremental_key is None
-    assert updated.columns == "LOG_ID,STATUS"
-
-    admin_repo.delete_pipeline("production_log")
-    assert admin_repo.get_pipeline("production_log") is None
-
-
-def test_pipeline_crud_supports_source_where_template_and_bind_params(admin_repo):
-    pipeline = PipelineModel(
-        name="production_log_template",
-        table="PRODUCTION_LOG",
-        source_where_template="TRAN_YEAR = :year AND TRAN_MONTH = :month",
-        source_bind_params='{"year":"{{ data_interval_start.year }}","month":"{{ data_interval_start.month }}"}',
-        strategy="full",
-        schedule="0 2 * * *",
-    )
-
-    admin_repo.create_pipeline(pipeline)
-
-    fetched = admin_repo.get_pipeline("production_log_template")
-    assert fetched is not None
-    assert fetched.source_where_template == "TRAN_YEAR = :year AND TRAN_MONTH = :month"
-    assert fetched.source_bind_params == '{"month":"{{ data_interval_start.month }}","year":"{{ data_interval_start.year }}"}'
-
-
 def test_migrate_from_yaml_imports_admin_entities_and_removes_legacy_sections(tmp_path):
     config_path = tmp_path / "pipelines.yaml"
     config_path.write_text(
@@ -190,15 +136,6 @@ pools:
     slots: 4
     description: "default"
 
-pipelines:
-  - name: "production_log"
-    table: "PRODUCTION_LOG"
-    source_where_template: "LOG_DATE >= :data_interval_start AND LOG_DATE < :data_interval_end"
-    strategy: "incremental"
-    schedule: "0 */6 * * *"
-    chunk_size: 5000
-    columns: ["LOG_ID", "LOG_DATE", "STATUS"]
-    incremental_key: "UPDATED_AT"
 """,
         encoding="utf-8",
     )
@@ -225,11 +162,7 @@ pipelines:
     assert pool is not None
     assert pool.slots == 4
 
-    pipeline = repo.get_pipeline("production_log")
-    assert pipeline is not None
-    assert pipeline.columns == "LOG_ID,LOG_DATE,STATUS"
-
     migrated_yaml = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-    for removed_key in ("oracle", "connections", "variables", "pools", "pipelines"):
+    for removed_key in ("oracle", "connections", "variables", "pools"):
         assert removed_key not in migrated_yaml
     assert "storage" in migrated_yaml

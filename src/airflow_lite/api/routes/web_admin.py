@@ -67,16 +67,3 @@ async def delete_pool_from_monitor(request: Request, language: str = Depends(get
     return await _handle_admin_form(request, admin_forms.delete_pool, language)
 
 
-@router.post(f"{MONITOR_ADMIN_PATH}/pipelines")
-async def create_pipeline_from_monitor(request: Request, language: str = Depends(get_language)):
-    return await _handle_admin_form(request, admin_forms.create_pipeline, language)
-
-
-@router.post(f"{MONITOR_ADMIN_PATH}/pipelines/edit")
-async def edit_pipeline_from_monitor(request: Request, language: str = Depends(get_language)):
-    return await _handle_admin_form(request, admin_forms.update_pipeline, language)
-
-
-@router.post(f"{MONITOR_ADMIN_PATH}/pipelines/delete")
-async def delete_pipeline_from_monitor(request: Request, language: str = Depends(get_language)):
-    return await _handle_admin_form(request, admin_forms.delete_pipeline, language)

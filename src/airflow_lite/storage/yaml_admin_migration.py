@@ -3,23 +3,17 @@ from typing import Any
 
 import ruamel.yaml
 
-from airflow_lite.storage._helpers import decode_password, normalize_columns
+from airflow_lite.storage._helpers import decode_password
 from airflow_lite.storage.connection_repository import ConnectionRepository
 from airflow_lite.storage.crypto import Crypto
 from airflow_lite.storage.database import Database
 from airflow_lite.storage.models import (
     ConnectionModel,
-    PipelineModel,
     PoolModel,
     VariableModel,
 )
-from airflow_lite.storage.pipeline_repository import PipelineRepository
 from airflow_lite.storage.pool_repository import PoolRepository
 from airflow_lite.storage.variable_repository import VariableRepository
-from airflow_lite.pipeline_config_validation import (
-    coerce_source_query_from_mapping,
-    serialize_source_bind_params,
-)
 
 
 def _as_list(value: Any) -> list[dict[str, Any]]:
@@ -72,35 +66,6 @@ def _build_pool_model(item: dict[str, Any]) -> PoolModel | None:
     )
 
 
-def _build_pipeline_model(item: dict[str, Any]) -> PipelineModel | None:
-    name = item.get("name")
-    table = item.get("table")
-    if not name or not table:
-        return None
-    strategy = str(item.get("strategy", "full"))
-    source_where_template, source_bind_params = coerce_source_query_from_mapping(
-        item, strategy=strategy
-    )
-
-    chunk_raw = item.get("chunk_size")
-    try:
-        chunk_size = int(chunk_raw) if chunk_raw is not None else None
-    except (TypeError, ValueError):
-        chunk_size = None
-
-    return PipelineModel(
-        name=str(name),
-        table=str(table),
-        source_where_template=source_where_template,
-        source_bind_params=serialize_source_bind_params(source_bind_params),
-        strategy=strategy,
-        schedule=str(item.get("schedule", "0 2 * * *")),
-        chunk_size=chunk_size,
-        columns=normalize_columns(item.get("columns")),
-        incremental_key=item.get("incremental_key"),
-    )
-
-
 def _table_is_empty(db: Database, table_name: str) -> bool:
     with db.connection() as conn:
         count = conn.execute(
@@ -116,7 +81,6 @@ def migrate_yaml_to_sqlite(
     connections: ConnectionRepository,
     variables: VariableRepository,
     pools: PoolRepository,
-    pipelines: PipelineRepository,
     crypto: Crypto,
 ) -> None:
     """서버 기동 시 YAML 관리 데이터(legacy)를 SQLite로 1회 import."""
@@ -133,7 +97,6 @@ def migrate_yaml_to_sqlite(
     connections_empty = _table_is_empty(database, "connections")
     variables_empty = _table_is_empty(database, "variables")
     pools_empty = _table_is_empty(database, "pools")
-    pipelines_empty = _table_is_empty(database, "pipeline_configs")
 
     migrated = False
 
@@ -174,17 +137,10 @@ def migrate_yaml_to_sqlite(
                 pools.create(model)
                 migrated = True
 
-    if pipelines_empty:
-        for item in _as_list(data.get("pipelines")):
-            model = _build_pipeline_model(item)
-            if model and pipelines.get(model.name) is None:
-                pipelines.create(model)
-                migrated = True
-
     if not migrated:
         return
 
-    for key in ("oracle", "connections", "variables", "pools", "pipelines"):
+    for key in ("oracle", "connections", "variables", "pools"):
         if key in data:
             del data[key]
 

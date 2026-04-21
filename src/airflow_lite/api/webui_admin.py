@@ -31,6 +31,5 @@ def render_admin_page(
         connections=view_data.connections,
         variables=view_data.variables,
         pools=view_data.pools,
-        pipelines=view_data.pipelines,
         error=error,
     )

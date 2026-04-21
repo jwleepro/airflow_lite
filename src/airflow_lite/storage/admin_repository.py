@@ -6,11 +6,9 @@ from airflow_lite.storage.crypto import Crypto
 from airflow_lite.storage.database import Database
 from airflow_lite.storage.models import (
     ConnectionModel,
-    PipelineModel,
     PoolModel,
     VariableModel,
 )
-from airflow_lite.storage.pipeline_repository import PipelineRepository
 from airflow_lite.storage.pool_repository import PoolRepository
 from airflow_lite.storage.variable_repository import VariableRepository
 from airflow_lite.storage.yaml_admin_migration import migrate_yaml_to_sqlite
@@ -34,14 +32,12 @@ class AdminRepository:
         self.connections = ConnectionRepository(database, self.crypto)
         self.variables = VariableRepository(database)
         self.pools = PoolRepository(database)
-        self.pipelines = PipelineRepository(database)
         migrate_yaml_to_sqlite(
             database,
             config_path,
             connections=self.connections,
             variables=self.variables,
             pools=self.pools,
-            pipelines=self.pipelines,
             crypto=self.crypto,
         )
 
@@ -108,23 +104,3 @@ class AdminRepository:
     def delete_pool(self, pool_name: str) -> None:
         self.pools.delete(pool_name)
 
-    # --- Pipelines ---
-    @log_db_operation("pipelines")
-    def get_pipeline(self, name: str) -> Optional[PipelineModel]:
-        return self.pipelines.get(name)
-
-    @log_db_operation("pipelines")
-    def list_pipelines(self) -> list[PipelineModel]:
-        return self.pipelines.list()
-
-    @log_db_operation("pipelines")
-    def create_pipeline(self, model: PipelineModel) -> None:
-        self.pipelines.create(model)
-
-    @log_db_operation("pipelines")
-    def update_pipeline(self, model: PipelineModel) -> None:
-        self.pipelines.update(model)
-
-    @log_db_operation("pipelines")
-    def delete_pipeline(self, name: str) -> None:
-        self.pipelines.delete(name)

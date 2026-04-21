@@ -310,46 +310,6 @@ def test_initialize_migrates_old_pipeline_run_constraint(tmp_path):
     assert len(repo.find_by_pipeline("etl_sales")) == 4
 
 
-def test_initialize_adds_source_query_columns_to_legacy_pipeline_configs(tmp_path):
-    from airflow_lite.storage.database import Database
-
-    db_path = tmp_path / "legacy_pipeline_configs.db"
-    conn = sqlite3.connect(db_path)
-    try:
-        conn.executescript(
-            """
-            CREATE TABLE pipeline_configs (
-                name TEXT PRIMARY KEY,
-                source_table TEXT NOT NULL,
-                partition_column TEXT NOT NULL,
-                strategy TEXT NOT NULL,
-                schedule TEXT NOT NULL,
-                chunk_size INTEGER,
-                columns TEXT,
-                incremental_key TEXT
-            );
-            """
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-    database = Database(str(db_path))
-    database.initialize()
-
-    conn = sqlite3.connect(db_path)
-    try:
-        columns = {
-            row[1]
-            for row in conn.execute("PRAGMA table_info('pipeline_configs')").fetchall()
-        }
-    finally:
-        conn.close()
-
-    assert "source_where_template" in columns
-    assert "source_bind_params" in columns
-
-
 def test_step_run_update_status_with_error(pipeline_repo, step_repo):
     run = _make_run()
     pipeline_repo.create(run)

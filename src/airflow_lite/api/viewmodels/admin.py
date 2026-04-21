@@ -39,24 +39,10 @@ class PoolVM(ModelMappingMixin):
 
 
 @dataclass
-class PipelineVM(ModelMappingMixin):
-    name: str
-    table: str
-    source_where_template: str | None = None
-    source_bind_params: str | None = None
-    strategy: str = "full"
-    schedule: str = "0 2 * * *"
-    chunk_size: int | None = None
-    columns: str | None = None
-    incremental_key: str | None = None
-
-
-@dataclass
 class AdminPageViewData:
     connections: list[ConnectionVM] = field(default_factory=list)
     variables: list[VariableVM] = field(default_factory=list)
     pools: list[PoolVM] = field(default_factory=list)
-    pipelines: list[PipelineVM] = field(default_factory=list)
 
     @classmethod
     def from_repo_payload(
@@ -65,11 +51,9 @@ class AdminPageViewData:
         connections: Iterable,
         variables: Iterable,
         pools: Iterable,
-        pipelines: Iterable,
     ) -> "AdminPageViewData":
         return cls(
             connections=[ConnectionVM.from_model(c) for c in connections],
             variables=[VariableVM.from_model(v) for v in variables],
             pools=[PoolVM.from_model(p) for p in pools],
-            pipelines=[PipelineVM.from_model(p) for p in pipelines],
         )
