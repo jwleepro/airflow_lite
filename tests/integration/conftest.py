@@ -13,6 +13,7 @@ import pytest
 
 from airflow_lite.config.settings import OracleConfig, PipelineConfig, Settings
 from airflow_lite.engine.pipeline import PipelineDefinition, PipelineRunner
+from airflow_lite.engine.run_state_manager import RunStateManager
 from airflow_lite.engine.stage import RetryConfig, StageDefinition, StageResult
 from airflow_lite.engine.state_machine import StageStateMachine
 from airflow_lite.engine.strategy import FullMigrationStrategy, IncrementalMigrationStrategy
@@ -231,6 +232,7 @@ def make_e2e_runner(oracle_client, parquet_writer, pipeline_repos):
     win_service.py:_create_runner_factory()와 동일한 컴포넌트 조립 패턴."""
     run_repo, step_repo = pipeline_repos
     state_machine = StageStateMachine(step_repo)
+    run_state_manager = RunStateManager(state_machine, step_repo)
 
     def _factory(pipeline_config, chunk_size=10):
         reader = ChunkedReader(connection=None, chunk_size=chunk_size)
@@ -276,8 +278,7 @@ def make_e2e_runner(oracle_client, parquet_writer, pipeline_repos):
                 chunk_size=chunk_size,
             ),
             run_repo=run_repo,
-            step_repo=step_repo,
-            state_machine=state_machine,
+            run_state_manager=run_state_manager,
         )
 
     return _factory

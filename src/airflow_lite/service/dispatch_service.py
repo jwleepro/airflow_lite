@@ -12,21 +12,12 @@ Airflow 3.x 의 UI/API 서버가 DagRun 을 INSERT 만 하고 scheduler+executor
 from __future__ import annotations
 
 import logging
-import threading
 from datetime import date, datetime
 from typing import Callable, TYPE_CHECKING
 
 from airflow_lite.api._resolver import resolve_backfill_manager, resolve_factory
+from airflow_lite.service.concurrency_manager import ConcurrencyManager
 from airflow_lite.storage.models import PipelineRun
-
-
-def _resolve_runner_for_dispatch(entry):
-    """prepare_run 노출 기준으로 runner 인스턴스를 얻는다.
-
-    기존 resolve_runner 는 동기 ``run()`` 메서드 존재를 기준으로 판별하지만,
-    디스패처는 prepare_run/execute_prepared_run 을 직접 호출하므로 별도 체크가 필요하다.
-    """
-    return resolve_factory(entry, "prepare_run", "runner_map")
 
 if TYPE_CHECKING:
     from airflow_lite.executor.pipeline_local_executor import PipelineLocalExecutor
@@ -81,13 +72,7 @@ class PipelineDispatchService:
         self._runner_map = runner_map
         self._backfill_map = backfill_map
         self._executor = executor
-        self._run_repo = run_repo
-        # 이미 워커에 넘긴 run_id. 동일 queued row 에 대해 execute 가 중복 submit 되지 않도록 한다.
-        self._in_flight: set[str] = set()
-        self._in_flight_lock = threading.Lock()
-        self._pipeline_locks: dict[str, threading.Lock] = {}
-        self._pipeline_locks_guard = threading.Lock()
-        self._active_pipelines: set[str] = set()
+        self._concurrency = ConcurrencyManager(run_repo)
 
     def has_pipeline(self, pipeline_name: str) -> bool:
         return pipeline_name in self._runner_map
@@ -96,45 +81,14 @@ class PipelineDispatchService:
         return pipeline_name in self._backfill_map
 
     def get_active_pipelines(self) -> tuple[str, ...]:
-        with self._pipeline_locks_guard:
-            return tuple(sorted(self._active_pipelines))
-
-    def _get_pipeline_lock(self, pipeline_name: str) -> threading.Lock:
-        with self._pipeline_locks_guard:
-            lock = self._pipeline_locks.get(pipeline_name)
-            if lock is None:
-                lock = threading.Lock()
-                self._pipeline_locks[pipeline_name] = lock
-            return lock
-
-    def _mark_pipeline_active(self, pipeline_name: str) -> None:
-        with self._pipeline_locks_guard:
-            self._active_pipelines.add(pipeline_name)
-
-    def _release_pipeline(self, pipeline_name: str) -> None:
-        with self._pipeline_locks_guard:
-            self._active_pipelines.discard(pipeline_name)
-
-    def _is_pipeline_active(self, pipeline_name: str) -> bool:
-        with self._pipeline_locks_guard:
-            return pipeline_name in self._active_pipelines
-
-    def _reserve_pipeline(self, pipeline_name: str) -> None:
-        with self._pipeline_locks_guard:
-            if pipeline_name in self._active_pipelines:
-                raise self._build_pipeline_busy_error(pipeline_name)
-            self._active_pipelines.add(pipeline_name)
-
-    def _build_pipeline_busy_error(self, pipeline_name: str) -> PipelineBusyError:
-        active_run = self._run_repo.find_any_active_by_pipeline(pipeline_name)
-        return PipelineBusyError(pipeline_name, active_run)
+        return self._concurrency.get_active_pipelines()
 
     def _raise_if_pipeline_busy(self, pipeline_name: str) -> None:
-        active_run = self._run_repo.find_any_active_by_pipeline(pipeline_name)
+        active_run = self._concurrency.run_repo.find_any_active_by_pipeline(pipeline_name)
         if active_run is not None:
             raise PipelineBusyError(pipeline_name, active_run)
-        if self._is_pipeline_active(pipeline_name):
-            raise self._build_pipeline_busy_error(pipeline_name)
+        if pipeline_name in self._concurrency.get_active_pipelines():
+            raise PipelineBusyError(pipeline_name)
 
     def submit_manual_run(
         self,
@@ -151,14 +105,14 @@ class PipelineDispatchService:
             raise KeyError(f"파이프라인 '{pipeline_name}' 이 runner_map 에 없습니다.")
 
         if not force_rerun:
-            existing_success = self._run_repo.find_latest_success_by_execution_date(
+            existing_success = self._concurrency.run_repo.find_latest_success_by_execution_date(
                 pipeline_name,
                 execution_date,
             )
             if existing_success is not None:
                 return existing_success
 
-            existing_active = self._run_repo.find_active_by_execution_date(
+            existing_active = self._concurrency.run_repo.find_active_by_execution_date(
                 pipeline_name,
                 execution_date,
             )
@@ -166,7 +120,7 @@ class PipelineDispatchService:
                 return existing_active
 
         self._raise_if_pipeline_busy(pipeline_name)
-        self._reserve_pipeline(pipeline_name)
+        self._concurrency.reserve(pipeline_name)
         runner = _resolve_runner_for_dispatch(self._runner_map[pipeline_name])
         try:
             pipeline_run = runner.prepare_run(
@@ -175,23 +129,15 @@ class PipelineDispatchService:
                 force_rerun=force_rerun,
             )
             if pipeline_run.status == "queued":
-                should_submit = False
-                with self._in_flight_lock:
-                    if pipeline_run.id not in self._in_flight:
-                        self._in_flight.add(pipeline_run.id)
-                        should_submit = True
-                if should_submit:
+                if self._concurrency.claim_in_flight(str(pipeline_run.id)):
                     try:
                         self._executor.submit(self._safe_execute, runner, pipeline_run)
                     except Exception:
-                        with self._in_flight_lock:
-                            self._in_flight.discard(pipeline_run.id)
+                        self._concurrency.release_in_flight(str(pipeline_run.id))
                         raise
-                    return pipeline_run
-            self._release_pipeline(pipeline_name)
             return pipeline_run
         except Exception:
-            self._release_pipeline(pipeline_name)
+            self._concurrency.release(pipeline_name)
             raise
 
     def submit_backfill(
@@ -212,7 +158,7 @@ class PipelineDispatchService:
             raise ValueError("end_date는 start_date보다 같거나 이후여야 합니다.")
 
         self._raise_if_pipeline_busy(pipeline_name)
-        self._reserve_pipeline(pipeline_name)
+        self._concurrency.reserve(pipeline_name)
         manager = resolve_backfill_manager(self._backfill_map[pipeline_name])
         try:
             self._executor.submit(
@@ -224,13 +170,13 @@ class PipelineDispatchService:
                 force_rerun,
             )
         except Exception:
-            self._release_pipeline(pipeline_name)
+            self._concurrency.release(pipeline_name)
             raise
 
     def _safe_execute(self, runner, pipeline_run: PipelineRun) -> None:
         pipeline_name = pipeline_run.pipeline_name
-        with self._get_pipeline_lock(pipeline_name):
-            self._mark_pipeline_active(pipeline_name)
+        lock = self._concurrency.acquire_lock(pipeline_name)
+        with lock:
             try:
                 runner.execute_prepared_run(pipeline_run)
             except Exception:
@@ -239,18 +185,15 @@ class PipelineDispatchService:
                     pipeline_name,
                     pipeline_run.id,
                 )
-                # execute_prepared_run 내부에서 failed 전이를 보장하지만,
-                # 예외가 밖으로 튀는 경우에 대비해 한 번 더 보정한다.
                 try:
-                    self._run_repo.update_status(
+                    self._concurrency.run_repo.update_status(
                         pipeline_run.id, "failed", finished_at=datetime.now()
                     )
                 except Exception:
                     logger.exception("failed 상태 보정도 실패: run_id=%s", pipeline_run.id)
             finally:
-                with self._in_flight_lock:
-                    self._in_flight.discard(pipeline_run.id)
-                self._release_pipeline(pipeline_name)
+                self._concurrency.release_in_flight(str(pipeline_run.id))
+                self._concurrency.release(pipeline_name)
 
     def _safe_backfill(
         self,
@@ -260,8 +203,8 @@ class PipelineDispatchService:
         end_date: date,
         force_rerun: bool,
     ) -> None:
-        with self._get_pipeline_lock(pipeline_name):
-            self._mark_pipeline_active(pipeline_name)
+        lock = self._concurrency.acquire_lock(pipeline_name)
+        with lock:
             try:
                 manager.run_backfill(
                     pipeline_name=pipeline_name,
@@ -277,4 +220,9 @@ class PipelineDispatchService:
                     end_date,
                 )
             finally:
-                self._release_pipeline(pipeline_name)
+                self._concurrency.release(pipeline_name)
+
+
+def _resolve_runner_for_dispatch(entry):
+    """prepare_run 노출 기준으로 runner 인스턴스를 얻는다."""
+    return resolve_factory(entry, "prepare_run", "runner_map")

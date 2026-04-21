@@ -6,6 +6,7 @@ from airflow_lite.alerting.factory import build_alert_manager
 from airflow_lite.config.settings import Settings
 from airflow_lite.engine.callbacks import PipelineCallbacks
 from airflow_lite.engine.pipeline import PipelineDefinition, PipelineRunner
+from airflow_lite.engine.run_state_manager import RunStateManager
 from airflow_lite.engine.stage import RetryConfig, StageDefinition, StageResult
 from airflow_lite.engine.state_machine import StageStateMachine
 from airflow_lite.engine.strategy import (
@@ -98,6 +99,7 @@ def create_runner_factory(settings, run_repo, step_repo):
             ),
         ]
 
+        run_state_manager = RunStateManager(state_machine, step_repo)
         return PipelineRunner(
             pipeline=PipelineDefinition(
                 name=pipeline_name,
@@ -107,8 +109,7 @@ def create_runner_factory(settings, run_repo, step_repo):
                 chunk_size=chunk_size,
             ),
             run_repo=run_repo,
-            step_repo=step_repo,
-            state_machine=state_machine,
+            run_state_manager=run_state_manager,
             on_run_success=callbacks.on_success,
         )
 

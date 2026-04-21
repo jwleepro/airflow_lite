@@ -10,9 +10,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Iterable
 
+from airflow_lite.api.viewmodels._base import ModelMappingMixin
+
 
 @dataclass
-class ConnectionVM:
+class ConnectionVM(ModelMappingMixin):
     conn_id: str
     conn_type: str = "oracle"
     host: str | None = None
@@ -21,47 +23,23 @@ class ConnectionVM:
     login: str | None = None
     description: str | None = None
 
-    @classmethod
-    def from_model(cls, model) -> "ConnectionVM":
-        return cls(
-            conn_id=model.conn_id,
-            conn_type=model.conn_type,
-            host=model.host,
-            port=model.port,
-            schema=model.schema,
-            login=model.login,
-            description=model.description,
-        )
-
 
 @dataclass
-class VariableVM:
+class VariableVM(ModelMappingMixin):
     key: str
     val: str | None = None
     description: str | None = None
 
-    @classmethod
-    def from_model(cls, model) -> "VariableVM":
-        return cls(key=model.key, val=model.val, description=model.description)
-
 
 @dataclass
-class PoolVM:
+class PoolVM(ModelMappingMixin):
     pool_name: str
     slots: int = 1
     description: str | None = None
 
-    @classmethod
-    def from_model(cls, model) -> "PoolVM":
-        return cls(
-            pool_name=model.pool_name,
-            slots=model.slots,
-            description=model.description,
-        )
-
 
 @dataclass
-class PipelineVM:
+class PipelineVM(ModelMappingMixin):
     name: str
     table: str
     source_where_template: str | None = None
@@ -71,20 +49,6 @@ class PipelineVM:
     chunk_size: int | None = None
     columns: str | None = None
     incremental_key: str | None = None
-
-    @classmethod
-    def from_model(cls, model) -> "PipelineVM":
-        return cls(
-            name=model.name,
-            table=model.table,
-            source_where_template=model.source_where_template,
-            source_bind_params=model.source_bind_params,
-            strategy=model.strategy,
-            schedule=model.schedule,
-            chunk_size=model.chunk_size,
-            columns=model.columns,
-            incremental_key=model.incremental_key,
-        )
 
 
 @dataclass
