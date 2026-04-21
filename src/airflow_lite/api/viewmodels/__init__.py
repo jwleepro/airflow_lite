@@ -7,7 +7,6 @@ code (templates, renderers) does not depend on persistence layer types.
 from airflow_lite.api.viewmodels.admin import (
     AdminPageViewData,
     ConnectionVM,
-    PipelineVM,
     PoolVM,
     VariableVM,
 )
@@ -15,7 +14,6 @@ from airflow_lite.api.viewmodels.admin import (
 __all__ = [
     "AdminPageViewData",
     "ConnectionVM",
-    "PipelineVM",
     "PoolVM",
     "VariableVM",
 ]

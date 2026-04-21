@@ -1,13 +1,12 @@
 import logging
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 
 from airflow_lite.api.dependencies import get_admin_repo
 from airflow_lite.logging_config.decorators import log_execution
-from airflow_lite.scheduler.schedule_validator import validate_schedule
 from airflow_lite.storage.admin_repository import AdminRepository
-from airflow_lite.storage.models import ConnectionModel, PipelineModel, PoolModel, VariableModel
+from airflow_lite.storage.models import ConnectionModel, PoolModel, VariableModel
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger("airflow_lite.api.routes.admin")
@@ -103,39 +102,3 @@ def delete_pool(pool_name: str, repo: AdminRepository = Depends(get_admin_repo))
     return {"message": "Pool deleted successfully"}
 
 
-# --- Pipelines ---
-@router.get("/pipelines", response_model=List[PipelineModel])
-@log_execution(level=logging.DEBUG)
-def list_pipelines(repo: AdminRepository = Depends(get_admin_repo)):
-    return repo.list_pipelines()
-
-
-@router.post("/pipelines")
-@log_execution(log_args=True, level=logging.INFO)
-def create_pipeline(pipeline: PipelineModel, repo: AdminRepository = Depends(get_admin_repo)):
-    try:
-        validate_schedule(pipeline.schedule)
-        repo.create_pipeline(pipeline)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return {"message": "Pipeline created successfully"}
-
-
-@router.put("/pipelines/{name}")
-@log_execution(log_args=True, level=logging.INFO)
-def update_pipeline(name: str, pipeline: PipelineModel, repo: AdminRepository = Depends(get_admin_repo)):
-    if name != pipeline.name:
-        raise HTTPException(status_code=400, detail="Pipeline Name mismatch")
-    try:
-        validate_schedule(pipeline.schedule)
-        repo.update_pipeline(pipeline)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return {"message": "Pipeline updated successfully"}
-
-
-@router.delete("/pipelines/{name}")
-@log_execution(log_args=True, level=logging.INFO)
-def delete_pipeline(name: str, repo: AdminRepository = Depends(get_admin_repo)):
-    repo.delete_pipeline(name)
-    return {"message": "Pipeline deleted successfully"}

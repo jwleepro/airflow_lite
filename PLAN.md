@@ -24,9 +24,15 @@
 
 ### 완료
 
+- 운영 문서 전환: `README.md`와 `docs/airflow-lite-user-manual.md`를 DAG 파일 배포 중심 절차로 갱신
+
 ### 현재
 
+- 없음
+
 ### 다음
+
+- DAG 기반 확장(예: Oracle 메타데이터 기반 discovery rule)을 실제로 도입할 경우, DAG 정의 레이어에서 확장
 
 ## 의존 관계
 

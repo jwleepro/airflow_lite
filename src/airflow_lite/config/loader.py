@@ -9,6 +9,11 @@ import yaml
 from pathlib import Path
 
 from airflow_lite.storage.crypto import Crypto
+from .dag_loader import (
+    load_dag_pipelines,
+    migrate_sqlite_pipelines_to_dag_file_if_needed,
+    resolve_dags_dir,
+)
 
 from .settings import (
     AlertingConfig,
@@ -24,7 +29,6 @@ from .settings import (
     WebUIConfig,
     _build_pipeline_configs,
     _load_oracle_from_sqlite,
-    _load_pipelines_from_sqlite,
     _coerce_int,
     _coerce_int_fields,
     RetryDefaults,
@@ -104,11 +108,13 @@ class SettingsLoader:
             parquet=parquet,
         )
 
-    @staticmethod
-    def _load_pipelines(data: dict, storage: StorageConfig) -> list[PipelineConfig] | None:
-        pipelines = _load_pipelines_from_sqlite(storage.sqlite_path)
-        if pipelines is None:
-            pipelines = _build_pipeline_configs(data.get("pipelines", []))
+    def _load_pipelines(self, data: dict, storage: StorageConfig) -> list[PipelineConfig] | None:
+        dags_dir = resolve_dags_dir(self.config_path)
+        migrate_sqlite_pipelines_to_dag_file_if_needed(storage.sqlite_path, dags_dir)
+        pipelines = load_dag_pipelines(dags_dir)
+        if pipelines:
+            return pipelines
+        pipelines = _build_pipeline_configs(data.get("pipelines", []))
         return pipelines
 
     @staticmethod

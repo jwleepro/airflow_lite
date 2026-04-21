@@ -9,8 +9,9 @@ from typing import Any
 from airflow_lite.i18n import require_supported_language
 from airflow_lite.pipeline_config_validation import coerce_source_query_from_mapping
 from airflow_lite.storage._helpers import decode_password
-from airflow_lite.storage._sqlite_schema import table_columns, table_exists
+from airflow_lite.storage._sqlite_schema import table_exists
 from airflow_lite.storage.crypto import Crypto
+from ._coerce import coerce_int as _coerce_int, coerce_int_fields as _coerce_int_fields
 
 # 환경변수 치환 패턴: ${VAR_NAME}
 ENV_VAR_PATTERN = re.compile(r"\$\{(\w+)\}")
@@ -169,13 +170,6 @@ class MartConfig:
     refresh_on_success: bool = True
     pipeline_datasets: dict[str, str] = field(default_factory=dict)
 
-
-from ._coerce import coerce_int as _coerce_int, coerce_int_fields as _coerce_int_fields
-from airflow_lite.pipeline_config_validation import coerce_source_query_from_mapping
-from airflow_lite.storage._helpers import decode_password
-from airflow_lite.storage._sqlite_schema import table_columns, table_exists
-
-
 def _build_pipeline_configs(pipeline_items: list[dict]) -> list[PipelineConfig]:
     pipelines: list[PipelineConfig] = []
     for index, pipeline_data in enumerate(pipeline_items, start=1):
@@ -239,66 +233,6 @@ def _load_oracle_from_sqlite(sqlite_path: str, crypto: Crypto) -> OracleConfig |
             user=row["login"],
             password=decode_password(row["password"], crypto) or "",
         )
-    finally:
-        connection.close()
-
-
-def _load_pipelines_from_sqlite(sqlite_path: str) -> list[PipelineConfig] | None:
-    db_path = Path(sqlite_path)
-    if not db_path.exists():
-        return None
-
-    connection = sqlite3.connect(str(db_path))
-    connection.row_factory = sqlite3.Row
-    try:
-        if not table_exists(connection, "pipeline_configs"):
-            return None
-        available_columns = table_columns(connection, "pipeline_configs")
-        required_columns = [
-            "name",
-            "source_table",
-            "strategy",
-            "schedule",
-            "chunk_size",
-            "columns",
-            "incremental_key",
-        ]
-        optional_columns = [
-            col
-            for col in ("source_where_template", "source_bind_params", "partition_column")
-            if col in available_columns
-        ]
-        select_columns = required_columns[:2] + optional_columns + required_columns[2:]
-        rows = connection.execute(
-            f"""
-            SELECT
-                {", ".join(select_columns)}
-            FROM pipeline_configs
-            ORDER BY name
-            """
-        ).fetchall()
-        if not rows:
-            return None
-        pipelines: list[PipelineConfig] = []
-        for row in rows:
-            row_dict = dict(row)
-            source_where_template, source_bind_params = coerce_source_query_from_mapping(
-                row_dict, strategy=row_dict["strategy"]
-            )
-            pipelines.append(
-                PipelineConfig(
-                    name=row_dict["name"],
-                    table=row_dict["source_table"],
-                    source_where_template=source_where_template,
-                    source_bind_params=source_bind_params,
-                    strategy=row_dict["strategy"],
-                    schedule=row_dict["schedule"],
-                    chunk_size=row_dict["chunk_size"],
-                    columns=_normalize_columns(row_dict["columns"]),
-                    incremental_key=row_dict["incremental_key"],
-                )
-            )
-        return pipelines
     finally:
         connection.close()
 

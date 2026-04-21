@@ -17,7 +17,6 @@
     <span class="chip">{{ connections|length }} {{ t('webui.admin.chip.connections') }}</span>
     <span class="chip">{{ variables|length }} {{ t('webui.admin.chip.variables') }}</span>
     <span class="chip">{{ pools|length }} {{ t('webui.admin.chip.pools') }}</span>
-    <span class="chip">{{ pipelines|length }} {{ t('webui.admin.chip.pipelines') }}</span>
   </div>
 </section>
 
@@ -158,124 +157,6 @@
     </div>
   </section>
 
-  <section class="panel">
-    <div class="panel-head">
-      <div>
-        <p class="eyebrow">{{ t('webui.admin.pipelines.eyebrow') }}</p>
-        <h2>{{ t('webui.admin.pipelines.title') }}</h2>
-      </div>
-    </div>
-    <div class="section-note">{{ t('webui.admin.pipelines.note') }}</div>
-    <div class="table-wrap">
-      <table class="air-table">
-        <thead>
-          <tr>
-            <th>{{ t('webui.admin.col.name') }}</th><th>{{ t('webui.admin.col.table') }}</th><th>{{ t('webui.admin.col.source_where_template') }}</th><th>{{ t('webui.admin.col.source_bind_params') }}</th><th>{{ t('webui.admin.col.strategy') }}</th><th>{{ t('webui.admin.col.schedule') }}</th><th>{{ t('webui.admin.col.chunk_size') }}</th><th>{{ t('webui.admin.col.columns') }}</th><th>{{ t('webui.admin.col.incremental_key') }}</th><th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for p in pipelines %}
-          {% set edit_row_id = "pipeline-edit-" ~ p.name %}
-          {% set is_incremental = p.strategy == "incremental" %}
-          <tr>
-            <td>{{ fmt(p.name) }}</td>
-            <td>{{ fmt(p.table) }}</td>
-            <td><pre class="code-chip">{{ fmt(p.source_where_template) }}</pre></td>
-            <td><pre class="code-chip">{{ fmt(p.source_bind_params) }}</pre></td>
-            <td>{{ fmt(p.strategy) }}</td>
-            <td>{{ fmt(p.schedule) }}</td>
-            <td>{{ fmt(p.chunk_size) }}</td>
-            <td>{{ fmt(p.columns) }}</td>
-            <td>{{ fmt(p.incremental_key) }}</td>
-            <td class="cell-actions">
-              <button type="button" class="btn btn-ghost btn-small" onclick="togglePipelineEdit('{{ edit_row_id }}')">{{ t('webui.admin.btn.edit') }}</button>
-              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/pipelines/delete" style="display:inline;" onsubmit="return confirm('{{ t('webui.admin.pipelines.confirm_delete') }}');">
-                <input type="hidden" name="name" value="{{ p.name }}">
-                <button type="submit" class="btn btn-danger btn-small">{{ t('webui.admin.btn.delete') }}</button>
-              </form>
-            </td>
-          </tr>
-          <tr id="{{ edit_row_id }}" class="edit-row" style="display:none;">
-            <td colspan="10">
-              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/pipelines/edit" class="form-grid">
-                <label class="filter-field"><span>{{ t('webui.admin.col.name') }}</span><input type="text" name="name" value="{{ p.name }}" readonly></label>
-                <label class="filter-field"><span>{{ t('webui.admin.col.table') }}</span><input type="text" name="table" value="{{ p.table }}" required></label>
-                <label class="filter-field field-span-2"><span>{{ t('webui.admin.col.source_where_template') }}</span><textarea name="source_where_template" rows="4" placeholder="TRAN_TIME >= :data_interval_start&#10;AND TRAN_TIME &lt; :data_interval_end">{{ p.source_where_template or '' }}</textarea></label>
-                <label class="filter-field field-span-2"><span>{{ t('webui.admin.col.source_bind_params') }}</span><textarea name="source_bind_params" rows="4" placeholder='{"year":"&lt;jinja:data_interval_start.year&gt;","month":"&lt;jinja:data_interval_start.month&gt;"}'>{{ p.source_bind_params or '' }}</textarea></label>
-                <label class="filter-field">
-                  <span>{{ t('webui.admin.col.strategy') }}</span>
-                  <select name="strategy" onchange="toggleIncrementalField(this, '{{ edit_row_id }}')">
-                    <option value="full" {% if p.strategy == 'full' %}selected{% endif %}>full</option>
-                    <option value="incremental" {% if is_incremental %}selected{% endif %}>incremental</option>
-                  </select>
-                </label>
-                <label class="filter-field"><span>{{ t('webui.admin.col.schedule') }}</span><input type="text" name="schedule" value="{{ p.schedule }}" required></label>
-                <label class="filter-field"><span>{{ t('webui.admin.col.chunk_size') }}</span><input type="number" name="chunk_size" value="{{ '' if p.chunk_size is none else p.chunk_size }}" min="1"></label>
-                <label class="filter-field field-span-2"><span>{{ t('webui.admin.col.columns') }}</span><textarea name="columns" rows="2" placeholder="COL1, COL2, COL3">{{ p.columns or '' }}</textarea></label>
-                <label class="filter-field incremental-key-field" data-prefix="{{ edit_row_id }}" style="display:{% if is_incremental %}grid{% else %}none{% endif %};">
-                  <span>{{ t('webui.admin.col.incremental_key') }}</span>
-                  <input type="text" name="incremental_key" value="{{ p.incremental_key or '' }}">
-                </label>
-                <div class="form-actions"><button type="submit" class="btn btn-primary">{{ t('webui.admin.pipelines.save') }}</button></div>
-              </form>
-            </td>
-          </tr>
-          {% else %}
-          <tr><td colspan="10" class="empty">{{ t('webui.admin.pipelines.empty') }}</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <div class="editor-box">
-      <h3>{{ t('webui.admin.pipelines.add') }}</h3>
-      <p class="section-note">{{ t('webui.admin.pipelines.partition_note') }}</p>
-      <form method="post" action="{{ MONITOR_ADMIN_PATH }}/pipelines" class="form-grid">
-        <label class="filter-field"><span>{{ t('webui.admin.col.name') }}</span><input type="text" name="name" required></label>
-        <label class="filter-field"><span>{{ t('webui.admin.col.table') }}</span><input type="text" name="table" required></label>
-        <label class="filter-field field-span-2"><span>{{ t('webui.admin.col.source_where_template') }}</span><textarea name="source_where_template" rows="4" placeholder="TRAN_TIME >= :data_interval_start&#10;AND TRAN_TIME &lt; :data_interval_end"></textarea></label>
-        <label class="filter-field field-span-2"><span>{{ t('webui.admin.col.source_bind_params') }}</span><textarea name="source_bind_params" rows="4" placeholder='{"year":"&lt;jinja:data_interval_start.year&gt;","month":"&lt;jinja:data_interval_start.month&gt;"}'></textarea></label>
-        <label class="filter-field">
-          <span>{{ t('webui.admin.col.strategy') }}</span>
-          <select name="strategy" onchange="toggleIncrementalField(this, 'new-pipeline')">
-            <option value="full" selected>full</option>
-            <option value="incremental">incremental</option>
-          </select>
-        </label>
-        <label class="filter-field"><span>{{ t('webui.admin.col.schedule') }}</span><input type="text" name="schedule" value="0 2 * * *" required></label>
-        <label class="filter-field"><span>{{ t('webui.admin.col.chunk_size') }}</span><input type="number" name="chunk_size" min="1"></label>
-        <label class="filter-field field-span-2"><span>{{ t('webui.admin.col.columns') }}</span><textarea name="columns" rows="2" placeholder="COL1, COL2, COL3"></textarea></label>
-        <label class="filter-field incremental-key-field" data-prefix="new-pipeline" style="display:none;">
-          <span>{{ t('webui.admin.col.incremental_key') }}</span>
-          <input type="text" name="incremental_key">
-        </label>
-        <div class="form-actions"><button type="submit" class="btn btn-primary">{{ t('webui.admin.pipelines.add') }}</button></div>
-      </form>
-    </div>
-  </section>
 </div>
-
-<script>
-function togglePipelineEdit(rowId) {
-  const row = document.getElementById(rowId);
-  if (!row) {
-    return;
-  }
-  row.style.display = row.style.display === "none" ? "table-row" : "none";
-}
-
-function toggleIncrementalField(selectEl, prefix) {
-  const section = document.querySelector('.incremental-key-field[data-prefix="' + prefix + '"]');
-  if (!section) {
-    return;
-  }
-  section.style.display = selectEl.value === "incremental" ? "grid" : "none";
-  if (selectEl.value !== "incremental") {
-    const input = section.querySelector('input[name="incremental_key"]');
-    if (input) {
-      input.value = "";
-    }
-  }
-}
-</script>
 
 {% endblock %}

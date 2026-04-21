@@ -7,26 +7,11 @@ leaks into HTTP handlers.
 from __future__ import annotations
 
 from airflow_lite.api.forms import first_value as _first_value
-from airflow_lite.pipeline_config_validation import coerce_source_query_for_storage
-from airflow_lite.scheduler.schedule_validator import validate_schedule
 from airflow_lite.storage.models import (
     ConnectionModel,
-    PipelineModel,
     PoolModel,
     VariableModel,
 )
-
-
-def _parse_optional_int(value: str | None) -> int | None:
-    if value is None:
-        return None
-    stripped = value.strip()
-    if not stripped:
-        return None
-    try:
-        return int(stripped)
-    except ValueError:
-        return None
 
 
 def create_connection(admin_repo, form_data: dict[str, list[str]]) -> None:
@@ -85,53 +70,3 @@ def delete_pool(admin_repo, form_data: dict[str, list[str]]) -> None:
     pool_name = _first_value(form_data, "pool_name")
     if pool_name:
         admin_repo.delete_pool(pool_name)
-
-
-def _pipeline_model_from_form(form_data: dict[str, list[str]]) -> PipelineModel | None:
-    name = _first_value(form_data, "name", "") or ""
-    table = _first_value(form_data, "table", "") or ""
-    strategy = _first_value(form_data, "strategy", "full") or "full"
-    schedule = _first_value(form_data, "schedule", "0 2 * * *") or "0 2 * * *"
-    incremental_key = _first_value(form_data, "incremental_key")
-    if strategy != "incremental":
-        incremental_key = None
-    source_where_template, source_bind_params = coerce_source_query_for_storage(
-        _first_value(form_data, "source_where_template"),
-        _first_value(form_data, "source_bind_params"),
-        strategy=strategy,
-    )
-
-    if not (name and table):
-        return None
-
-    validate_schedule(schedule)
-
-    return PipelineModel(
-        name=name,
-        table=table,
-        source_where_template=source_where_template,
-        source_bind_params=source_bind_params,
-        strategy=strategy,
-        schedule=schedule,
-        chunk_size=_parse_optional_int(_first_value(form_data, "chunk_size")),
-        columns=_first_value(form_data, "columns"),
-        incremental_key=incremental_key,
-    )
-
-
-def create_pipeline(admin_repo, form_data: dict[str, list[str]]) -> None:
-    model = _pipeline_model_from_form(form_data)
-    if model is not None:
-        admin_repo.create_pipeline(model)
-
-
-def update_pipeline(admin_repo, form_data: dict[str, list[str]]) -> None:
-    model = _pipeline_model_from_form(form_data)
-    if model is not None:
-        admin_repo.update_pipeline(model)
-
-
-def delete_pipeline(admin_repo, form_data: dict[str, list[str]]) -> None:
-    name = _first_value(form_data, "name")
-    if name:
-        admin_repo.delete_pipeline(name)

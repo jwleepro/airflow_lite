@@ -56,14 +56,3 @@ CREATE TABLE IF NOT EXISTS pools (
     description   TEXT
 );
 
-CREATE TABLE IF NOT EXISTS pipeline_configs (
-    name              TEXT PRIMARY KEY,
-    source_table      TEXT NOT NULL,
-    source_where_template TEXT,
-    source_bind_params TEXT,
-    strategy          TEXT NOT NULL DEFAULT 'full',
-    schedule          TEXT NOT NULL,
-    chunk_size        INTEGER,
-    columns           TEXT,
-    incremental_key   TEXT
-);
