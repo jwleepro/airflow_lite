@@ -13,6 +13,7 @@ from airflow_lite.api.presenters.analytics import build_dashboard_data
 from airflow_lite.api.presenters.exports import create_export_from_form
 from airflow_lite.api.routes._web_common import (
     html_unavailable,
+    not_configured,
     read_form_data,
     redirect_to_exports,
 )
@@ -41,12 +42,7 @@ def get_analytics_monitor_page(
     try:
         query_service = get_query_service(request)
     except Exception:
-        return html_unavailable(
-            "Analytics Dashboard",
-            "Analytics query service is not configured for this runtime.",
-            active_path=MONITOR_ANALYTICS_PATH,
-            language=language,
-        )
+        return not_configured("Analytics Dashboard", active_path=MONITOR_ANALYTICS_PATH, language=language)
     try:
         export_service = get_export_service(request)
     except Exception:
@@ -85,12 +81,7 @@ async def create_analytics_export_from_monitor(request: Request, request_languag
         query_service = get_query_service(request)
         export_service = get_export_service(request)
     except Exception:
-        return html_unavailable(
-            "Export Jobs",
-            "Analytics query service or export service is not configured for this runtime.",
-            active_path=MONITOR_EXPORTS_PATH,
-            language=request_language,
-        )
+        return not_configured("Export Jobs", active_path=MONITOR_EXPORTS_PATH, language=request_language)
 
     form_data = await read_form_data(request)
     language = resolve_request_language(request, _first_value(form_data, "lang"))

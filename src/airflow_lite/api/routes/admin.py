@@ -3,6 +3,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from airflow_lite.api.dependencies import get_admin_repo
 from airflow_lite.logging_config.decorators import log_execution
 from airflow_lite.scheduler.schedule_validator import validate_schedule
 from airflow_lite.storage.admin_repository import AdminRepository
@@ -10,13 +11,6 @@ from airflow_lite.storage.models import ConnectionModel, PipelineModel, PoolMode
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger("airflow_lite.api.routes.admin")
-
-
-def get_admin_repo(request: Request) -> AdminRepository:
-    repo = getattr(request.app.state, "admin_repo", None)
-    if not repo:
-        raise HTTPException(status_code=500, detail="AdminRepository not initialized")
-    return repo
 
 
 # --- Connections ---

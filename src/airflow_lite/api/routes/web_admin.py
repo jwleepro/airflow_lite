@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from airflow_lite.api.dependencies import get_language
+from airflow_lite.api.dependencies import get_admin_repo, get_language
 from airflow_lite.api.paths import MONITOR_ADMIN_PATH
 from airflow_lite.api.presenters import admin_forms, admin_page
 from airflow_lite.api.routes._web_common import (
-    html_unavailable,
     read_form_data,
     redirect,
 )
@@ -16,15 +15,7 @@ router = APIRouter(include_in_schema=False)
 
 @router.get(MONITOR_ADMIN_PATH, response_class=HTMLResponse)
 def get_admin_page(request: Request, language: str = Depends(get_language)):
-    admin_repo = getattr(request.app.state, "admin_repo", None)
-    if not admin_repo:
-        return html_unavailable(
-            "Admin UI",
-            "AdminRepository is not configured.",
-            active_path=MONITOR_ADMIN_PATH,
-            language=language,
-        )
-
+    admin_repo = get_admin_repo(request)
     view_data = admin_page.build_admin_view_data(admin_repo)
     error = request.query_params.get("error")
     return HTMLResponse(
@@ -37,16 +28,12 @@ async def _handle_admin_form(
     handler,
     language: str,
 ) -> RedirectResponse:
-    admin_repo = getattr(request.app.state, "admin_repo", None)
-    error: str | None = None
-    if admin_repo is not None:
-        form_data = await read_form_data(request)
-        try:
-            handler(admin_repo, form_data)
-        except ValueError as exc:
-            error = str(exc)
-    if error:
-        return redirect(MONITOR_ADMIN_PATH, language=language, error=error)
+    admin_repo = get_admin_repo(request)
+    form_data = await read_form_data(request)
+    try:
+        handler(admin_repo, form_data)
+    except ValueError as exc:
+        return redirect(MONITOR_ADMIN_PATH, language=language, error=str(exc))
     return redirect(MONITOR_ADMIN_PATH, language=language)
 
 
