@@ -4,7 +4,7 @@ from urllib.parse import parse_qs, urlencode
 from fastapi import Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from airflow_lite.api.dependencies import get_export_service
+from airflow_lite.api.dependencies import get_export_service, get_runner_map, get_backfill_map
 from airflow_lite.api.paths import MONITOR_EXPORTS_PATH
 from airflow_lite.api.webui_analytics import render_unavailable_page
 from airflow_lite.api.webui_helpers import t
@@ -23,6 +23,25 @@ def html_unavailable(
             title, message, active_path=active_path, language=language
         ),
         status_code=status_code,
+    )
+
+
+def not_configured(component: str, *, active_path: str, language: str) -> HTMLResponse:
+    return html_unavailable(
+        component,
+        f"{component} is not configured for this runtime.",
+        active_path=active_path,
+        language=language,
+    )
+
+
+def not_found(resource: str, name: str, *, active_path: str, language: str) -> HTMLResponse:
+    return html_unavailable(
+        resource,
+        f"'{name}' not found for {resource.lower()}.",
+        active_path=active_path,
+        language=language,
+        status_code=404,
     )
 
 
@@ -46,8 +65,8 @@ def parse_iso_date(value: str | None, *, field_name: str) -> date:
 
 
 def pipeline_action_availability(request: Request, pipeline_name: str) -> dict[str, bool]:
-    runner_map = getattr(request.app.state, "runner_map", {}) or {}
-    backfill_map = getattr(request.app.state, "backfill_map", {}) or {}
+    runner_map = get_runner_map(request)
+    backfill_map = get_backfill_map(request)
     return {
         "can_trigger": pipeline_name in runner_map,
         "can_backfill": pipeline_name in backfill_map,
@@ -101,9 +120,4 @@ def try_get_export_service(request: Request, language: str) -> tuple:
     try:
         return get_export_service(request), None
     except Exception:
-        return None, html_unavailable(
-            "Export Jobs",
-            "Export service is not configured for this runtime.",
-            active_path=MONITOR_EXPORTS_PATH,
-            language=language,
-        )
+        return None, not_configured("Export Jobs", active_path=MONITOR_EXPORTS_PATH, language=language)

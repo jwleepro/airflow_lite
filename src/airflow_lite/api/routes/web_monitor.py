@@ -10,6 +10,7 @@ from airflow_lite.api.dependencies import (
     get_language,
     get_run_repo,
     get_runner_map,
+    get_settings,
     get_step_repo,
 )
 from airflow_lite.api.language import resolve_request_language
@@ -28,6 +29,8 @@ from airflow_lite.api.presenters.monitor import (
 from airflow_lite.api.routes._web_common import (
     build_pipeline_actions,
     html_unavailable,
+    not_configured,
+    not_found,
     operation_notice,
     parse_bool_value,
     parse_iso_date,
@@ -133,13 +136,7 @@ def get_monitor_pipeline_detail_page(
     step_repo = get_step_repo(request)
     page = build_pipeline_detail_view_data(settings, run_repo, step_repo, name)
     if page is None:
-        return html_unavailable(
-            "DAG Details",
-            f"Pipeline '{name}' is not configured.",
-            active_path=MONITOR_PIPELINES_PATH,
-            status_code=404,
-            language=language,
-        )
+        return not_found("DAG Details", name, active_path=MONITOR_PIPELINES_PATH, language=language)
 
     return HTMLResponse(
         render_pipeline_detail_page(
@@ -164,13 +161,7 @@ async def trigger_pipeline_from_monitor(
     )
     runner_map = get_runner_map(request)
     if name not in runner_map:
-        return html_unavailable(
-            "Pipeline action",
-            f"Pipeline '{name}' is not configured for manual trigger.",
-            active_path=MONITOR_PIPELINES_PATH,
-            status_code=404,
-            language=language or request_language,
-        )
+        return not_configured("Pipeline action", active_path=MONITOR_PIPELINES_PATH, language=language or request_language)
 
     execution_date_raw = _first_value(form_data, "execution_date")
     force = parse_bool_value(_first_value(form_data, "force"))
@@ -215,13 +206,7 @@ async def request_pipeline_backfill_from_monitor(
     )
     backfill_map = get_backfill_map(request)
     if name not in backfill_map:
-        return html_unavailable(
-            "Backfill",
-            f"Pipeline '{name}' is not configured for backfill.",
-            active_path=MONITOR_PIPELINES_PATH,
-            status_code=404,
-            language=language or request_language,
-        )
+        return not_configured("Backfill", active_path=MONITOR_PIPELINES_PATH, language=language or request_language)
 
     try:
         start_date = parse_iso_date(_first_value(form_data, "start_date"), field_name="start_date")
@@ -274,17 +259,9 @@ def get_run_detail_page(
     action: str | None = Query(default=None),
     language: str = Depends(get_language),
 ):
-    run_repo = getattr(request.app.state, "run_repo", None)
-    step_repo = getattr(request.app.state, "step_repo", None)
-    settings = request.app.state.settings
-
-    if run_repo is None:
-        return html_unavailable(
-            "Run Detail",
-            "Repository is not configured for this runtime.",
-            active_path=MONITOR_PATH,
-            language=language,
-        )
+    run_repo = get_run_repo(request)
+    step_repo = get_step_repo(request)
+    settings = get_settings(request)
 
     run_obj = run_repo.find_by_id(run_id)
     if run_obj is None or run_obj.pipeline_name != name:

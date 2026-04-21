@@ -74,6 +74,123 @@ def _collect_step_names(runs: list[dict]) -> list[str]:
     return step_names
 
 
+def _build_grid_runs(run_dicts: list[dict], step_names: list[str]) -> list[dict]:
+    return [
+        {
+            "id": run.get("id", ""),
+            "execution_date": run.get("execution_date", ""),
+            "status": run.get("status", ""),
+            "tone": tone_of(run.get("status", "")),
+            "step_tones": [
+                tone_of(
+                    next(
+                        (s.get("status") for s in run.get("steps", []) if s.get("step_name") == name),
+                        "",
+                    )
+                )
+                for name in step_names
+            ],
+        }
+        for run in run_dicts
+    ]
+
+
+def _build_task_rows(run_dicts: list[dict], step_names: list[str], grid_runs: list[dict]) -> list[dict]:
+    task_rows: list[dict] = []
+    for name in step_names:
+        instances = [
+            next((s for s in run.get("steps", []) if s.get("step_name") == name), None)
+            for run in run_dicts
+        ]
+        instances = [s for s in instances if s]
+
+        task_rows.append(
+            {
+                "name": name,
+                "latest_status": (instances[0].get("status") if instances else ""),
+                "latest_tone": tone_of(instances[0].get("status", "") if instances else ""),
+                "success_count": sum(1 for item in instances if tone_of(item.get("status")) == "ok"),
+                "running_count": sum(1 for item in instances if tone_of(item.get("status")) == "warn"),
+                "failed_count": sum(1 for item in instances if tone_of(item.get("status")) == "bad"),
+                "latest_duration": fmt_duration(
+                    (instances[0] if instances else {}).get("started_at"),
+                    (instances[0] if instances else {}).get("finished_at"),
+                ),
+                "recent_tones": [
+                    next(
+                        (
+                            run["step_tones"][idx]
+                            for idx, step_name in enumerate(step_names)
+                            if step_name == name
+                        ),
+                        "neutral",
+                    )
+                    for run in grid_runs
+                ],
+            }
+        )
+    return task_rows
+
+
+def _build_recent_failures(run_dicts: list[dict]) -> list[dict]:
+    failures: list[dict] = []
+    for run in run_dicts:
+        if tone_of(run.get("status", "")) != "bad":
+            continue
+        first_failed_step = next(
+            (step for step in run.get("steps", []) if tone_of(step.get("status", "")) == "bad"),
+            None,
+        )
+        failures.append(
+            {
+                "run_id": run.get("id", ""),
+                "execution_date": run.get("execution_date", ""),
+                "status": run.get("status", ""),
+                "step_name": (first_failed_step or {}).get("step_name"),
+                "error_message": (first_failed_step or {}).get("error_message"),
+            }
+        )
+    return failures
+
+
+def _build_summary(run_dicts: list[dict], step_names: list[str]) -> dict:
+    run_tones = [tone_of(run.get("status", "")) for run in run_dicts]
+    return {
+        "total_runs": len(run_dicts),
+        "success_runs": sum(1 for tone in run_tones if tone == "ok"),
+        "active_runs": sum(1 for tone in run_tones if tone == "warn"),
+        "failed_runs": sum(1 for tone in run_tones if tone == "bad"),
+        "task_count": len(step_names),
+    }
+
+
+def _build_graph_nodes(latest_run: dict | None, step_names: list[str]) -> list[dict]:
+    graph_nodes: list[dict] = []
+    graph_order = (
+        [step.get("step_name", "unknown") for step in (latest_run or {}).get("steps", [])]
+        or step_names
+    )
+    seen_graph: set[str] = set()
+    latest_step_map = {
+        step.get("step_name", "unknown"): step
+        for step in (latest_run or {}).get("steps", [])
+    }
+    for name in graph_order:
+        if name in seen_graph:
+            continue
+        seen_graph.add(name)
+        step = latest_step_map.get(name, {})
+        graph_nodes.append(
+            {
+                "name": name,
+                "status": step.get("status", "unknown"),
+                "tone": tone_of(step.get("status", "")),
+                "duration": fmt_duration(step.get("started_at"), step.get("finished_at")),
+            }
+        )
+    return graph_nodes
+
+
 def build_pipeline_detail_view_data(settings, run_repo, step_repo, pipeline_name: str) -> dict | None:
     pipeline_cfg = next((p for p in settings.pipelines if p.name == pipeline_name), None)
     if pipeline_cfg is None:
@@ -90,94 +207,11 @@ def build_pipeline_detail_view_data(settings, run_repo, step_repo, pipeline_name
 
     latest_run = run_dicts[0] if run_dicts else None
     step_names = _collect_step_names(run_dicts)
-    latest_step_map = {
-        step.get("step_name", "unknown"): step
-        for step in (latest_run or {}).get("steps", [])
-    }
-
-    grid_runs = []
-    for run in run_dicts:
-        step_map = {
-            step.get("step_name", ""): tone_of(step.get("status", ""))
-            for step in run.get("steps", [])
-        }
-        grid_runs.append(
-            {
-                "id": run.get("id", ""),
-                "execution_date": run.get("execution_date", ""),
-                "status": run.get("status", ""),
-                "tone": tone_of(run.get("status", "")),
-                "step_tones": [step_map.get(name, "neutral") for name in step_names],
-            }
-        )
-
-    task_rows = []
-    for name in step_names:
-        instances = []
-        for run in run_dicts:
-            step = next((item for item in run.get("steps", []) if item.get("step_name") == name), None)
-            if step:
-                instances.append(step)
-
-        task_rows.append(
-            {
-                "name": name,
-                "latest_status": (instances[0].get("status") if instances else ""),
-                "latest_tone": tone_of(instances[0].get("status", "") if instances else ""),
-                "success_count": sum(1 for item in instances if tone_of(item.get("status")) == "ok"),
-                "running_count": sum(1 for item in instances if tone_of(item.get("status")) == "warn"),
-                "failed_count": sum(1 for item in instances if tone_of(item.get("status")) == "bad"),
-                "latest_duration": fmt_duration(
-                    (instances[0] if instances else {}).get("started_at"),
-                    (instances[0] if instances else {}).get("finished_at"),
-                ),
-                "recent_tones": [next((run["step_tones"][idx] for idx, step_name in enumerate(step_names) if step_name == name), "neutral") for run in grid_runs],
-            }
-        )
-
-    recent_failures = []
-    for run in run_dicts:
-        if tone_of(run.get("status", "")) != "bad":
-            continue
-        first_failed_step = next(
-            (step for step in run.get("steps", []) if tone_of(step.get("status", "")) == "bad"),
-            None,
-        )
-        recent_failures.append(
-            {
-                "run_id": run.get("id", ""),
-                "execution_date": run.get("execution_date", ""),
-                "status": run.get("status", ""),
-                "step_name": (first_failed_step or {}).get("step_name"),
-                "error_message": (first_failed_step or {}).get("error_message"),
-            }
-        )
-
-    run_tones = [tone_of(run.get("status", "")) for run in run_dicts]
-    summary = {
-        "total_runs": len(run_dicts),
-        "success_runs": sum(1 for tone in run_tones if tone == "ok"),
-        "active_runs": sum(1 for tone in run_tones if tone == "warn"),
-        "failed_runs": sum(1 for tone in run_tones if tone == "bad"),
-        "task_count": len(step_names),
-    }
-
-    graph_nodes = []
-    graph_order = [step.get("step_name", "unknown") for step in (latest_run or {}).get("steps", [])] or step_names
-    seen_graph: set[str] = set()
-    for name in graph_order:
-        if name in seen_graph:
-            continue
-        seen_graph.add(name)
-        step = latest_step_map.get(name, {})
-        graph_nodes.append(
-            {
-                "name": name,
-                "status": step.get("status", "unknown"),
-                "tone": tone_of(step.get("status", "")),
-                "duration": fmt_duration(step.get("started_at"), step.get("finished_at")),
-            }
-        )
+    grid_runs = _build_grid_runs(run_dicts, step_names)
+    task_rows = _build_task_rows(run_dicts, step_names, grid_runs)
+    recent_failures = _build_recent_failures(run_dicts)
+    summary = _build_summary(run_dicts, step_names)
+    graph_nodes = _build_graph_nodes(latest_run, step_names)
 
     return {
         "pipeline": {

@@ -54,3 +54,17 @@ def get_dispatch_service(request: Request):
     if dispatch is None:
         raise HTTPException(status_code=503, detail="dispatch_service is not configured.")
     return dispatch
+
+
+def get_settings(request: Request):
+    settings = getattr(request.app.state, "settings", None)
+    if settings is None:
+        raise HTTPException(status_code=503, detail="settings are not configured.")
+    return settings
+
+
+def get_admin_repo(request: Request):
+    repo = getattr(request.app.state, "admin_repo", None)
+    if repo is None:
+        raise HTTPException(status_code=503, detail="AdminRepository is not configured.")
+    return repo
