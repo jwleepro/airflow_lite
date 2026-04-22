@@ -3,7 +3,6 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse
 
-from airflow_lite.api._resolver import resolve_backfill_manager
 from airflow_lite.api.dependencies import (
     get_backfill_map,
     get_dispatch_service,
