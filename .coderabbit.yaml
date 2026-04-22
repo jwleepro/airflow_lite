@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 # CodeRabbit Configuration
 # Docs: https://docs.coderabbit.ai/reference/configuration
 
@@ -5,56 +6,54 @@ language: ko-KR
 
 reviews:
   profile: assertive
-  request_changes_workflow: true
+  request_changes_workflow: false
   high_level_summary: true
   poem: false
   collapse_walkthrough: false
   auto_review:
     enabled: true
     drafts: false
+  path_filters:
+    - "!**/*.md"
+    - "!**/*.json"
+    - "!**/migrations/**"
+  path_instructions:
+    - path: "src/airflow_lite/api/**"
+      instructions: |
+        API 엔드포인트 리뷰 시 다음을 확인:
+        - 입력 유효성 검사
+        - 에러 핸들링 및 적절한 HTTP 상태 코드
+        - Oracle 직접 조회 금지 (DuckDB 사용)
+        - 페이징/필터링 구현 여부
 
-path_instructions:
-  - path: "src/airflow_lite/api/**"
-    instructions: |
-      API 엔드포인트 리뷰 시 다음을 확인:
-      - 입력 유효성 검사
-      - 에러 핸들링 및 적절한 HTTP 상태 코드
-      - Oracle 직접 조회 금지 (DuckDB 사용)
-      - 페이징/필터링 구현 여부
+    - path: "src/airflow_lite/mart/**"
+      instructions: |
+        DuckDB mart 코드 리뷰 시 다음을 확인:
+        - raw Parquet에서 재빌드 가능한 구조인지
+        - staging -> current 스냅샷 방식 준수
+        - 트랜잭션 안전성
 
-  - path: "src/airflow_lite/mart/**"
-    instructions: |
-      DuckDB mart 코드 리뷰 시 다음을 확인:
-      - raw Parquet에서 재빌드 가능한 구조인지
-      - staging -> current 스냅샷 방식 준수
-      - 트랜잭션 안전성
+    - path: "src/airflow_lite/extract/**"
+      instructions: |
+        Oracle 추출 코드 리뷰 시 다음을 확인:
+        - 청크 단위 추출로 Oracle 부하 최소화
+        - date/key range 기반 추출
+        - thick mode 호환성
 
-  - path: "src/airflow_lite/extract/**"
-    instructions: |
-      Oracle 추출 코드 리뷰 시 다음을 확인:
-      - 청크 단위 추출로 Oracle 부하 최소화
-      - date/key range 기반 추출
-      - thick mode 호환성
+    - path: "**/*.test.py"
+      instructions: |
+        테스트 코드 리뷰 시 다음을 확인:
+        - 엣지 케이스 커버리지
+        - Oracle 실연동 테스트는 integration 분리
+        - mock 남용 여부
 
-  - path: "**/*.test.py"
-    instructions: |
-      테스트 코드 리뷰 시 다음을 확인:
-      - 엣지 케이스 커버리지
-      - Oracle 실연동 테스트는 integration 분리
-      - mock 남용 여부
-
-  - path: "src/**"
-    instructions: |
-      전체 코드 리뷰 시 다음을 확인:
-      - 하나의 함수가 200줄 이하
-      - 하나의 파일이 500줄 이하
-      - 하드코딩된 비밀번호/경로 없음
-      - Windows Server 2019 + Python 3.11 호환성
-
-path_filters:
-  - "!**/*.md"
-  - "!**/*.json"
-  - "!**/migrations/**"
+    - path: "src/**"
+      instructions: |
+        전체 코드 리뷰 시 다음을 확인:
+        - 하나의 함수가 200줄 이하
+        - 하나의 파일이 500줄 이하
+        - 하드코딩된 비밀번호/경로 없음
+        - Windows Server 2019 + Python 3.11 호환성
 
 chat:
   auto_reply: true

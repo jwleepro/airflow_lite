@@ -1,4 +1,0 @@
-interface:
-  display_name: "Export Policy"
-  short_description: "Large-result download rules and format choices"
-  default_prompt: "Use $export-policy to define download behavior, file formats, limits, and async job handling for analytics exports."
