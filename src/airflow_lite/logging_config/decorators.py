@@ -161,7 +161,6 @@ def log_async_execution(
     level: int = logging.DEBUG,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """비동기 함수용 로깅 데코레이터."""
-    import asyncio
 
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         nonlocal logger_name

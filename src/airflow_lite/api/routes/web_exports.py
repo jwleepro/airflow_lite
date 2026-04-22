@@ -11,7 +11,6 @@ from airflow_lite.api.paths import (
 from airflow_lite.api.forms import first_value as _first_value
 from airflow_lite.api.presenters.exports import build_export_page_data
 from airflow_lite.api.routes._web_common import (
-    not_configured,
     read_form_data,
     redirect,
     try_get_export_service,

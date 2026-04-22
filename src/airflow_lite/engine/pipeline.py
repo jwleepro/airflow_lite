@@ -17,12 +17,10 @@ from airflow_lite.engine.stage import (
     StageContext,
     StageDefinition,
     StageResult,
-    StageState,
 )
-from airflow_lite.engine.state_machine import StageStateMachine
 from airflow_lite.engine.run_state_manager import RunStateManager
 from airflow_lite.storage.models import PipelineRun, StepRun
-from airflow_lite.storage.repository import PipelineRunRepository, StepRunRepository
+from airflow_lite.storage.repository import PipelineRunRepository
 
 if TYPE_CHECKING:
     from airflow_lite.config.settings import PipelineConfig

@@ -1,12 +1,10 @@
 import os
 import re
 import sqlite3
-import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from airflow_lite.i18n import require_supported_language
 from airflow_lite.pipeline_config_validation import (
     coerce_source_query_from_mapping,
     validate_data_interval_schedule,
@@ -14,7 +12,7 @@ from airflow_lite.pipeline_config_validation import (
 from airflow_lite.storage._helpers import decode_password
 from airflow_lite.storage._sqlite_schema import table_exists
 from airflow_lite.storage.crypto import Crypto
-from ._coerce import coerce_int as _coerce_int, coerce_int_fields as _coerce_int_fields
+from ._coerce import coerce_int as _coerce_int
 
 # 환경변수 치환 패턴: ${VAR_NAME}
 ENV_VAR_PATTERN = re.compile(r"\$\{(\w+)\}")

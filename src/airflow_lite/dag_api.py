@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from airflow_lite.config.settings import PipelineConfig
 
 
 @dataclass
@@ -16,8 +19,7 @@ class Pipeline:
     columns: list[str] | None = None
     incremental_key: str | None = None
 
-    def to_pipeline_config(self) -> "PipelineConfig":
-        from airflow_lite.config.settings import PipelineConfig
+    def to_pipeline_config(self) -> PipelineConfig:
         from airflow_lite.pipeline_config_validation import validate_data_interval_schedule
 
         normalized_schedule = validate_data_interval_schedule(self.schedule)

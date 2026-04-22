@@ -1,6 +1,5 @@
 import logging
 from datetime import date
-from pathlib import Path
 
 from airflow_lite.alerting.factory import build_alert_manager
 from airflow_lite.config.settings import Settings

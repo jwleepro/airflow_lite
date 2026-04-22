@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 from typing import Protocol, runtime_checkable
 
 from airflow_lite.query.contracts import ExportCreateRequest
