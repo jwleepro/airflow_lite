@@ -1,4 +1,0 @@
-interface:
-  display_name: "Windows Ops"
-  short_description: "Windows Server deployment and runbook workflow"
-  default_prompt: "Use $windows-ops to design or update Windows Server 2019 service, scheduler, logging, and recovery workflows for this repository."
