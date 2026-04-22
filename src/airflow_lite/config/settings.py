@@ -7,7 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from airflow_lite.i18n import require_supported_language
-from airflow_lite.pipeline_config_validation import coerce_source_query_from_mapping
+from airflow_lite.pipeline_config_validation import (
+    coerce_source_query_from_mapping,
+    validate_data_interval_schedule,
+)
 from airflow_lite.storage._helpers import decode_password
 from airflow_lite.storage._sqlite_schema import table_exists
 from airflow_lite.storage.crypto import Crypto
@@ -174,6 +177,9 @@ def _build_pipeline_configs(pipeline_items: list[dict]) -> list[PipelineConfig]:
     pipelines: list[PipelineConfig] = []
     for index, pipeline_data in enumerate(pipeline_items, start=1):
         pipeline_values = dict(pipeline_data)
+        pipeline_values["schedule"] = validate_data_interval_schedule(
+            pipeline_values.get("schedule", "0 2 * * *")
+        )
         if pipeline_values.get("chunk_size") is not None:
             pipeline_values["chunk_size"] = _coerce_int(
                 pipeline_values["chunk_size"], f"pipelines[{index}].chunk_size"

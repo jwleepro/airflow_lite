@@ -2,13 +2,20 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from typing import Any, Mapping
 
 from jinja2.nativetypes import NativeEnvironment
 
 _LEGACY_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_$#]*$")
 _BIND_NAME_PATTERN = re.compile(r":(\w+)")
+_INTERVAL_PATTERN = re.compile(r"^interval:(\d+)([smhd]?)$", re.IGNORECASE)
+_INTERVAL_UNIT_TO_KWARG = {
+    "s": "seconds",
+    "m": "minutes",
+    "h": "hours",
+    "d": "days",
+}
 _NATIVE_ENV = NativeEnvironment()
 
 
@@ -17,6 +24,36 @@ def normalize_optional_text(value: str | None) -> str | None:
         return None
     normalized = value.strip()
     return normalized or None
+
+
+def validate_data_interval_schedule(schedule: str | None) -> str:
+    normalized = normalize_optional_text(schedule)
+    if normalized is None:
+        raise ValueError("data_interval 계산을 위해 schedule 값이 필요합니다.")
+
+    interval_match = _INTERVAL_PATTERN.fullmatch(normalized)
+    if interval_match:
+        value = int(interval_match.group(1))
+        if value <= 0:
+            raise ValueError(
+                "data_interval 계산을 위해 interval 값은 1 이상이어야 합니다: "
+                f"{normalized}"
+            )
+        return normalized
+
+    try:
+        from apscheduler.triggers.cron import CronTrigger
+
+        CronTrigger.from_crontab(normalized)
+    except ValueError as exc:
+        raise ValueError(
+            "data_interval 계산을 위해 schedule 은 "
+            "Airflow cron('분 시 일 월 요일', 예: '0 2 * * *') 또는 "
+            "'interval:30m' 형식이어야 합니다: "
+            f"{normalized}"
+        ) from exc
+
+    return normalized
 
 
 def parse_source_bind_params(value: Any) -> dict[str, Any]:
@@ -112,13 +149,84 @@ def build_legacy_source_where_template(partition_column: str | None) -> str | No
     )
 
 
-def build_query_render_context(execution_date: date) -> dict[str, Any]:
-    logical_dt = datetime.combine(execution_date, time.min)
-    data_interval_start = datetime(execution_date.year, execution_date.month, 1)
-    if execution_date.month == 12:
-        data_interval_end = datetime(execution_date.year + 1, 1, 1)
+def _to_naive_datetime(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(value.tzinfo).replace(tzinfo=None)
+
+
+def _resolve_interval_window(schedule: str) -> timedelta | None:
+    match = _INTERVAL_PATTERN.fullmatch(schedule)
+    if match is None:
+        return None
+    value = int(match.group(1))
+    unit = (match.group(2) or "s").lower()
+    return timedelta(**{_INTERVAL_UNIT_TO_KWARG[unit]: value})
+
+
+def _resolve_cron_interval(execution_date: date, schedule: str) -> tuple[datetime, datetime]:
+    from apscheduler.triggers.cron import CronTrigger
+
+    trigger = CronTrigger.from_crontab(schedule)
+    tzinfo = trigger.timezone
+    if tzinfo is None:
+        day_start = datetime.combine(execution_date, time.min)
     else:
-        data_interval_end = datetime(execution_date.year, execution_date.month + 1, 1)
+        day_start = datetime.combine(execution_date, time.min, tzinfo=tzinfo)
+
+    current_fire = trigger.get_next_fire_time(None, day_start - timedelta(seconds=1))
+    if current_fire is None or _to_naive_datetime(current_fire).date() != execution_date:
+        raise ValueError(
+            "data_interval 계산 실패: execution_date 가 schedule fire 시점과 맞지 않습니다. "
+            f"execution_date={execution_date.isoformat()} schedule={schedule}"
+        )
+
+    lookback_days = _estimate_cron_lookback_days(schedule)
+    search_start = day_start - timedelta(days=lookback_days)
+    previous_fire = None
+    cursor = trigger.get_next_fire_time(None, search_start)
+    guard = 0
+    while cursor is not None and cursor < current_fire:
+        previous_fire = cursor
+        cursor = trigger.get_next_fire_time(cursor, cursor + timedelta(seconds=1))
+        guard += 1
+        if guard > 200000:
+            raise ValueError(
+                "data_interval 계산 실패: schedule 구간 탐색이 비정상적으로 길어졌습니다. "
+                f"execution_date={execution_date.isoformat()} schedule={schedule}"
+            )
+
+    if previous_fire is None:
+        raise ValueError(
+            "data_interval 계산 실패: 이전 스케줄 구간을 찾지 못했습니다. "
+            f"execution_date={execution_date.isoformat()} schedule={schedule}"
+        )
+
+    return _to_naive_datetime(previous_fire), _to_naive_datetime(current_fire)
+
+
+def resolve_data_interval(execution_date: date, schedule: str) -> tuple[datetime, datetime]:
+    normalized_schedule = validate_data_interval_schedule(schedule)
+    interval_window = _resolve_interval_window(normalized_schedule)
+    if interval_window is not None:
+        data_interval_end = datetime.combine(execution_date, time.min)
+        data_interval_start = data_interval_end - interval_window
+        return data_interval_start, data_interval_end
+    return _resolve_cron_interval(execution_date, normalized_schedule)
+
+
+def _estimate_cron_lookback_days(schedule: str) -> int:
+    minute, hour, day, month, weekday = schedule.split()
+    if day != "*" or month != "*" or weekday != "*":
+        return 400
+    if hour != "*" or minute != "*":
+        return 3
+    return 1
+
+
+def build_query_render_context(execution_date: date, schedule: str) -> dict[str, Any]:
+    data_interval_start, data_interval_end = resolve_data_interval(execution_date, schedule)
+    logical_dt = data_interval_start
 
     return {
         "logical_date": logical_dt,
@@ -141,11 +249,17 @@ def build_default_bind_params(context: dict[str, Any]) -> dict[str, Any]:
     return bind_params
 
 
+def build_interval_bind_params(execution_date: date, schedule: str) -> dict[str, Any]:
+    context = build_query_render_context(execution_date, schedule)
+    return build_default_bind_params(context)
+
+
 def render_source_query(
     source_where_template: str | None,
     source_bind_params: Any,
     *,
     execution_date: date,
+    schedule: str,
 ) -> tuple[str | None, dict[str, Any]]:
     normalized_template, custom_bind_params = validate_source_query_config(
         source_where_template,
@@ -154,7 +268,7 @@ def render_source_query(
     if normalized_template is None:
         return None, {}
 
-    render_context = build_query_render_context(execution_date)
+    render_context = build_query_render_context(execution_date, schedule)
     rendered_where = _render_template_value(normalized_template, render_context)
     merged_params = build_default_bind_params(render_context)
     for key, value in custom_bind_params.items():

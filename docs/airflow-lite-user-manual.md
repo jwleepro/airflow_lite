@@ -151,6 +151,12 @@ pipelines = [
 - `_`로 시작하는 파일은 기본적으로 로드되지 않는다(`_migrated.py` 제외).
 - `AIRFLOW_LITE_DAGS_DIR` 환경변수로 DAG 디렉터리를 오버라이드할 수 있다.
 
+`data_interval` 의미:
+
+- `data_interval_start/end`는 DAG `schedule`이 정한 구간이다.
+- 월 고정 계산은 제거되었다.
+- `logical_date`는 `data_interval_start`와 같은 의미로 사용된다.
+
 ### 5.4 포그라운드 실행
 
 개발 또는 최초 점검 시에는 포그라운드 실행이 가장 단순하다.
@@ -240,6 +246,7 @@ python -m airflow_lite service remove
 
 - `start_date`, `end_date`는 `YYYY-MM-DD` 형식이어야 한다.
 - 내부적으로 월 단위로 분할 실행된다.
+- 각 실행에서 사용되는 `data_interval_start/end`는 해당 DAG의 schedule 해석 결과를 따른다.
 - 범위가 길수록 실행 건수가 많아진다.
 
 ### 7.4 Dag Run 화면
@@ -343,6 +350,11 @@ Invoke-RestMethod `
 ```
 
 이 요청은 월 단위로 분할되어 여러 실행을 생성한다.
+
+주의:
+
+- 월 단위로 생성되는 것은 backfill run 단위다.
+- 각 run의 `data_interval_start/end` 자체는 DAG schedule 구간으로 계산된다.
 
 ## 10. Export 사용 방법
 
@@ -453,3 +465,13 @@ python -m airflow_lite run
 - [spec/requirements.md](../spec/requirements.md)
 - [spec/mart-refresh-design.md](../spec/mart-refresh-design.md)
 - [spec/query-api-contract.md](../spec/query-api-contract.md)
+
+## 16. data_interval 마이그레이션 가이드
+
+기존 DAG가 월 고정 전제를 암묵적으로 갖고 있다면 아래를 점검한다.
+
+1. `source_where_template`에 월 시작/다음달 시작 상수를 직접 박아넣지 않았는지 확인한다.
+2. `:data_interval_start`, `:data_interval_end` bind를 기준으로 조회 조건을 통일한다.
+3. `source_bind_params`의 Jinja 템플릿(`{{ data_interval_start.year }}` 등)이 schedule 구간 기준으로 평가되는지 검토한다.
+4. `full`/`incremental` 모두 동일한 data interval을 받으므로 전략 차이는 컬럼 조건으로만 분리한다.
+5. 대표 예시는 `dags/default.py` 패턴을 그대로 따르는 것을 권장한다.
