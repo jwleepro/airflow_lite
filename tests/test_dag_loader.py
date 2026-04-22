@@ -1,4 +1,3 @@
-from pathlib import Path
 
 from airflow_lite.config.dag_loader import load_dag_pipelines, resolve_dags_dir
 

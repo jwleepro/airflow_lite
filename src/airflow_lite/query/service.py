@@ -17,11 +17,8 @@ from airflow_lite.analytics import (
 from airflow_lite.query.connection import DuckDBConnectionManager
 from airflow_lite.query.contracts import (
     AnalyticsFilterMetadataResponse,
-    ChartGranularity,
-    ChartPoint,
     ChartQueryRequest,
     ChartQueryResponse,
-    ChartSeries,
     DashboardDefinitionResponse,
     DetailQueryRequest,
     DetailQueryResponse,
