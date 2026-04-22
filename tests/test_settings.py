@@ -116,6 +116,35 @@ defaults:
             Settings.load(str(sample_yaml))
         assert "ORACLE_HOST" in str(exc_info.value)
 
+    def test_load_rejects_invalid_data_interval_schedule(self, tmp_path):
+        config_path = tmp_path / "pipelines.yaml"
+        config_path.write_text(
+            """\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines:
+  - name: "invalid_schedule_pipeline"
+    table: "TEST_TABLE"
+    source_where_template: "DATE_COL >= :data_interval_start AND DATE_COL < :data_interval_end"
+    strategy: "full"
+    schedule: "every day 2am"
+""",
+            encoding="utf-8",
+        )
+
+        with pytest.raises(ValueError, match="data_interval 계산을 위해 schedule"):
+            Settings.load(str(config_path))
+
     def test_load_coerces_numeric_env_values(self, tmp_path, monkeypatch):
         config_path = tmp_path / "pipelines.yaml"
         config_path.write_text(
@@ -209,6 +238,49 @@ pipelines = [
         assert len(settings.pipelines) == 1
         assert settings.pipelines[0].name == "dag_pipeline"
         assert settings.pipelines[0].table == "DAG_TABLE"
+
+    def test_load_rejects_invalid_dag_schedule(self, tmp_path, monkeypatch):
+        config_path = tmp_path / "pipelines.yaml"
+        config_path.write_text(
+            """\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines: []
+""",
+            encoding="utf-8",
+        )
+        dags_dir = tmp_path / "dags"
+        dags_dir.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setenv("AIRFLOW_LITE_DAGS_DIR", str(dags_dir))
+        (dags_dir / "invalid.py").write_text(
+            """\
+from airflow_lite.dag_api import Pipeline
+
+pipelines = [
+    Pipeline(
+        id="invalid_dag_pipeline",
+        table="DAG_TABLE",
+        source_where_template="DATE_COL >= :data_interval_start AND DATE_COL < :data_interval_end",
+        strategy="full",
+        schedule="bad schedule",
+    ),
+]
+""",
+            encoding="utf-8",
+        )
+
+        with pytest.raises(ValueError, match="data_interval 계산을 위해 schedule"):
+            Settings.load(str(config_path))
 
 class TestAlertingConfig:
     """Settings.load()의 alerting 섹션 파싱 검증."""

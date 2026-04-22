@@ -1,14 +1,18 @@
-from datetime import date
+import re
 from pathlib import Path
 from abc import ABC, abstractmethod
-from datetime import timedelta
 from typing import Iterator
 
 import pandas as pd
 import pyarrow as pa
 
 from airflow_lite.engine.stage import StageContext
-from airflow_lite.pipeline_config_validation import render_source_query
+from airflow_lite.pipeline_config_validation import (
+    build_interval_bind_params,
+    render_source_query,
+)
+
+_BIND_NAME_PATTERN = re.compile(r":(\w+)")
 
 
 def _build_select_columns(context: StageContext) -> str:
@@ -67,6 +71,7 @@ class OracleParquetMigrationStrategy(MigrationStrategy, ABC):
             getattr(context.table_config, "source_where_template", None),
             getattr(context.table_config, "source_bind_params", None),
             execution_date=context.execution_date,
+            schedule=getattr(context.table_config, "schedule", ""),
         )
 
     def _compose_query(
@@ -85,16 +90,31 @@ class OracleParquetMigrationStrategy(MigrationStrategy, ABC):
         predicates.extend(extra_predicates)
         if not predicates:
             raise ValueError("full 전략은 source_where_template 이 필요합니다.")
-        return (
-            f"{self._select_prefix(context)} WHERE {' AND '.join(predicates)}",
-            bind_params,
+        query = f"{self._select_prefix(context)} WHERE {' AND '.join(predicates)}"
+        used_names = set(_BIND_NAME_PATTERN.findall(query))
+        if not used_names:
+            return query, {}
+
+        interval_bind_params = build_interval_bind_params(
+            context.execution_date, getattr(context.table_config, "schedule", "")
         )
+        merged_params = dict(interval_bind_params)
+        merged_params.update(bind_params)
+        missing_names = sorted(name for name in used_names if name not in merged_params)
+        if missing_names:
+            missing_text = ", ".join(missing_names)
+            raise ValueError(
+                "source_where_template 에 필요한 bind 변수가 없습니다: "
+                f"{missing_text}"
+            )
+        filtered_params = {name: merged_params[name] for name in used_names}
+        return query, filtered_params
 
 
 class FullMigrationStrategy(OracleParquetMigrationStrategy):
-    """전체 이관: 월별 파티션 전체를 덮어쓰기.
+    """전체 이관: 스케줄 기준 data_interval 구간을 추출 후 현재 월 파티션을 갱신.
 
-    extract: source_where_template 기반 WHERE절로 해당 월 전체 데이터 추출
+    extract: source_where_template 기반 WHERE절로 스케줄 data_interval 구간 추출
     load: 기존 Parquet 파일을 .bak으로 이동 후 새 파일 생성
     verify: Oracle 건수 vs Parquet 행 수 비교
     """
@@ -120,7 +140,7 @@ class FullMigrationStrategy(OracleParquetMigrationStrategy):
         return _iter_chunks()
 
     def _build_full_query(self, context: StageContext) -> tuple[str, dict]:
-        """월별 전체 이관 쿼리와 bind params 생성."""
+        """스케줄 기반 data_interval을 반영한 full 쿼리와 bind params 생성."""
         return self._compose_query(context)
 
     # transform()은 부모 MigrationStrategy의 기본 구현 사용
@@ -212,15 +232,13 @@ class IncrementalMigrationStrategy(OracleParquetMigrationStrategy):
         return _iter_chunks()
 
     def _build_incremental_query(self, context: StageContext) -> tuple[str, dict]:
-        """incremental_key 기반 WHERE절 생성 (execution_date 당일 변경분)."""
+        """incremental_key 기준 schedule data_interval 구간 WHERE절 생성."""
         incremental_key = context.table_config.incremental_key
-        exec_date = context.execution_date
-        next_date = exec_date + timedelta(days=1)
         return self._compose_query(
             context,
             [
-                f"{incremental_key} >= DATE '{exec_date.strftime('%Y-%m-%d')}'",
-                f"{incremental_key} < DATE '{next_date.strftime('%Y-%m-%d')}'",
+                f"{incremental_key} >= :data_interval_start",
+                f"{incremental_key} < :data_interval_end",
             ],
         )
 

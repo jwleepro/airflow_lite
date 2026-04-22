@@ -45,6 +45,7 @@ def _make_context(
     chunk_size=100,
     incremental_key=None,
     columns=None,
+    schedule="0 2 * * *",
 ) -> StageContext:
     table_config = MagicMock()
     table_config.table = table
@@ -53,6 +54,7 @@ def _make_context(
     table_config.strategy = strategy
     table_config.incremental_key = incremental_key
     table_config.columns = columns
+    table_config.schedule = schedule
     return StageContext(
         pipeline_name="test_pipeline",
         execution_date=execution_date,
@@ -511,7 +513,7 @@ class TestParquetWriter:
 # ── MigrationStrategy 테스트 ───────────────────────────────────────────────────
 
 class TestFullMigrationStrategy:
-    """FullMigrationStrategy: 월별 전체 추출/적재."""
+    """FullMigrationStrategy: schedule 기반 interval 추출/적재."""
 
     def _make_strategy(self, tmp_path):
         oracle_client = MagicMock()
@@ -519,21 +521,27 @@ class TestFullMigrationStrategy:
         parquet_writer = ParquetWriter(str(tmp_path))
         return FullMigrationStrategy(oracle_client, chunked_reader, parquet_writer)
 
-    def test_build_full_query_march(self):
+    def test_build_full_query_uses_daily_schedule_interval(self):
         strategy = self._make_strategy(Path("."))
-        ctx = _make_context(execution_date=date(2026, 3, 1))
+        ctx = _make_context(
+            execution_date=date(2026, 3, 15),
+            schedule="0 2 * * *",
+        )
         query, params = strategy._build_full_query(ctx)
         assert "DATE_COL >= :data_interval_start" in query
         assert "DATE_COL < :data_interval_end" in query
-        assert params["data_interval_start"] == pd.Timestamp("2026-03-01").to_pydatetime()
-        assert params["data_interval_end"] == pd.Timestamp("2026-04-01").to_pydatetime()
+        assert params["data_interval_start"] == pd.Timestamp("2026-03-14 02:00:00").to_pydatetime()
+        assert params["data_interval_end"] == pd.Timestamp("2026-03-15 02:00:00").to_pydatetime()
 
-    def test_build_full_query_december_wraps_year(self):
+    def test_build_full_query_monthly_schedule_wraps_year(self):
         strategy = self._make_strategy(Path("."))
-        ctx = _make_context(execution_date=date(2026, 12, 1))
+        ctx = _make_context(
+            execution_date=date(2027, 1, 1),
+            schedule="0 2 1 * *",
+        )
         _, params = strategy._build_full_query(ctx)
-        assert params["data_interval_start"] == pd.Timestamp("2026-12-01").to_pydatetime()
-        assert params["data_interval_end"] == pd.Timestamp("2027-01-01").to_pydatetime()
+        assert params["data_interval_start"] == pd.Timestamp("2026-12-01 02:00:00").to_pydatetime()
+        assert params["data_interval_end"] == pd.Timestamp("2027-01-01 02:00:00").to_pydatetime()
 
     def test_build_full_query_uses_configured_columns(self):
         strategy = self._make_strategy(Path("."))
@@ -549,12 +557,22 @@ class TestFullMigrationStrategy:
                 "year": "{{ data_interval_start.year }}",
                 "month": "{{ data_interval_start.month }}",
             },
-            execution_date=date(2026, 4, 1),
+            execution_date=date(2026, 4, 2),
+            schedule="0 2 * * *",
         )
         query, params = strategy._build_full_query(ctx)
         assert "WHERE TRAN_YEAR = :year AND TRAN_MONTH = :month" in query
         assert params["year"] == 2026
         assert params["month"] == 4
+
+    def test_build_full_query_raises_for_invalid_schedule_expression(self):
+        strategy = self._make_strategy(Path("."))
+        ctx = _make_context(
+            execution_date=date(2026, 4, 2),
+            schedule="not-a-schedule",
+        )
+        with pytest.raises(ValueError, match="data_interval 계산을 위해 schedule"):
+            strategy._build_full_query(ctx)
 
     def test_extract_sets_connection_and_chunk_size(self, tmp_path):
         mock_conn = MagicMock()
@@ -679,13 +697,15 @@ class TestIncrementalMigrationStrategy:
         ctx = _make_context(
             incremental_key="UPDATED_AT",
             execution_date=date(2026, 3, 15),
+            schedule="0 2 * * *",
         )
         query, params = strategy._build_incremental_query(ctx)
-        assert "UPDATED_AT" in query
-        assert "2026-03-15" in query
-        assert "2026-03-16" in query
+        assert "UPDATED_AT >= :data_interval_start" in query
+        assert "UPDATED_AT < :data_interval_end" in query
         assert "data_interval_start" in params
         assert "data_interval_end" in params
+        assert params["data_interval_start"] == pd.Timestamp("2026-03-14 02:00:00").to_pydatetime()
+        assert params["data_interval_end"] == pd.Timestamp("2026-03-15 02:00:00").to_pydatetime()
 
     def test_build_incremental_query_uses_configured_columns(self):
         oracle_client = MagicMock()

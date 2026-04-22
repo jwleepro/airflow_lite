@@ -18,6 +18,9 @@ class Pipeline:
 
     def to_pipeline_config(self) -> "PipelineConfig":
         from airflow_lite.config.settings import PipelineConfig
+        from airflow_lite.pipeline_config_validation import validate_data_interval_schedule
+
+        normalized_schedule = validate_data_interval_schedule(self.schedule)
 
         return PipelineConfig(
             name=self.id,
@@ -25,7 +28,7 @@ class Pipeline:
             source_where_template=self.source_where_template,
             source_bind_params=self.source_bind_params or {},
             strategy=self.strategy,
-            schedule=self.schedule,
+            schedule=normalized_schedule,
             chunk_size=self.chunk_size,
             columns=self.columns,
             incremental_key=self.incremental_key,

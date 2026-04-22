@@ -96,7 +96,7 @@ Oracle 11g → [ingest] → Parquet raw → [mart] → DuckDB → [serve] → Fa
 | **Analytics** | KPI summary, chart 시리즈, detail 페이징, dashboard 정의, 필터 메타데이터 |
 | **Export** | 비동기 export job 생성 (xlsx, csv.zip, parquet), artifact 다운로드 |
 | **Web UI** | `/monitor` 파이프라인 모니터, `/monitor/analytics` 대시보드, `/monitor/exports` export job 화면 |
-| **Scheduling** | APScheduler cron 스케줄링, 수동 실행, 월 단위 백필 |
+| **Scheduling** | APScheduler cron/interval 스케줄링, 수동 실행, 월 단위 백필 실행 생성 |
 | **API** | FastAPI 엔드포인트 (파이프라인 관리 + analytics 조회 + export) |
 | **Alerting** | 이메일 및 웹훅 알림 채널 |
 | **Service** | Windows Service 래퍼를 통한 장기 실행 |
@@ -326,8 +326,14 @@ webui:
 
 | 전략 | 동작 |
 |------|------|
-| `full` | 대상 월 전체를 읽고 월 단위 Parquet를 새로 작성 |
-| `incremental` | `incremental_key` 기준으로 실행일 데이터만 읽고 월 디렉터리에 append |
+| `full` | `source_where_template`에서 `data_interval_start/end`를 쓰면 DAG schedule이 정의한 구간을 그대로 조회 |
+| `incremental` | `incremental_key` 조건도 동일한 `data_interval_start/end` 구간을 사용해 조회 |
+
+### Data Interval 의미
+
+- `data_interval_start/end`는 더 이상 월 고정이 아니다.
+- 각 run의 schedule 해석 결과(예: 일/월 cron 구간)가 그대로 bind 값으로 들어간다.
+- `logical_date`는 Airflow 용어와 같이 `data_interval_start`를 의미한다.
 
 ### 멱등성
 
@@ -392,6 +398,14 @@ Invoke-RestMethod `
 백필 요청은 내부적으로 월 단위로 분할되어 실행되며, 응답도 월별 실행 결과 리스트를 반환합니다.
 
 </details>
+
+### 마이그레이션 체크리스트 (월 고정 전제 제거)
+
+1. DAG의 `source_where_template`가 월 시작/다음달 시작 상수를 직접 가정하는지 확인한다.
+2. `:data_interval_start`, `:data_interval_end` bind를 사용하는 형태로 통일한다.
+3. `source_bind_params`에서 `{{ data_interval_start.year }}`, `{{ data_interval_start.month }}` 같은 템플릿이 schedule 구간 기준으로 평가되는지 검토한다.
+4. `full`/`incremental` 모두 같은 schedule 구간을 사용하므로 전략별 조건 차이는 비즈니스 컬럼 조건에만 두는 것을 권장한다.
+5. 대표 예시는 [dags/default.py](dags/default.py) 패턴을 기준으로 맞춘다.
 
 ---
 
