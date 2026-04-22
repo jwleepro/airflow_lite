@@ -1,11 +1,6 @@
 from pathlib import Path
 
-from airflow_lite.config.dag_loader import (
-    load_dag_pipelines,
-    migrate_sqlite_pipelines_to_dag_file_if_needed,
-    resolve_dags_dir,
-)
-from airflow_lite.storage.database import Database
+from airflow_lite.config.dag_loader import load_dag_pipelines, resolve_dags_dir
 
 
 def test_load_dag_pipelines_reads_public_python_files(tmp_path):
@@ -71,49 +66,6 @@ pipelines = [Pipeline(id="ok", table="OK_TABLE")]
 
     assert len(pipelines) == 1
     assert pipelines[0].name == "ok"
-
-
-def test_migrate_sqlite_pipelines_to_dag_file_if_needed(tmp_path):
-    db_path = tmp_path / "legacy.db"
-    database = Database(str(db_path))
-    database.initialize()
-    with database.connection() as conn:
-        conn.execute(
-            """
-            CREATE TABLE pipeline_configs (
-                name TEXT PRIMARY KEY,
-                source_table TEXT NOT NULL,
-                source_where_template TEXT,
-                source_bind_params TEXT,
-                strategy TEXT NOT NULL,
-                schedule TEXT NOT NULL,
-                chunk_size INTEGER,
-                columns TEXT,
-                incremental_key TEXT
-            )
-            """
-        )
-        conn.execute(
-            """
-            INSERT INTO pipeline_configs
-            (name, source_table, source_where_template, source_bind_params, strategy, schedule, chunk_size, columns, incremental_key)
-            VALUES
-            ('production_log', 'PRODUCTION_LOG', 'LOG_DATE >= :data_interval_start', NULL, 'full', '0 2 * * *', 5000, 'LOG_ID,LOG_DATE', NULL)
-            """
-        )
-        conn.commit()
-
-    dags_dir = tmp_path / "dags"
-    generated = migrate_sqlite_pipelines_to_dag_file_if_needed(str(db_path), dags_dir)
-
-    assert generated == dags_dir / "_migrated.py"
-    assert generated is not None
-    assert generated.exists()
-
-    loaded = load_dag_pipelines(dags_dir)
-    assert len(loaded) == 1
-    assert loaded[0].name == "production_log"
-    assert loaded[0].table == "PRODUCTION_LOG"
 
 
 def test_resolve_dags_dir_uses_project_root_when_config_dir_name_matches(tmp_path):

@@ -330,7 +330,7 @@ Airflow의 또 다른 표준 패턴은 Dynamic Task Mapping이다.
     - `_` 접두 private 파일은 스킵 (`_migrated.py`만 예외 허용)
     - `pipelines` 목록에서 `Pipeline` 또는 `PipelineConfig` 수집
     - import 실패 파일은 로그만 남기고 계속 진행
-  - `migrate_sqlite_pipelines_to_dag_file_if_needed(sqlite_path, dags_dir)`:
+  - ~~`migrate_sqlite_pipelines_to_dag_file_if_needed(sqlite_path, dags_dir)`~~ — **PR #50에서 제거** (일회성 마이그레이션 완료)
     - legacy `pipeline_configs`가 있고 사용자 DAG가 없는 경우 `dags/_migrated.py` 자동 생성
     - 기존 row를 `Pipeline(...)` 코드로 변환해 이관
     - 경고 로그로 마이그레이션 완료 메시지 출력
