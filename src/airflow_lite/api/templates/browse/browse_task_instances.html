@@ -14,7 +14,7 @@
     </div>
   </div>
 
-  <form class="dag-filter-row" method="get" action="/monitor/browse/task-instances">
+  <form class="dag-filter-row" method="get" action="{{ MONITOR_BROWSE_TASK_INSTANCES_PATH }}">
     <div class="dag-search-box">
       <span class="search-icon-inline">&#x290D;</span>
       <input type="text" name="q" value="{{ search_query|default('') }}" placeholder="Search tasks..." class="dag-search-input">

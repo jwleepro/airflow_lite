@@ -111,6 +111,73 @@ def test_template_env_does_not_register_unused_icon_globals():
     assert "ICON_DOCS" in _ENV.globals
 
 
+def test_template_env_exposes_admin_path_constants():
+    """Admin sub-path constants must be available as Jinja globals."""
+    assert "MONITOR_ADMIN_CONNECTIONS_PATH" in _ENV.globals
+    assert "MONITOR_ADMIN_VARIABLES_PATH" in _ENV.globals
+    assert "MONITOR_ADMIN_POOLS_PATH" in _ENV.globals
+    assert "MONITOR_ADMIN_PROVIDERS_PATH" in _ENV.globals
+    assert "MONITOR_ADMIN_PLUGINS_PATH" in _ENV.globals
+    assert "MONITOR_ADMIN_CONFIG_PATH" in _ENV.globals
+    assert "MONITOR_ADMIN_XCOMS_PATH" in _ENV.globals
+
+
+def test_template_env_exposes_security_path_constants():
+    """Security sub-path constants must be available as Jinja globals."""
+    assert "MONITOR_SECURITY_PATH" in _ENV.globals
+    assert "MONITOR_SECURITY_USERS_PATH" in _ENV.globals
+    assert "MONITOR_SECURITY_ROLES_PATH" in _ENV.globals
+    assert "MONITOR_SECURITY_PERMISSIONS_PATH" in _ENV.globals
+
+
+def test_base_template_uses_path_constants_not_literals():
+    """base.html sidebar links must use Jinja path constant variables, not raw strings."""
+    template_path = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "airflow_lite"
+        / "api"
+        / "templates"
+        / "base.html"
+    )
+    html = template_path.read_text(encoding="utf-8")
+
+    # Admin sidebar links must reference constants
+    assert "MONITOR_ADMIN_CONNECTIONS_PATH" in html
+    assert "MONITOR_ADMIN_VARIABLES_PATH" in html
+    assert "MONITOR_ADMIN_POOLS_PATH" in html
+    # Security sidebar links must reference constants
+    assert "MONITOR_SECURITY_USERS_PATH" in html
+    assert "MONITOR_SECURITY_ROLES_PATH" in html
+    assert "MONITOR_SECURITY_PERMISSIONS_PATH" in html
+    # No bare literal admin paths in link/form targets
+    assert 'href="{{ lang_url(\'/monitor/admin/connections\') }}"' not in html
+    assert 'href="{{ lang_url(\'/monitor/security/users\') }}"' not in html
+
+
+def test_browse_templates_use_path_constants_not_literals():
+    """Browse form actions must reference Jinja path constants."""
+    templates_dir = (
+        Path(__file__).resolve().parents[1]
+        / "src" / "airflow_lite" / "api" / "templates" / "browse"
+    )
+    for tmpl in templates_dir.glob("*.html"):
+        html = tmpl.read_text(encoding="utf-8")
+        assert 'action="/monitor/browse/' not in html, (
+            f"{tmpl.name} still contains a hardcoded browse form action"
+        )
+
+
+def test_security_user_template_uses_path_constant_not_literal():
+    """security_users.html form action must reference a Jinja path constant."""
+    tmpl_path = (
+        Path(__file__).resolve().parents[1]
+        / "src" / "airflow_lite" / "api" / "templates" / "security" / "security_users.html"
+    )
+    html = tmpl_path.read_text(encoding="utf-8")
+    assert 'action="/monitor/security/users"' not in html
+
+
 def test_base_template_contains_sidebar_redesign_structure():
     template_path = (
         Path(__file__).resolve().parents[1]

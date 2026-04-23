@@ -93,7 +93,7 @@
 
           {# Admin submenu #}
           <div class="sidebar-submenu-group">
-            {% set admin_paths = ['/monitor/admin/connections', '/monitor/admin/variables', '/monitor/admin/pools', '/monitor/admin/providers', '/monitor/admin/plugins', '/monitor/admin/config', '/monitor/admin/xcoms'] %}
+            {% set admin_paths = [MONITOR_ADMIN_CONNECTIONS_PATH, MONITOR_ADMIN_VARIABLES_PATH, MONITOR_ADMIN_POOLS_PATH, MONITOR_ADMIN_PROVIDERS_PATH, MONITOR_ADMIN_PLUGINS_PATH, MONITOR_ADMIN_CONFIG_PATH, MONITOR_ADMIN_XCOMS_PATH] %}
             {% set admin_active = active_path in admin_paths or active_path == MONITOR_ADMIN_PATH %}
             <button class="submenu-toggle{% if admin_active %} active{% endif %}" type="button" data-submenu-toggle="admin" aria-expanded="{% if admin_active %}true{% else %}false{% endif %}">
               <span class="sidebar-icon" aria-hidden="true">{{ ICON_ADMIN }}</span>
@@ -101,19 +101,19 @@
               <span class="submenu-caret" aria-hidden="true"></span>
             </button>
             <div class="submenu-list" data-submenu-panel="admin" {% if not admin_active %}hidden{% endif %}>
-              <a class="submenu-link{% if '/monitor/admin/connections' == active_path %} active{% endif %}" href="{{ lang_url('/monitor/admin/connections') }}">Connections</a>
-              <a class="submenu-link{% if '/monitor/admin/variables' == active_path %} active{% endif %}" href="{{ lang_url('/monitor/admin/variables') }}">Variables</a>
-              <a class="submenu-link{% if '/monitor/admin/pools' == active_path %} active{% endif %}" href="{{ lang_url('/monitor/admin/pools') }}">Pools</a>
-              <a class="submenu-link{% if '/monitor/admin/providers' == active_path %} active{% endif %}" href="{{ lang_url('/monitor/admin/providers') }}">Providers</a>
-              <a class="submenu-link{% if '/monitor/admin/plugins' == active_path %} active{% endif %}" href="{{ lang_url('/monitor/admin/plugins') }}">Plugins</a>
-              <a class="submenu-link{% if '/monitor/admin/config' == active_path %} active{% endif %}" href="{{ lang_url('/monitor/admin/config') }}">Configuration</a>
-              <a class="submenu-link{% if '/monitor/admin/xcoms' == active_path %} active{% endif %}" href="{{ lang_url('/monitor/admin/xcoms') }}">XComs</a>
+              <a class="submenu-link{% if MONITOR_ADMIN_CONNECTIONS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_CONNECTIONS_PATH) }}">Connections</a>
+              <a class="submenu-link{% if MONITOR_ADMIN_VARIABLES_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_VARIABLES_PATH) }}">Variables</a>
+              <a class="submenu-link{% if MONITOR_ADMIN_POOLS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_POOLS_PATH) }}">Pools</a>
+              <a class="submenu-link{% if MONITOR_ADMIN_PROVIDERS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_PROVIDERS_PATH) }}">Providers</a>
+              <a class="submenu-link{% if MONITOR_ADMIN_PLUGINS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_PLUGINS_PATH) }}">Plugins</a>
+              <a class="submenu-link{% if MONITOR_ADMIN_CONFIG_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_CONFIG_PATH) }}">Configuration</a>
+              <a class="submenu-link{% if MONITOR_ADMIN_XCOMS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_XCOMS_PATH) }}">XComs</a>
             </div>
           </div>
 
           {# Security submenu #}
           <div class="sidebar-submenu-group">
-            {% set security_paths = ['/monitor/security/users', '/monitor/security/roles', '/monitor/security/permissions'] %}
+            {% set security_paths = [MONITOR_SECURITY_USERS_PATH, MONITOR_SECURITY_ROLES_PATH, MONITOR_SECURITY_PERMISSIONS_PATH] %}
             {% set security_active = active_path in security_paths %}
             <button class="submenu-toggle{% if security_active %} active{% endif %}" type="button" data-submenu-toggle="security" aria-expanded="{% if security_active %}true{% else %}false{% endif %}">
               <span class="sidebar-icon" aria-hidden="true">{{ ICON_SECURITY }}</span>
@@ -121,9 +121,9 @@
               <span class="submenu-caret" aria-hidden="true"></span>
             </button>
             <div class="submenu-list" data-submenu-panel="security" {% if not security_active %}hidden{% endif %}>
-              <a class="submenu-link{% if '/monitor/security/users' == active_path %} active{% endif %}" href="{{ lang_url('/monitor/security/users') }}">Users</a>
-              <a class="submenu-link{% if '/monitor/security/roles' == active_path %} active{% endif %}" href="{{ lang_url('/monitor/security/roles') }}">Roles</a>
-              <a class="submenu-link{% if '/monitor/security/permissions' == active_path %} active{% endif %}" href="{{ lang_url('/monitor/security/permissions') }}">Permissions</a>
+              <a class="submenu-link{% if MONITOR_SECURITY_USERS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_SECURITY_USERS_PATH) }}">Users</a>
+              <a class="submenu-link{% if MONITOR_SECURITY_ROLES_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_SECURITY_ROLES_PATH) }}">Roles</a>
+              <a class="submenu-link{% if MONITOR_SECURITY_PERMISSIONS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_SECURITY_PERMISSIONS_PATH) }}">Permissions</a>
             </div>
           </div>
         </nav>
@@ -306,10 +306,10 @@
         { label: 'Backfills', path: '{{ lang_url(MONITOR_BROWSE_BACKFILLS_PATH) }}', section: 'Browse' },
         { label: 'Audit Logs', path: '{{ lang_url(MONITOR_BROWSE_AUDIT_LOGS_PATH) }}', section: 'Browse' },
         { label: 'Admin', path: '{{ lang_url(MONITOR_ADMIN_PATH) }}', section: 'Admin' },
-        { label: 'Connections', path: '{{ lang_url("/monitor/admin/connections") }}', section: 'Admin' },
-        { label: 'Variables', path: '{{ lang_url("/monitor/admin/variables") }}', section: 'Admin' },
-        { label: 'Pools', path: '{{ lang_url("/monitor/admin/pools") }}', section: 'Admin' },
-        { label: 'Security', path: '{{ lang_url("/monitor/security/users") }}', section: 'Admin' },
+        { label: 'Connections', path: '{{ lang_url(MONITOR_ADMIN_CONNECTIONS_PATH) }}', section: 'Admin' },
+        { label: 'Variables', path: '{{ lang_url(MONITOR_ADMIN_VARIABLES_PATH) }}', section: 'Admin' },
+        { label: 'Pools', path: '{{ lang_url(MONITOR_ADMIN_POOLS_PATH) }}', section: 'Admin' },
+        { label: 'Security', path: '{{ lang_url(MONITOR_SECURITY_USERS_PATH) }}', section: 'Admin' },
       ];
 
       function openSearch() {

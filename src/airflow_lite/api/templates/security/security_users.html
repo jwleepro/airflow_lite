@@ -14,7 +14,7 @@
     <button type="button" class="btn btn-primary">+ Add User</button>
   </div>
 
-  <form class="dag-filter-row" method="get" action="/monitor/security/users">
+  <form class="dag-filter-row" method="get" action="{{ MONITOR_SECURITY_USERS_PATH }}">
     <div class="dag-search-box">
       <span class="search-icon-inline">&#x290D;</span>
       <input type="text" name="q" value="{{ search_query|default('') }}" placeholder="Search users..." class="dag-search-input">

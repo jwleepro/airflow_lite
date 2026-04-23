@@ -14,7 +14,7 @@
     </div>
   </div>
 
-  <form class="dag-filter-row" method="get" action="/monitor/browse/dag-runs">
+  <form class="dag-filter-row" method="get" action="{{ MONITOR_DAG_RUNS_PATH }}">
     <div class="dag-search-box">
       <span class="search-icon-inline">&#x290D;</span>
       <input type="text" name="q" value="{{ search_query|default('') }}" placeholder="Search DAG runs..." class="dag-search-input">
