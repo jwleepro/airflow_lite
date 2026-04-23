@@ -109,3 +109,22 @@ def test_template_env_does_not_register_unused_icon_globals():
     assert "ICON_ANALYTICS" in _ENV.globals
     assert "ICON_ADMIN" in _ENV.globals
     assert "ICON_DOCS" in _ENV.globals
+
+
+def test_base_template_contains_sidebar_redesign_structure():
+    template_path = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "airflow_lite"
+        / "api"
+        / "templates"
+        / "base.html"
+    )
+    html = template_path.read_text(encoding="utf-8")
+
+    assert 'id="sidebar"' in html
+    assert 'id="sidebar-toggle"' in html
+    assert 'data-submenu-toggle="browse"' in html
+    assert 'data-submenu-toggle="admin"' in html
+    assert 'data-submenu-toggle="security"' in html
+    assert 'class="sidebar-profile"' in html
