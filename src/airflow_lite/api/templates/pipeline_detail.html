@@ -145,6 +145,77 @@
         {% endfor %}
       </g>
     </svg>
+  <div class="tab-pane pipeline-overview-pane active" id="tab-overview">
+    <section class="summary-grid pipeline-summary-grid">
+      <article class="summary-tile neutral">
+        <p class="summary-label">{{ t('webui.pipeline_detail.summary.total_runs') }}</p>
+        <p class="summary-value">{{ summary.total_runs }}</p>
+      </article>
+      <article class="summary-tile ok">
+        <p class="summary-label">{{ t('webui.pipeline_detail.summary.success_runs') }}</p>
+        <p class="summary-value">{{ summary.success_runs }}</p>
+      </article>
+      <article class="summary-tile {{ 'warn' if summary.active_runs else 'neutral' }}">
+        <p class="summary-label">{{ t('webui.pipeline_detail.summary.active_runs') }}</p>
+        <p class="summary-value">{{ summary.active_runs }}</p>
+      </article>
+      <article class="summary-tile {{ 'bad' if summary.failed_runs else 'neutral' }}">
+        <p class="summary-label">{{ t('webui.pipeline_detail.summary.failed_runs') }}</p>
+        <p class="summary-value">{{ summary.failed_runs }}</p>
+      </article>
+      <article class="summary-tile neutral">
+        <p class="summary-label">{{ t('webui.pipeline_detail.summary.tasks') }}</p>
+        <p class="summary-value">{{ summary.task_count }}</p>
+      </article>
+    </section>
+
+    <div class="grid-2 u-mt-xl">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">{{ t('webui.pipeline_detail.overview.latest_run.eyebrow') }}</p>
+            <h2>{{ t('webui.pipeline_detail.overview.latest_run.title') }}</h2>
+          </div>
+        </div>
+        {% if latest_run %}
+        <dl class="meta-grid">
+          <div><dt>{{ t('webui.run_detail.meta.run_id') }}</dt><dd class="cell-code">{{ latest_run.id }}</dd></div>
+          <div><dt>{{ t('webui.monitor.table.status') }}</dt><dd><span class="status {{ tone_of(latest_run.status) }}">{{ fmt(latest_run.status) }}</span></dd></div>
+          <div><dt>{{ t('webui.monitor.table.trigger') }}</dt><dd>{{ fmt(latest_run.trigger_type) }}</dd></div>
+          <div><dt>{{ t('webui.monitor.table.duration') }}</dt><dd>{{ fmt(fmt_duration(latest_run.started_at, latest_run.finished_at)) }}</dd></div>
+          <div><dt>{{ t('webui.monitor.table.last_run') }}</dt><dd>{{ fmt(latest_run.finished_at or latest_run.started_at or latest_run.execution_date) }}</dd></div>
+          <div><dt>{{ t('webui.monitor.table.detail') }}</dt><dd><a class="table-link" href="{{ lang_url(monitor_pipeline_run_detail_path(pipeline.name, latest_run.id)) }}">{{ t('webui.monitor.detail_link') }}</a></dd></div>
+        </dl>
+        {% else %}
+        <p class="empty">{{ t('webui.pipeline_detail.empty.no_runs') }}</p>
+        {% endif %}
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">{{ t('webui.pipeline_detail.overview.failures.eyebrow') }}</p>
+            <h2>{{ t('webui.pipeline_detail.overview.failures.title') }}</h2>
+          </div>
+        </div>
+        {% if recent_failures %}
+        <div class="stack">
+          {% for item in recent_failures %}
+          <article class="subpanel">
+            <div class="panel-head u-mb-sm">
+              <strong>{{ fmt(item.execution_date) }}</strong>
+              <span class="status bad">{{ fmt(item.status) }}</span>
+            </div>
+            <p class="muted u-mt-0 u-mb-sm">{{ fmt(item.step_name, fallback='-') }}</p>
+            <p class="u-m-0">{{ fmt(item.error_message, fallback='-') }}</p>
+          </article>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty">{{ t('webui.pipeline_detail.empty.no_failures') }}</p>
+        {% endif %}
+      </section>
+    </div>
   </div>
   {% else %}
   <p class="empty u-p-lg">{{ t('webui.pipeline_detail.empty.no_graph') }}</p>
@@ -165,6 +236,35 @@
     <div class="dag-node-panel-actions">
       <a id="panel-logs-link" class="btn btn-ghost btn-small" href="#">View Logs</a>
       <button class="btn btn-ghost btn-small">Clear</button>
+  <div class="tab-pane pipeline-grid-pane" id="tab-grid">
+    {% if grid.runs %}
+    <p class="muted side-note">{{ t('webui.pipeline_detail.grid.description') }}</p>
+    <div class="table-wrap grid-table-wrap">
+      <table class="air-table grid-matrix-table">
+        <thead>
+          <tr>
+            <th style="min-width:160px;">{{ t('webui.run_detail.table.step') }}</th>
+            {% for gr in grid.runs %}
+            <th class="grid-col-header" title="{{ gr.execution_date }}">
+              <span class="run-block {{ gr.tone }} u-inline-block"></span>
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for step_name in grid.step_names %}
+          {% set step_idx = loop.index0 %}
+          <tr>
+            <td><strong>{{ fmt(step_name) }}</strong></td>
+            {% for gr in grid.runs %}
+            <td class="u-text-center">
+              <span class="run-block {{ gr.step_tones[step_idx] }} u-inline-block" title="{{ gr.execution_date }} · {{ step_name }}" style="width:18px;height:18px;"></span>
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -182,6 +282,15 @@
       <div class="dag-gantt-label">{{ task.name }}</div>
       <div class="dag-gantt-track">
         <div class="dag-gantt-bar {{ task.latest_tone }}" style="left: {{ start_pct }}%; width: {{ width_pct }}%;"></div>
+  <div class="tab-pane pipeline-graph-pane" id="tab-graph">
+    {% if graph_nodes %}
+    <p class="eyebrow u-mb-md">{{ t('webui.pipeline_detail.graph.hint') }}</p>
+    <div class="graph-flow pipeline-dag-flow">
+      {% for node in graph_nodes %}
+      <div class="graph-node {{ node.tone }}">
+        <span class="graph-node-name">{{ fmt(node.name) }}</span>
+        <span class="graph-node-status">{{ fmt(node.status) }}</span>
+        {% if node.duration and node.duration != '-' %}<span class="graph-node-dur">{{ node.duration }}</span>{% endif %}
       </div>
       <div class="dag-gantt-duration">{{ task.latest_duration|default('-') }}</div>
     </div>
