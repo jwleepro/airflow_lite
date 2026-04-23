@@ -76,7 +76,7 @@
               <th style="min-width:120px;">{{ t('webui.run_detail.table.step') }}</th>
               {% for gr in grid.runs %}
               <th class="grid-col-header" title="{{ gr.execution_date }}">
-                <span class="run-block {{ gr.tone }}" style="display:inline-block;"></span>
+                <span class="run-block {{ gr.tone }} u-inline-block"></span>
               </th>
               {% endfor %}
             </tr>
@@ -87,8 +87,8 @@
             <tr>
               <td><strong>{{ fmt(step_name) }}</strong></td>
               {% for gr in grid.runs %}
-              <td style="text-align:center;">
-                <span class="run-block {{ gr.step_tones[step_idx] }}" title="{{ gr.execution_date }} · {{ step_name }}" style="display:inline-block;width:16px;height:16px;"></span>
+              <td class="u-text-center">
+                <span class="run-block {{ gr.step_tones[step_idx] }} u-inline-block" title="{{ gr.execution_date }} · {{ step_name }}" style="width:16px;height:16px;"></span>
               </td>
               {% endfor %}
             </tr>
@@ -223,7 +223,7 @@
         </div>
       </div>
       {% if step_rows %}
-      <p class="eyebrow" style="margin-bottom:14px;">{{ t('webui.run_detail.graph.description') }}</p>
+      <p class="eyebrow u-mb-md">{{ t('webui.run_detail.graph.description') }}</p>
       <div class="graph-flow run-dag-flow">
         {% for step in step_rows %}
         <div class="graph-node {{ step.tone }}">

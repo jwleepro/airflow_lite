@@ -45,7 +45,7 @@
             <td>********</td>
             <td>{{ fmt(c.description) }}</td>
             <td class="cell-actions">
-              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/connections/delete" style="display:inline;" onsubmit="return confirm('{{ t('webui.admin.connections.confirm_delete') }}');">
+              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/connections/delete" class="u-inline" onsubmit="return confirm('{{ t('webui.admin.connections.confirm_delete') }}');">
                 <input type="hidden" name="conn_id" value="{{ c.conn_id }}">
                 <button type="submit" class="btn btn-danger btn-small">{{ t('webui.admin.btn.delete') }}</button>
               </form>
@@ -92,7 +92,7 @@
             <td>{{ fmt(v.val) }}</td>
             <td>{{ fmt(v.description) }}</td>
             <td class="cell-actions">
-              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/variables/delete" style="display:inline;" onsubmit="return confirm('{{ t('webui.admin.variables.confirm_delete') }}');">
+              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/variables/delete" class="u-inline" onsubmit="return confirm('{{ t('webui.admin.variables.confirm_delete') }}');">
                 <input type="hidden" name="key" value="{{ v.key }}">
                 <button type="submit" class="btn btn-danger btn-small">{{ t('webui.admin.btn.delete') }}</button>
               </form>
@@ -134,7 +134,7 @@
             <td>{{ fmt(p.slots) }}</td>
             <td>{{ fmt(p.description) }}</td>
             <td class="cell-actions">
-              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/pools/delete" style="display:inline;" onsubmit="return confirm('{{ t('webui.admin.pools.confirm_delete') }}');">
+              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/pools/delete" class="u-inline" onsubmit="return confirm('{{ t('webui.admin.pools.confirm_delete') }}');">
                 <input type="hidden" name="pool_name" value="{{ p.pool_name }}">
                 <button type="submit" class="btn btn-danger btn-small">{{ t('webui.admin.btn.delete') }}</button>
               </form>

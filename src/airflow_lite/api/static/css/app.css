@@ -1729,3 +1729,11 @@ dd {
 .u-rounded-lg { border-radius: 12px; }
 .u-rounded-full { border-radius: 999px; }
 .u-border { border: 1px solid var(--line); }
+
+/* Display */
+.u-inline { display: inline; }
+.u-inline-block { display: inline-block; }
+.u-block { display: block; }
+
+/* Margin zero */
+.u-m-0 { margin: 0; }
