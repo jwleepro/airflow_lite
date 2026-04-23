@@ -6,7 +6,11 @@
       <p class="eyebrow">{{ t('webui.browse.backfills.eyebrow') }}</p>
       <h2>{{ t('webui.browse.backfills.table.title') }}</h2>
     </div>
-    <span class="muted">{{ t('webui.browse.placeholder.hint') }}</span>
+    <div class="chip-list">
+      <span class="chip">{{ total_count }} total</span>
+      <span class="chip chip-warn">{{ running_count }} running</span>
+      <span class="chip">{{ pending_count }} pending</span>
+    </div>
   </div>
   <div class="table-wrap">
     <table class="air-table">
@@ -18,11 +22,17 @@
         </tr>
       </thead>
       <tbody>
+        {% for backfill in backfills %}
         <tr>
-          <td>{{ t('webui.browse.placeholder.empty') }}</td>
-          <td>-</td>
-          <td><span class="status pending">{{ t('webui.browse.placeholder.status') }}</span></td>
+          <td class="cell-code">{{ backfill.dag_id|default('-') }}</td>
+          <td>{{ backfill.date_range|default('-') }}</td>
+          <td><span class="status {{ tone_of(backfill.status|default('pending')) }}">{{ backfill.status|default('pending') }}</span></td>
         </tr>
+        {% else %}
+        <tr>
+          <td colspan="3" class="empty">No backfills found</td>
+        </tr>
+        {% endfor %}
       </tbody>
     </table>
   </div>
