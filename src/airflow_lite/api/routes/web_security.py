@@ -7,7 +7,11 @@ from airflow_lite.api.paths import (
     MONITOR_SECURITY_ROLES_PATH,
     MONITOR_SECURITY_USERS_PATH,
 )
-from airflow_lite.api.webui_security import render_security_page
+from airflow_lite.api.webui_security import (
+    render_security_permissions_page,
+    render_security_roles_page,
+    render_security_users_page,
+)
 
 router = APIRouter(include_in_schema=False)
 
@@ -15,10 +19,7 @@ router = APIRouter(include_in_schema=False)
 @router.get(MONITOR_SECURITY_USERS_PATH, response_class=HTMLResponse)
 def get_security_users_page(language: str = Depends(get_language)):
     return HTMLResponse(
-        render_security_page(
-            "security/security_users.html",
-            title_key="webui.security.users.title",
-            subtitle_key="webui.security.users.subtitle",
+        render_security_users_page(
             active_path=MONITOR_SECURITY_USERS_PATH,
             language=language,
         )
@@ -28,10 +29,7 @@ def get_security_users_page(language: str = Depends(get_language)):
 @router.get(MONITOR_SECURITY_ROLES_PATH, response_class=HTMLResponse)
 def get_security_roles_page(language: str = Depends(get_language)):
     return HTMLResponse(
-        render_security_page(
-            "security/security_roles.html",
-            title_key="webui.security.roles.title",
-            subtitle_key="webui.security.roles.subtitle",
+        render_security_roles_page(
             active_path=MONITOR_SECURITY_ROLES_PATH,
             language=language,
         )
@@ -41,10 +39,7 @@ def get_security_roles_page(language: str = Depends(get_language)):
 @router.get(MONITOR_SECURITY_PERMISSIONS_PATH, response_class=HTMLResponse)
 def get_security_permissions_page(language: str = Depends(get_language)):
     return HTMLResponse(
-        render_security_page(
-            "security/security_permissions.html",
-            title_key="webui.security.permissions.title",
-            subtitle_key="webui.security.permissions.subtitle",
+        render_security_permissions_page(
             active_path=MONITOR_SECURITY_PERMISSIONS_PATH,
             language=language,
         )

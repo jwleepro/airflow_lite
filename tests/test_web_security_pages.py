@@ -1,3 +1,9 @@
+"""Tests for Security pages.
+
+After issue #102 the placeholder renderer was replaced with per-page
+renderers that pass real context variables (empty lists/counts by default).
+Pages must render without the Placeholder text and expose table structure.
+"""
 from unittest.mock import MagicMock
 
 import pytest
@@ -24,14 +30,15 @@ def _make_settings() -> MagicMock:
 
 
 @pytest.mark.parametrize(
-    ("path", "title_text"),
+    ("path", "expected_heading"),
     [
-        ("/monitor/security/users", "Security Users"),
-        ("/monitor/security/roles", "Security Roles"),
-        ("/monitor/security/permissions", "Security Permissions"),
+        ("/monitor/security/users", "Users"),
+        ("/monitor/security/roles", "Roles"),
+        ("/monitor/security/permissions", "Permissions"),
     ],
 )
-def test_security_placeholder_pages_render(path: str, title_text: str):
+def test_security_pages_render_with_real_context(path: str, expected_heading: str):
+    """Security pages must render with real page context, not a placeholder stub."""
     app = create_app(_make_settings())
     client = TestClient(app)
 
@@ -39,11 +46,32 @@ def test_security_placeholder_pages_render(path: str, title_text: str):
 
     assert response.status_code == 200
     body = response.text
-    assert title_text in body
-    assert "Placeholder" in body
+    assert expected_heading in body
+    # Pages must no longer depend on the Placeholder stub text
+    assert "Placeholder" not in body
 
 
-def test_security_placeholder_pages_support_korean_language_query():
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/monitor/security/users",
+        "/monitor/security/roles",
+        "/monitor/security/permissions",
+    ],
+)
+def test_security_pages_expose_table_structure(path: str):
+    """Security pages must expose an air-table (real table structure)."""
+    app = create_app(_make_settings())
+    client = TestClient(app)
+
+    response = client.get(path)
+
+    assert response.status_code == 200
+    assert "air-table" in response.text
+
+
+def test_security_pages_support_korean_language_query():
+    """Security pages must honour the lang= query parameter."""
     app = create_app(_make_settings())
     client = TestClient(app)
 
@@ -51,4 +79,5 @@ def test_security_placeholder_pages_support_korean_language_query():
 
     assert response.status_code == 200
     assert '<html lang="ko">' in response.text
-    assert "사용자 인벤토리" in response.text
+    # The subtitle is rendered via i18n and contains Korean text
+    assert "사용자" in response.text
