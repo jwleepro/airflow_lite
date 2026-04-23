@@ -6,13 +6,13 @@
 <meta http-equiv="refresh" content="5">
 {% endif %}
 
-<section class="panel">
-  <div class="panel-head">
+<section class="panel pipeline-detail-panel">
+  <div class="panel-head pipeline-detail-header">
     <div>
       <p class="eyebrow">{{ t('webui.pipeline_detail.eyebrow') }}</p>
       <h2>{{ pipeline.name }}</h2>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <div class="pipeline-header-actions">
       {% if latest_run %}
       {% if latest_run.status == 'queued' %}
       <span class="status queued-badge">{{ t('webui.status.queued') }}</span>
@@ -32,8 +32,8 @@
   {% endif %}
 
   {% if actions.can_backfill %}
-  <section class="action-surface">
-    <div class="panel-head">
+  <section class="action-surface pipeline-backfill-surface">
+    <div class="panel-head backfill-panel-head">
       <div>
         <p class="eyebrow">{{ t('webui.pipeline_detail.actions.eyebrow') }}</p>
         <h2>{{ t('webui.pipeline_detail.actions.title') }}</h2>
@@ -60,7 +60,7 @@
   </section>
   {% endif %}
 
-  <div class="tab-bar">
+  <div class="tab-bar pipeline-tab-bar">
     <button class="tab-btn active" data-tab="overview">{{ t('webui.pipeline_detail.tab.overview') }}</button>
     <button class="tab-btn" data-tab="grid">{{ t('webui.pipeline_detail.tab.grid') }}</button>
     <button class="tab-btn" data-tab="graph">{{ t('webui.pipeline_detail.tab.graph') }}</button>
@@ -69,8 +69,8 @@
     <button class="tab-btn" data-tab="details">{{ t('webui.pipeline_detail.tab.details') }}</button>
   </div>
 
-  <div class="tab-pane active" id="tab-overview">
-    <section class="summary-grid">
+  <div class="tab-pane pipeline-overview-pane active" id="tab-overview">
+    <section class="summary-grid pipeline-summary-grid">
       <article class="summary-tile neutral">
         <p class="summary-label">{{ t('webui.pipeline_detail.summary.total_runs') }}</p>
         <p class="summary-value">{{ summary.total_runs }}</p>
@@ -142,11 +142,11 @@
     </div>
   </div>
 
-  <div class="tab-pane" id="tab-grid">
+  <div class="tab-pane pipeline-grid-pane" id="tab-grid">
     {% if grid.runs %}
     <p class="muted side-note">{{ t('webui.pipeline_detail.grid.description') }}</p>
-    <div class="table-wrap">
-      <table class="air-table">
+    <div class="table-wrap grid-table-wrap">
+      <table class="air-table grid-matrix-table">
         <thead>
           <tr>
             <th style="min-width:160px;">{{ t('webui.run_detail.table.step') }}</th>
@@ -177,10 +177,10 @@
     {% endif %}
   </div>
 
-  <div class="tab-pane" id="tab-graph">
+  <div class="tab-pane pipeline-graph-pane" id="tab-graph">
     {% if graph_nodes %}
     <p class="eyebrow" style="margin-bottom:14px;">{{ t('webui.pipeline_detail.graph.hint') }}</p>
-    <div class="graph-flow">
+    <div class="graph-flow pipeline-dag-flow">
       {% for node in graph_nodes %}
       <div class="graph-node {{ node.tone }}">
         <span class="graph-node-name">{{ fmt(node.name) }}</span>
@@ -195,9 +195,9 @@
     {% endif %}
   </div>
 
-  <div class="tab-pane" id="tab-runs">
-    <div class="table-wrap">
-      <table class="air-table">
+  <div class="tab-pane pipeline-runs-pane" id="tab-runs">
+    <div class="table-wrap runs-table-wrap">
+      <table class="air-table runs-history-table">
         <thead>
           <tr>
             <th>{{ t('webui.run_detail.meta.run_id') }}</th>
@@ -226,9 +226,9 @@
     </div>
   </div>
 
-  <div class="tab-pane" id="tab-tasks">
-    <div class="table-wrap">
-      <table class="air-table">
+  <div class="tab-pane pipeline-tasks-pane" id="tab-tasks">
+    <div class="table-wrap tasks-table-wrap">
+      <table class="air-table tasks-summary-table">
         <thead>
           <tr>
             <th>{{ t('webui.run_detail.table.step') }}</th>
@@ -265,8 +265,8 @@
     </div>
   </div>
 
-  <div class="tab-pane" id="tab-details">
-    <dl class="meta-grid">
+  <div class="tab-pane pipeline-details-pane" id="tab-details">
+    <dl class="meta-grid pipeline-config-grid">
       <div><dt>{{ t('webui.admin.col.name') }}</dt><dd>{{ fmt(pipeline.name) }}</dd></div>
       <div><dt>{{ t('webui.admin.col.table') }}</dt><dd>{{ fmt(pipeline.table) }}</dd></div>
       <div><dt>{{ t('webui.admin.col.source_where_template') }}</dt><dd><pre class="inline-code-block">{{ fmt(pipeline.source_where_template) }}</pre></dd></div>
