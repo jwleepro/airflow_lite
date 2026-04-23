@@ -11,14 +11,16 @@ Run a repeatable issue-to-PR loop with milestone and issue-number priority.
 
 1. Discover the active target issue:
    - Check open issues that already have `status:in-progress`.
-   - If one or more exist, continue the lowest-numbered in-progress issue.
+   - If one or more exist, continue only an issue that is already owned by this run (same branch/worktree or explicit user assignment).
+   - If one or more exist but ownership is unclear, stop and report potential overlap instead of selecting a new issue.
    - If none exist, pick the issue with the lowest milestone number, then the lowest issue number inside that milestone.
-2. Activate issue status before coding:
-   - First try to set GitHub Project item `Status` to `In Progress` when the issue is connected to a project and permissions allow it.
-   - If project status update is unavailable, add `status:in-progress` label as fallback.
-   - If both are unavailable due to permissions or missing integration, keep working but leave a kickoff comment that records the failed status-sync attempt.
-   - Post a short kickoff comment with the planned branch and worktree path.
-3. Create an isolated git worktree per issue:
+2. **CRITICAL: Claim the issue IMMEDIATELY before any other work**:
+   - Run `gh issue edit <number> --add-label "status:in-progress"` as the FIRST action after selecting an issue.
+   - If the label add fails, STOP and report. Do not create a worktree or write code without this claim.
+   - After label claim succeeds, try to set GitHub Project item `Status` to `In Progress` when project linkage and permissions allow it.
+   - If project status update is unavailable, keep working but leave a kickoff comment that records the failed project-status sync attempt.
+   - Post a short kickoff comment with the planned branch, worktree path, and claim timestamp.
+3. Create an isolated git worktree per issue (AFTER status is set):
    - Recommended root: `../airflow_lite-worktrees/`
    - Example: `git worktree add -B issue/<issue-number>-<slug> ../airflow_lite-worktrees/issue-<issue-number> origin/main`
    - If the target worktree path already exists and is dirty, do not reuse it for a different issue. Create a clean path instead.
@@ -37,10 +39,12 @@ Run a repeatable issue-to-PR loop with milestone and issue-number priority.
 ## Operating Rules
 
 - Never start a second issue while another open issue is labeled `status:in-progress`.
+- **MANDATORY**: Add `status:in-progress` label BEFORE creating worktree or writing any code.
+- If an issue already has `status:in-progress` and is not clearly owned by this run, assume another agent is working on it and do not take it.
 - Keep milestone ordering strict: lower milestone number first.
 - Keep issue ordering strict within a milestone: lower issue number first.
-- Treat project-status update as primary and `status:in-progress` label as required fallback.
-- Status sync should be best-effort and non-blocking, but every failure must be logged in issue comments.
+- Treat `status:in-progress` label claim as the blocking lock.
+- Treat project `Status` sync as best-effort secondary sync, and log every failure in issue comments.
 - Keep one issue per worktree; do not reuse a dirty worktree across different issues.
 - After the worktree is created, do not implement the issue from the main repository checkout.
 - Do not skip tests when code changes affect behavior.

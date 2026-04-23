@@ -20,7 +20,7 @@ config_file = "./agents/github-automation-agent.toml"
 nickname_candidates = ["GitHub Auto", "PR Gate", "Actions"]
 
 [agents.github-issue-cycle-agent]
-description = "Own milestone-ordered GitHub issue delivery, move issue/project status to In Progress when possible, and run each issue in an isolated git worktree."
+description = "Own milestone-ordered GitHub issue delivery, claim the selected issue immediately by setting In Progress status, and run each issue in an isolated git worktree."
 config_file = "./agents/github-issue-cycle-agent.toml"
 nickname_candidates = ["Issue Cycle", "Milestone Loop", "Worktree Flow"]
 
