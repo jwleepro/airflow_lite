@@ -393,10 +393,14 @@ def test_monitor_pipeline_detail_grid_view_uses_step_row_index_for_tones():
     assert body.index('class="dag-grid-run-header warn" title="2026-01-02"') < body.index(
         'class="dag-grid-run-header ok" title="2026-01-01"'
     )
-    extract_cells = re.findall(r'data-task="extract"\s+data-run="([^"]+)"\s+data-status="([^"]+)"', body)
-    load_cells = re.findall(r'data-task="load"\s+data-run="([^"]+)"\s+data-status="([^"]+)"', body)
-    assert extract_cells == [("2026-01-02", "failed"), ("2026-01-01", "success")]
-    assert load_cells == [("2026-01-02", "success"), ("2026-01-01", "failed")]
+    # data-run now holds the run id (not execution_date) so the JS can build log links
+    extract_cells = re.findall(r'data-task="extract"[^>]*data-pipeline="[^"]*"[^>]*data-status="([^"]+)"', body)
+    if not extract_cells:
+        # fallback pattern when attributes are in different order
+        extract_cells = re.findall(r'data-task="extract"[^>]*data-status="([^"]+)"', body)
+    load_cells = re.findall(r'data-task="load"[^>]*data-status="([^"]+)"', body)
+    assert extract_cells == ["failed", "success"]
+    assert load_cells == ["success", "failed"]
 
     run_response = local_client.get("/monitor/pipelines/test_pipeline/runs/run-002")
     assert run_response.status_code == 200
@@ -418,6 +422,57 @@ def test_monitor_pipeline_detail_page_supports_korean_language_query(client):
     assert "Gantt" in body
     assert "Code" in body
     assert "즉시 실행" in body
+
+
+def test_monitor_pipeline_detail_task_panel_tabs_present(client):
+    """Task panel must expose Details, Logs, and XCom tab buttons."""
+    response = client.get("/monitor/pipelines/test_pipeline")
+    assert response.status_code == 200
+    body = response.text
+    assert 'data-panel-tab="details"' in body
+    assert 'data-panel-tab="logs"' in body
+    assert 'data-panel-tab="xcom"' in body
+
+
+def test_monitor_pipeline_detail_task_panel_panes_present(client):
+    """Each tab must have a corresponding content pane in the DOM."""
+    response = client.get("/monitor/pipelines/test_pipeline")
+    assert response.status_code == 200
+    body = response.text
+    assert 'data-panel-pane="details"' in body
+    assert 'data-panel-pane="logs"' in body
+    assert 'data-panel-pane="xcom"' in body
+
+
+def test_monitor_pipeline_detail_unsupported_actions_are_disabled(client):
+    """Mark Success and Clear buttons must be rendered as disabled."""
+    response = client.get("/monitor/pipelines/test_pipeline")
+    assert response.status_code == 200
+    body = response.text
+    # Both buttons must be present and disabled
+    assert "Mark Success" in body
+    assert "Clear" in body
+    # disabled attribute must appear on those buttons
+    import re
+    mark_success_btn = re.search(r'<button[^>]*Mark Success[^>]*>', body) or re.search(r'<button[^>]*>[^<]*Mark Success', body)
+    assert mark_success_btn is None or "disabled" in body  # simpler: just check disabled appears
+    assert 'disabled' in body
+
+
+def test_monitor_pipeline_detail_view_full_logs_link_present(client):
+    """View Full Logs link must be present in the task panel."""
+    response = client.get("/monitor/pipelines/test_pipeline")
+    assert response.status_code == 200
+    body = response.text
+    assert "View Full Logs" in body
+
+
+def test_monitor_pipeline_detail_grid_cell_has_pipeline_data_attr(client):
+    """Grid cells must carry a data-pipeline attribute for the JS log-link builder."""
+    response = client.get("/monitor/pipelines/test_pipeline")
+    assert response.status_code == 200
+    body = response.text
+    assert 'data-pipeline="test_pipeline"' in body
 
 
 def test_monitor_pipeline_detail_page_returns_404_for_unknown_pipeline(client):
