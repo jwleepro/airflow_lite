@@ -1101,6 +1101,74 @@ table tbody tr:last-child td {
   opacity: 0.7;
 }
 
+/* ===== Run Detail Page ===== */
+.run-detail-panel,
+.run-main-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.run-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.run-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.run-summary-grid {
+  margin-top: 0;
+}
+
+.run-detail-layout {
+  margin-top: 18px;
+}
+
+.run-sidebar {
+  min-width: 0;
+}
+
+.run-grid-panel {
+  overflow-x: auto;
+}
+
+.run-tab-bar {
+  flex-wrap: wrap;
+}
+
+.run-gantt-pane,
+.run-events-pane,
+.run-code-pane,
+.run-details-pane,
+.run-graph-pane {
+  min-height: 200px;
+}
+
+.run-event-timeline {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.run-meta-grid {
+  padding: 8px 0;
+}
+
+.run-dag-flow {
+  overflow-x: auto;
+  padding: 16px 0;
+}
+
+.run-code-block {
+  max-height: 500px;
+  overflow: auto;
+}
+
 .run-grid-empty,
 .empty {
   color: var(--muted);
