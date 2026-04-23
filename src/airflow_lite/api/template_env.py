@@ -32,10 +32,13 @@ from airflow_lite.api.paths import (
 from airflow_lite.api.webui_helpers import (
     ICON_ADMIN,
     ICON_ANALYTICS,
+    ICON_ASSETS,
+    ICON_BROWSE,
     ICON_DOCS,
     ICON_EXPORTS,
     ICON_HOME,
     ICON_PIPELINES,
+    ICON_SECURITY,
     fmt,
     fmt_duration,
     t,
@@ -84,6 +87,9 @@ def _make_env() -> Environment:
         ICON_EXPORTS=Markup(ICON_EXPORTS),
         ICON_ADMIN=Markup(ICON_ADMIN),
         ICON_DOCS=Markup(ICON_DOCS),
+        ICON_ASSETS=Markup(ICON_ASSETS),
+        ICON_BROWSE=Markup(ICON_BROWSE),
+        ICON_SECURITY=Markup(ICON_SECURITY),
         # Paths
         MONITOR_PATH=MONITOR_PATH,
         MONITOR_PIPELINES_PATH=MONITOR_PIPELINES_PATH,

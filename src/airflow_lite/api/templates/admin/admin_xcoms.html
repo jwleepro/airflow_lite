@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="panel">
+  <div class="u-flex-between u-mb-lg">
+    <div>
+      <h2 class="u-m-0">XComs</h2>
+      <p class="u-text-sm u-text-muted u-mt-xs">Showing recent XCom values. Values persist until manually cleared or TTL expires.</p>
+    </div>
+    <button class="btn btn-danger btn-small">🗑 Clear Old XComs</button>
+  </div>
+
+  <div class="table-wrap">
+    <table class="air-table">
+      <thead>
+        <tr>
+          <th>DAG</th>
+          <th>Task</th>
+          <th>Key</th>
+          <th>Value</th>
+          <th>Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for x in xcoms %}
+        <tr>
+          <td><span class="cell-code" style="color: var(--running-ink);">{{ x.dag_id }}</span></td>
+          <td><code class="u-text-sm">{{ x.task_id }}</code></td>
+          <td><code class="u-text-sm" style="color: #c084fc;">{{ x.key }}</code></td>
+          <td><code class="u-text-sm" style="color: var(--ok-ink);">{{ x.value|truncate(50) }}</code></td>
+          <td class="u-text-sm u-text-muted">{{ x.timestamp }}</td>
+          <td class="cell-actions">
+            <div class="cell-action-group">
+              <button class="btn btn-ghost btn-small">✏</button>
+              <button class="btn btn-danger btn-small">✕</button>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="empty">No XCom values</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% endblock %}

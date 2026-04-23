@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block content %}
+
+<section class="panel">
+  <div class="u-flex-between u-mb-lg">
+    <h2 class="u-m-0">Connections</h2>
+    <button class="btn btn-primary btn-small" onclick="document.getElementById('add-form').scrollIntoView()">+ Add Connection</button>
+  </div>
+
+  <div class="dag-filter-row u-mb-lg">
+    <div class="dag-search-box">
+      <span class="search-icon-inline">⌕</span>
+      <input type="text" id="conn-search" placeholder="Search connections..." class="dag-search-input" onkeyup="filterTable()">
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table class="air-table" id="conn-table">
+      <thead>
+        <tr>
+          <th>Conn ID</th>
+          <th>Type</th>
+          <th>Host</th>
+          <th>Port</th>
+          <th>Schema</th>
+          <th>Description</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in connections %}
+        <tr>
+          <td><span class="cell-code" style="color: var(--running-ink);">{{ c.conn_id }}</span></td>
+          <td>
+            <span class="u-flex-center u-gap-sm">
+              {% if c.conn_type == 'postgres' %}🐘{% elif c.conn_type == 'oracle' %}🔶{% elif c.conn_type == 'aws' %}☁{% elif c.conn_type == 'http' %}🌐{% else %}🔌{% endif %}
+              <span class="u-text-sm">{{ c.conn_type }}</span>
+            </span>
+          </td>
+          <td><code class="u-text-sm u-text-muted">{{ c.host or '—' }}</code></td>
+          <td class="u-text-sm u-text-muted">{{ c.port or '—' }}</td>
+          <td><code class="u-text-sm u-text-muted">{{ c.schema or '—' }}</code></td>
+          <td class="u-text-sm u-text-muted">{{ c.description or '—' }}</td>
+          <td class="cell-actions">
+            <div class="cell-action-group">
+              <button class="btn btn-ghost btn-small">✏</button>
+              <button class="btn btn-ghost btn-small">Test</button>
+              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/connections/delete" class="inline-form" onsubmit="return confirm('Delete this connection?');">
+                <input type="hidden" name="conn_id" value="{{ c.conn_id }}">
+                <button type="submit" class="btn btn-danger btn-small">✕</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="empty">No connections configured</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel" id="add-form">
+  <h3 class="u-mb-md">Add Connection</h3>
+  <form method="post" action="{{ MONITOR_ADMIN_PATH }}/connections" class="form-grid">
+    <label class="filter-field"><span>Conn ID</span><input type="text" name="conn_id" required></label>
+    <label class="filter-field"><span>Type</span><input type="text" name="conn_type" value="oracle" required></label>
+    <label class="filter-field"><span>Host</span><input type="text" name="host"></label>
+    <label class="filter-field"><span>Port</span><input type="number" name="port"></label>
+    <label class="filter-field"><span>Schema</span><input type="text" name="schema"></label>
+    <label class="filter-field"><span>Login</span><input type="text" name="login"></label>
+    <label class="filter-field"><span>Password</span><input type="password" name="password"></label>
+    <label class="filter-field field-span-2"><span>Description</span><input type="text" name="description"></label>
+    <div class="form-actions"><button type="submit" class="btn btn-primary">Add Connection</button></div>
+  </form>
+</section>
+
+<script>
+function filterTable() {
+  var input = document.getElementById('conn-search');
+  var filter = input.value.toLowerCase();
+  var table = document.getElementById('conn-table');
+  var tr = table.getElementsByTagName('tr');
+  for (var i = 1; i < tr.length; i++) {
+    var td = tr[i].getElementsByTagName('td')[0];
+    if (td) {
+      var txtValue = td.textContent || td.innerText;
+      tr[i].style.display = txtValue.toLowerCase().indexOf(filter) > -1 ? '' : 'none';
+    }
+  }
+}
+</script>
+
+{% endblock %}

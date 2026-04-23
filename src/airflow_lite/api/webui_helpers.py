@@ -139,3 +139,23 @@ ICON_DOCS = """
   <path d="M8.75 9h6M8.75 12h6M8.75 15h3.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
 </svg>
 """.strip()
+
+ICON_ASSETS = """
+<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M12 4.75L4.75 9.5 12 14.25 19.25 9.5 12 4.75Z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+  <path d="M4.75 14.5L12 19.25l7.25-4.75" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+""".strip()
+
+ICON_BROWSE = """
+<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M5 6.5h14M5 12h14M5 17.5h14" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+</svg>
+""".strip()
+
+ICON_SECURITY = """
+<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M12 3.25L4.75 6.5v5.25c0 4.97 3.08 9.29 7.25 10.5 4.17-1.21 7.25-5.53 7.25-10.5V6.5L12 3.25Z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+  <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+""".strip()

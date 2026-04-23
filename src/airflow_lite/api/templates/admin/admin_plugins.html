@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="panel">
+  <h2 class="u-mb-lg">Plugins</h2>
+
+  {% if plugins %}
+  <div class="table-wrap">
+    <table class="air-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Version</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in plugins %}
+        <tr>
+          <td><code>{{ p.name }}</code></td>
+          <td>{{ p.version }}</td>
+          <td class="u-text-muted">{{ p.description }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="u-text-center u-p-lg" style="padding: 60px 40px;">
+    <div style="font-size: 2.5rem; margin-bottom: 12px;">🔌</div>
+    <div class="u-text-muted" style="font-size: 1rem;">No plugins registered</div>
+    <div class="u-text-muted u-text-sm u-mt-sm">Add custom operators, macros, or UI extensions via the plugin manager</div>
+    <div class="u-mt-lg">
+      <a class="btn btn-ghost" href="#">View Plugin Docs ↗</a>
+    </div>
+  </div>
+  {% endif %}
+</section>
+
+{% endblock %}

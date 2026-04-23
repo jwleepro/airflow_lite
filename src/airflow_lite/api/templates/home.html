@@ -2,94 +2,110 @@
 {% import "_macros.html" as m %}
 {% block content %}
 
-<section class="hero-surface">
-  <div class="hero-copy">
-    <p class="eyebrow">{{ t('webui.monitor.health.eyebrow') }}</p>
-    <h2>{{ t('webui.monitor.home.hero.title') }}</h2>
-    <p class="muted">{{ t('webui.monitor.home.hero.notice') }}</p>
-  </div>
-  <div class="chip-list">
-    <span class="chip">{{ total_pipelines }} {{ t('webui.layout.nav.pipelines') }}</span>
-    <span class="chip {% if failed_runs %}chip-bad{% endif %}">{{ failed_runs }} {{ t('webui.monitor.summary.failed_last_run.label') }}</span>
-    <span class="chip {% if active_runs %}chip-warn{% endif %}">{{ active_runs }} {{ t('webui.monitor.summary.active_runs.label') }}</span>
-  </div>
-</section>
-
-{% if health_checks %}
+{# System Health Section #}
 <section class="panel home-health-panel">
   <p class="eyebrow home-health-eyebrow">{{ t('webui.monitor.health.eyebrow') }}</p>
-  <div class="summary-grid">
+  <div class="health-grid">
     {% for check in health_checks %}
-    {% set htone = 'ok' if check.status == 'ok' else ('warn' if check.status == 'degraded' else 'bad') %}
-    {{ m.summary_tile(t('webui.monitor.health.' + check.name), check.status, check.detail or '', htone) }}
-    {% endfor %}
-  </div>
-</section>
-{% endif %}
-
-<section class="summary-grid home-stats-grid">
-  {{ m.summary_tile(t('webui.monitor.summary.configured_pipelines.label'), total_pipelines|string, t('webui.monitor.summary.configured_pipelines.detail')) }}
-  {{ m.summary_tile(t('webui.monitor.summary.healthy_last_run.label'), healthy_runs|string, t('webui.monitor.summary.healthy_last_run.detail'), 'ok') }}
-  {{ m.summary_tile(t('webui.monitor.summary.active_runs.label'), active_runs|string, t('webui.monitor.summary.active_runs.detail'), 'warn' if active_runs else 'neutral') }}
-  {{ m.summary_tile(t('webui.monitor.summary.failed_last_run.label'), failed_runs|string, t('webui.monitor.summary.failed_last_run.detail'), 'bad' if failed_runs else 'neutral') }}
-</section>
-
-<section class="panel home-quick-links">
-  <div class="panel-head">
-    <div>
-      <p class="eyebrow">{{ t('webui.monitor.home.quick_links.eyebrow') }}</p>
-      <h2>{{ t('webui.monitor.home.quick_links.title') }}</h2>
+    <div class="health-card {{ 'health-ok' if check.status == 'ok' else ('health-warn' if check.status == 'degraded' else 'health-bad') }}">
+      <div class="health-card-header">
+        <span class="health-dot"></span>
+        <span class="health-name">{{ t('webui.monitor.health.' + check.name) }}</span>
+      </div>
+      <div class="health-status">● {{ check.status|capitalize }}</div>
+      {% if check.detail %}
+      <div class="health-detail">{{ check.detail }}</div>
+      {% endif %}
     </div>
-    <span class="muted">{{ t('webui.monitor.home.quick_links.hint') }}</span>
-  </div>
-  <div class="actions">
-    {% for item in quick_links %}
-    <a class="btn btn-ghost" href="{{ lang_url(item.href) }}">{{ item.label }} ({{ item.count }})</a>
     {% endfor %}
-  </div>
-  <div class="chip-list panel-chip-list home-live-chip-list">
-    <span class="chip live-chip">{{ monitor_notice }}</span>
   </div>
 </section>
 
+{# Stats Grid - DAG Status Overview & Last 24h Statistics #}
+<div class="grid-2">
+  <section class="panel">
+    <p class="eyebrow">{{ t('webui.monitor.home.dag_status.eyebrow') }}</p>
+    <div class="dag-status-grid">
+      <div class="dag-status-card dag-status-failed" onclick="location.href='{{ lang_url(MONITOR_PIPELINES_PATH) }}?status=failed'">
+        <span class="dag-status-count">{{ failed_runs }}</span>
+        <span class="dag-status-label">{{ t('webui.monitor.home.dag_status.failed') }}</span>
+      </div>
+      <div class="dag-status-card dag-status-running" onclick="location.href='{{ lang_url(MONITOR_PIPELINES_PATH) }}?status=running'">
+        <span class="dag-status-count">{{ active_runs }}</span>
+        <span class="dag-status-label">{{ t('webui.monitor.home.dag_status.running') }}</span>
+      </div>
+      <div class="dag-status-card dag-status-active" onclick="location.href='{{ lang_url(MONITOR_PIPELINES_PATH) }}?status=success'">
+        <span class="dag-status-count">{{ healthy_runs }}</span>
+        <span class="dag-status-label">{{ t('webui.monitor.home.dag_status.active') }}</span>
+      </div>
+      <div class="dag-status-card dag-status-paused" onclick="location.href='{{ lang_url(MONITOR_PIPELINES_PATH) }}?status=paused'">
+        <span class="dag-status-count">{{ paused_pipelines|default(0) }}</span>
+        <span class="dag-status-label">{{ t('webui.monitor.home.dag_status.paused') }}</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <p class="eyebrow">{{ t('webui.monitor.home.last24h.eyebrow') }}</p>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-value">{{ total_runs_24h|default(0) }}</span>
+        <span class="stat-label">{{ t('webui.monitor.home.last24h.total_runs') }}</span>
+        <span class="stat-detail">{{ runs_change|default('+0%') }} vs yesterday</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value">{{ success_rate|default('0%') }}</span>
+        <span class="stat-label">{{ t('webui.monitor.home.last24h.success_rate') }}</span>
+        <span class="stat-detail">{{ healthy_runs }} / {{ total_runs_24h|default(0) }}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value">{{ failed_tasks|default(0) }}</span>
+        <span class="stat-label">{{ t('webui.monitor.home.last24h.failed_tasks') }}</span>
+        <span class="stat-detail">across {{ failed_dags|default(0) }} DAGs</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value">{{ avg_duration|default('-') }}</span>
+        <span class="stat-label">{{ t('webui.monitor.home.last24h.avg_duration') }}</span>
+        <span class="stat-detail">all DAGs</span>
+      </div>
+    </div>
+  </section>
+</div>
+
+{# Recent DAG Runs #}
 <section class="panel home-recent-runs">
   <div class="panel-head">
     <div>
       <p class="eyebrow">{{ t('webui.monitor.home.recent_activity.eyebrow') }}</p>
       <h2>{{ t('webui.monitor.home.recent_activity.title') }}</h2>
     </div>
-    <span class="muted">{{ t('webui.monitor.home.recent_activity.hint') }}</span>
+    <a class="btn btn-ghost btn-small" href="{{ lang_url('/monitor/browse/dag-runs') }}">View All</a>
   </div>
   <div class="table-wrap">
     <table class="air-table">
       <thead>
         <tr>
-          <th>{{ t('webui.monitor.table.pipeline_table') }}</th>
+          <th>DAG ID</th>
+          <th>Run ID</th>
           <th>{{ t('webui.monitor.table.status') }}</th>
-          <th>{{ t('webui.monitor.table.trigger') }}</th>
           <th>{{ t('webui.monitor.table.duration') }}</th>
-          <th>{{ t('webui.monitor.table.last_run') }}</th>
-          <th>{{ t('webui.monitor.table.detail') }}</th>
+          <th>Start Time</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
         {% for row in recent_activity_rows %}
         <tr>
           <td>
-            <div class="dense-cell">
-              <strong><a class="table-link" href="{{ lang_url(monitor_pipeline_detail_path(row.pipeline_name)) }}">{{ fmt(row.pipeline_name) }}</a></strong>
-              <span>{{ fmt(row.table) }}</span>
-            </div>
+            <a class="table-link cell-code" href="{{ lang_url(monitor_pipeline_detail_path(row.pipeline_name)) }}">{{ row.pipeline_name }}</a>
           </td>
-          <td><span class="status {{ tone_of(row.status) }}">{{ fmt(row.status) }}</span></td>
-          <td>{{ fmt(row.trigger_type) }}</td>
-          <td>{{ fmt(fmt_duration(row.started_at, row.finished_at)) }}</td>
-          <td>{{ fmt(row.finished_at or row.started_at or row.execution_date) }}</td>
-          <td>
+          <td class="cell-code u-text-muted">{{ row.run_id or '-' }}</td>
+          <td>{{ m.status_badge(row.status, tone_of(row.status)) }}</td>
+          <td>{{ fmt_duration(row.started_at, row.finished_at) }}</td>
+          <td>{{ fmt(row.started_at or row.execution_date) }}</td>
+          <td class="cell-actions">
             {% if row.run_id %}
-            <a class="table-link" href="{{ lang_url(monitor_pipeline_run_detail_path(row.pipeline_name, row.run_id)) }}">{{ t('webui.monitor.detail_link') }}</a>
-            {% else %}
-            <span class="muted">-</span>
+            <a class="btn btn-ghost btn-small" href="{{ lang_url(monitor_pipeline_run_detail_path(row.pipeline_name, row.run_id)) }}">Logs</a>
             {% endif %}
           </td>
         </tr>
