@@ -11,6 +11,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from airflow_lite.api.app import create_app
+from airflow_lite.api.webui_browse import (
+    render_browse_dag_runs_page,
+    render_browse_task_instances_page,
+)
+from airflow_lite.api.paths import (
+    MONITOR_BROWSE_DAG_RUNS_PATH,
+    MONITOR_BROWSE_TASK_INSTANCES_PATH,
+)
 from airflow_lite.config.settings import ApiConfig, PipelineConfig, WebUIConfig
 
 
@@ -73,6 +81,73 @@ def test_browse_pages_expose_table_structure(path: str):
 
     assert response.status_code == 200
     assert "air-table" in response.text
+
+
+@pytest.mark.parametrize("missing_run_id", [None, ""])
+def test_browse_dag_runs_renders_when_run_id_missing(missing_run_id):
+    """DAG Runs rows with a missing run_id must render with a safe fallback."""
+    html = render_browse_dag_runs_page(
+        active_path=MONITOR_BROWSE_DAG_RUNS_PATH,
+        dag_runs=[
+            {
+                "dag_id": "pipeline_a",
+                "run_id": missing_run_id,
+                "status": "running",
+                "start_time": "-",
+                "duration": "-",
+                "trigger_type": "manual",
+            }
+        ],
+        total_count=1,
+        running_count=1,
+    )
+
+    assert "pipeline_a" in html
+    assert ">-<" in html
+    assert "/runs/None" not in html
+    assert "/runs/\"\"" not in html
+
+
+def test_browse_dag_runs_truncates_long_run_id():
+    """Long run_ids must be truncated with an ellipsis in the table cell."""
+    html = render_browse_dag_runs_page(
+        active_path=MONITOR_BROWSE_DAG_RUNS_PATH,
+        dag_runs=[
+            {
+                "dag_id": "pipeline_a",
+                "run_id": "abcdefghijklmnopqrstuvwxyz",
+                "status": "success",
+            }
+        ],
+        total_count=1,
+    )
+
+    assert '>abcdefghijkl...<' in html
+
+
+@pytest.mark.parametrize("missing_run_id", [None, ""])
+def test_browse_task_instances_renders_when_run_id_missing(missing_run_id):
+    """Task Instances rows with a missing run_id must render without crashing."""
+    html = render_browse_task_instances_page(
+        active_path=MONITOR_BROWSE_TASK_INSTANCES_PATH,
+        task_instances=[
+            {
+                "dag_id": "pipeline_a",
+                "task_id": "task_1",
+                "run_id": missing_run_id,
+                "status": "queued",
+                "try_number": 1,
+                "max_tries": 3,
+                "start_date": "-",
+                "duration": "-",
+            }
+        ],
+        total_count=1,
+    )
+
+    assert "pipeline_a" in html
+    assert "task_1" in html
+    assert ">-<" in html
 
 
 def test_browse_pages_support_korean_language_query():
