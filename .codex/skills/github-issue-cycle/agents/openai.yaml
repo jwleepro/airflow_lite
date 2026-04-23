@@ -1,0 +1,4 @@
+interface:
+  display_name: "GitHub Issue Cycle"
+  short_description: "Milestone-ordered issue delivery with In Progress sync and per-issue worktrees"
+  default_prompt: "Use $github-issue-cycle with github-issue-cycle-agent to pick the next milestone-ordered issue, attempt to set issue/project status to In Progress with fallback logging, execute all coding in a dedicated per-issue git worktree, open a draft PR, and close the loop after CodeRabbit feedback."

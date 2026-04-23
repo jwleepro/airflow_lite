@@ -44,7 +44,7 @@ Per-role files currently use standard Codex config keys such as:
 - Prefer `read-only` for exploration and review roles.
 - Prefer `workspace-write` for implementation roles.
 - Keep nickname candidates short and human-readable.
-- As of `2026-04-03`, this repository keeps only `codex-meta-agent` and `github-automation-agent` as repository-local custom roles. Planning, indexing, review, testing, and domain implementation use Codex built-in agents instead of duplicate local registrations.
+- As of `2026-04-23`, this repository keeps `codex-meta-agent`, `github-automation-agent`, and `github-issue-cycle-agent` as repository-local custom roles. Planning, indexing, review, testing, and most domain implementation use Codex built-in agents instead of duplicate local registrations.
 
 ## When To Update
 

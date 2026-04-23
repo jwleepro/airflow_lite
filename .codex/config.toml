@@ -19,6 +19,11 @@ description = "Own GitHub Actions CI, PR gates, labels, and publish workflow glu
 config_file = "./agents/github-automation-agent.toml"
 nickname_candidates = ["GitHub Auto", "PR Gate", "Actions"]
 
+[agents.github-issue-cycle-agent]
+description = "Own milestone-ordered GitHub issue delivery, move issue/project status to In Progress when possible, and run each issue in an isolated git worktree."
+config_file = "./agents/github-issue-cycle-agent.toml"
+nickname_candidates = ["Issue Cycle", "Milestone Loop", "Worktree Flow"]
+
 [agents.codex-meta-agent]
 description = "Own repository-local Codex files under .codex and the reusable research docs under reference/codex. Read the indexed Codex references before changing local agent, command, or skill structure."
 config_file = "./agents/codex-meta-agent.toml"
@@ -74,4 +79,8 @@ enabled = true
 
 [[skills.config]]
 path = "./skills/reference-reader"
+enabled = true
+
+[[skills.config]]
+path = "./skills/github-issue-cycle"
 enabled = true
