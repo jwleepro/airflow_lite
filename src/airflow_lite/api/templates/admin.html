@@ -7,21 +7,21 @@
 </div>
 {% endif %}
 
-<section class="hero-surface">
+<section class="hero-surface admin-hero">
   <div class="hero-copy">
     <p class="eyebrow">{{ t('webui.admin.eyebrow') }}</p>
     <h2>{{ t('webui.admin.title') }}</h2>
     <p class="muted">{{ t('webui.admin.subtitle') }}</p>
   </div>
-  <div class="chip-list">
+  <div class="chip-list admin-summary-chips">
     <span class="chip">{{ connections|length }} {{ t('webui.admin.chip.connections') }}</span>
     <span class="chip">{{ variables|length }} {{ t('webui.admin.chip.variables') }}</span>
     <span class="chip">{{ pools|length }} {{ t('webui.admin.chip.pools') }}</span>
   </div>
 </section>
 
-<div class="admin-stack">
-  <section class="panel">
+<div class="admin-stack admin-panels">
+  <section class="panel admin-connections-panel">
     <div class="panel-head">
       <div>
         <p class="eyebrow">{{ t('webui.admin.connections.eyebrow') }}</p>
@@ -29,7 +29,7 @@
       </div>
     </div>
     <div class="table-wrap">
-      <table class="air-table">
+      <table class="air-table admin-connections-table">
         <thead>
           <tr><th>{{ t('webui.admin.col.conn_id') }}</th><th>{{ t('webui.admin.col.type') }}</th><th>{{ t('webui.admin.col.host') }}</th><th>{{ t('webui.admin.col.port') }}</th><th>{{ t('webui.admin.col.schema') }}</th><th>{{ t('webui.admin.col.login') }}</th><th>{{ t('webui.admin.col.password') }}</th><th>{{ t('webui.admin.col.description') }}</th><th></th></tr>
         </thead>
@@ -57,9 +57,9 @@
         </tbody>
       </table>
     </div>
-    <div class="editor-box">
+    <div class="editor-box admin-connections-editor">
       <h3>{{ t('webui.admin.connections.add') }}</h3>
-      <form method="post" action="{{ MONITOR_ADMIN_PATH }}/connections" class="form-grid">
+      <form method="post" action="{{ MONITOR_ADMIN_PATH }}/connections" class="form-grid admin-connections-form">
         <label class="filter-field"><span>{{ t('webui.admin.col.conn_id') }}</span><input type="text" name="conn_id" required></label>
         <label class="filter-field"><span>{{ t('webui.admin.col.type') }}</span><input type="text" name="conn_type" value="oracle" required></label>
         <label class="filter-field"><span>{{ t('webui.admin.col.host') }}</span><input type="text" name="host"></label>
@@ -73,7 +73,7 @@
     </div>
   </section>
 
-  <section class="panel">
+  <section class="panel admin-variables-panel">
     <div class="panel-head">
       <div>
         <p class="eyebrow">{{ t('webui.admin.variables.eyebrow') }}</p>
@@ -81,7 +81,7 @@
       </div>
     </div>
     <div class="table-wrap">
-      <table class="air-table">
+      <table class="air-table admin-variables-table">
         <thead>
           <tr><th>{{ t('webui.admin.col.key') }}</th><th>{{ t('webui.admin.col.value') }}</th><th>{{ t('webui.admin.col.description') }}</th><th></th></tr>
         </thead>
@@ -104,9 +104,9 @@
         </tbody>
       </table>
     </div>
-    <div class="editor-box">
+    <div class="editor-box admin-variables-editor">
       <h3>{{ t('webui.admin.variables.add') }}</h3>
-      <form method="post" action="{{ MONITOR_ADMIN_PATH }}/variables" class="form-grid form-grid-3">
+      <form method="post" action="{{ MONITOR_ADMIN_PATH }}/variables" class="form-grid form-grid-3 admin-variables-form">
         <label class="filter-field"><span>{{ t('webui.admin.col.key') }}</span><input type="text" name="key" required></label>
         <label class="filter-field"><span>{{ t('webui.admin.col.value') }}</span><input type="text" name="val" required></label>
         <label class="filter-field"><span>{{ t('webui.admin.col.description') }}</span><input type="text" name="description"></label>
@@ -115,7 +115,7 @@
     </div>
   </section>
 
-  <section class="panel">
+  <section class="panel admin-pools-panel">
     <div class="panel-head">
       <div>
         <p class="eyebrow">{{ t('webui.admin.pools.eyebrow') }}</p>
@@ -123,7 +123,7 @@
       </div>
     </div>
     <div class="table-wrap">
-      <table class="air-table">
+      <table class="air-table admin-pools-table">
         <thead>
           <tr><th>{{ t('webui.admin.col.pool_name') }}</th><th>{{ t('webui.admin.col.slots') }}</th><th>{{ t('webui.admin.col.description') }}</th><th></th></tr>
         </thead>
@@ -146,9 +146,9 @@
         </tbody>
       </table>
     </div>
-    <div class="editor-box">
+    <div class="editor-box admin-pools-editor">
       <h3>{{ t('webui.admin.pools.add') }}</h3>
-      <form method="post" action="{{ MONITOR_ADMIN_PATH }}/pools" class="form-grid form-grid-3">
+      <form method="post" action="{{ MONITOR_ADMIN_PATH }}/pools" class="form-grid form-grid-3 admin-pools-form">
         <label class="filter-field"><span>{{ t('webui.admin.col.pool_name') }}</span><input type="text" name="pool_name" required></label>
         <label class="filter-field"><span>{{ t('webui.admin.col.slots') }}</span><input type="number" name="slots" value="1" min="1" required></label>
         <label class="filter-field"><span>{{ t('webui.admin.col.description') }}</span><input type="text" name="description"></label>
