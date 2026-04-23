@@ -27,9 +27,9 @@
     </div>
   </div>
   <div class="dag-detail-actions">
-    <button class="btn btn-ghost btn-small">↻ Refresh</button>
+    <button type="button" class="btn btn-ghost btn-small">↻ Refresh</button>
     {% if actions.can_backfill %}
-    <button class="btn btn-ghost btn-small" onclick="document.getElementById('backfill-modal').showModal()">⬚ Backfill</button>
+    <button type="button" class="btn btn-ghost btn-small" onclick="document.getElementById('backfill-modal').showModal()">⬚ Backfill</button>
     {% endif %}
     {% if actions.can_trigger %}
     <form method="post" action="{{ lang_url(monitor_pipeline_trigger_path(pipeline.name)) }}" class="inline-form">
@@ -50,8 +50,8 @@
 {# Grid View #}
 <div class="dag-tab-pane active" id="tab-grid">
   <div class="dag-grid-toolbar">
-    <button class="btn btn-ghost btn-small">⚙ Columns</button>
-    <button class="btn btn-ghost btn-small">⊞ Group by Tag</button>
+    <button type="button" class="btn btn-ghost btn-small">⚙ Columns</button>
+    <button type="button" class="btn btn-ghost btn-small">⊞ Group by Tag</button>
     <select class="dag-filter-select">
       <option>All Runs</option>
       <option>Last 7 Days</option>
@@ -83,7 +83,8 @@
         <div class="dag-grid-cell {{ gr.step_tones[step_idx] }}"
              data-task="{{ step_name }}"
              data-run="{{ gr.execution_date }}"
-             data-status="{{ gr.step_tones[step_idx] }}"
+             data-status="{{ gr.step_statuses[step_idx] }}"
+             data-duration="{{ gr.step_durations[step_idx] }}"
              onclick="showTaskPanel(this)"></div>
         {% endfor %}
       </div>
@@ -104,12 +105,12 @@
 {# Graph View #}
 <div class="dag-tab-pane" id="tab-graph">
   <div class="dag-graph-toolbar">
-    <button class="btn btn-ghost btn-small" onclick="zoomGraph(0.1)">+ Zoom</button>
-    <button class="btn btn-ghost btn-small" onclick="zoomGraph(-0.1)">- Zoom</button>
-    <button class="btn btn-ghost btn-small" onclick="resetZoom()">⊡ Reset</button>
+    <button type="button" class="btn btn-ghost btn-small" onclick="zoomGraph(0.1)">+ Zoom</button>
+    <button type="button" class="btn btn-ghost btn-small" onclick="zoomGraph(-0.1)">- Zoom</button>
+    <button type="button" class="btn btn-ghost btn-small" onclick="resetZoom()">⊡ Reset</button>
     <span id="zoom-level" class="u-text-sm u-text-muted">100%</span>
     <div style="flex:1"></div>
-    <button class="btn btn-ghost btn-small">⊞ Assets Overlay</button>
+    <button type="button" class="btn btn-ghost btn-small">⊞ Assets Overlay</button>
     <select class="dag-filter-select">
       <option>Latest Run</option>
       {% for gr in grid.runs[:5] %}
@@ -136,7 +137,7 @@
         {% endfor %}
         {# Nodes #}
         {% for node in graph_nodes %}
-        <g class="dag-graph-node" data-node="{{ node.name }}" onclick="selectNode(this)" transform="translate({{ 60 + loop.index0 * 180 }}, 30)">
+        <g class="dag-graph-node" data-node="{{ node.name }}" data-status="{{ node.status }}" data-duration="{{ node.duration }}" onclick="selectNode(this)" transform="translate({{ 60 + loop.index0 * 180 }}, 30)">
           <rect width="160" height="60" rx="6" class="dag-node-rect {{ node.tone }}"/>
           <circle cx="14" cy="30" r="5" class="dag-node-dot {{ node.tone }}"/>
           <text x="26" y="24" class="dag-node-name">{{ node.name[:18] }}</text>
@@ -224,7 +225,7 @@
   <div class="dag-node-panel" id="node-panel" hidden>
     <div class="dag-node-panel-header">
       <strong id="panel-task-name"></strong>
-      <button onclick="document.getElementById('node-panel').hidden=true">✕</button>
+      <button type="button" onclick="document.getElementById('node-panel').hidden=true">✕</button>
     </div>
     <div id="panel-status"></div>
     <div class="dag-node-panel-meta">
@@ -235,36 +236,7 @@
     </div>
     <div class="dag-node-panel-actions">
       <a id="panel-logs-link" class="btn btn-ghost btn-small" href="#">View Logs</a>
-      <button class="btn btn-ghost btn-small">Clear</button>
-  <div class="tab-pane pipeline-grid-pane" id="tab-grid">
-    {% if grid.runs %}
-    <p class="muted side-note">{{ t('webui.pipeline_detail.grid.description') }}</p>
-    <div class="table-wrap grid-table-wrap">
-      <table class="air-table grid-matrix-table">
-        <thead>
-          <tr>
-            <th style="min-width:160px;">{{ t('webui.run_detail.table.step') }}</th>
-            {% for gr in grid.runs %}
-            <th class="grid-col-header" title="{{ gr.execution_date }}">
-              <span class="run-block {{ gr.tone }} u-inline-block"></span>
-            </th>
-            {% endfor %}
-          </tr>
-        </thead>
-        <tbody>
-          {% for step_name in grid.step_names %}
-          {% set step_idx = loop.index0 %}
-          <tr>
-            <td><strong>{{ fmt(step_name) }}</strong></td>
-            {% for gr in grid.runs %}
-            <td class="u-text-center">
-              <span class="run-block {{ gr.step_tones[step_idx] }} u-inline-block" title="{{ gr.execution_date }} · {{ step_name }}" style="width:18px;height:18px;"></span>
-            </td>
-            {% endfor %}
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <button type="button" class="btn btn-ghost btn-small">Clear</button>
     </div>
   </div>
 </div>
@@ -274,10 +246,9 @@
   {% if latest_run and task_rows %}
   <p class="u-text-sm u-text-muted u-mb-md">Latest Run — {{ latest_run.execution_date }}</p>
   <div class="dag-gantt-container">
-    {% set total_seconds = 300 %}
     {% for task in task_rows %}
-    {% set start_pct = (loop.index0 * 10)|int %}
-    {% set width_pct = (15 + loop.index0 * 2)|int %}
+    {% set start_pct = task.start_pct if task.start_pct is not none else 0 %}
+    {% set width_pct = task.width_pct if task.width_pct is not none else 0.5 %}
     <div class="dag-gantt-row">
       <div class="dag-gantt-label">{{ task.name }}</div>
       <div class="dag-gantt-track">
@@ -310,7 +281,7 @@
     <select class="dag-filter-select">
       <option>Version {{ pipeline.version|default(1) }} (current)</option>
     </select>
-    <button class="btn btn-ghost btn-small">⬇ Download</button>
+    <button type="button" class="btn btn-ghost btn-small">⬇ Download</button>
   </div>
   <div class="dag-code-container">
     <div class="dag-code-header">
@@ -344,12 +315,12 @@
       <strong id="task-panel-name"></strong>
       <div class="u-text-sm u-text-muted" id="task-panel-run"></div>
     </div>
-    <button onclick="document.getElementById('task-panel').hidden=true">✕</button>
+    <button type="button" onclick="document.getElementById('task-panel').hidden=true">✕</button>
   </div>
   <div class="dag-task-panel-tabs">
-    <button class="active" data-panel-tab="details">Details</button>
-    <button data-panel-tab="logs">Logs</button>
-    <button data-panel-tab="xcom">XCom</button>
+    <button type="button" class="active" data-panel-tab="details">Details</button>
+    <button type="button" data-panel-tab="logs">Logs</button>
+    <button type="button" data-panel-tab="xcom">XCom</button>
   </div>
   <div class="dag-task-panel-content" id="task-panel-content">
     <div class="dag-task-panel-details">
@@ -362,8 +333,8 @@
     </div>
     <div class="dag-task-panel-actions">
       <a id="task-panel-logs-link" class="btn btn-ghost btn-small" href="#">View Full Logs</a>
-      <button class="btn btn-ghost btn-small">Mark Success</button>
-      <button class="btn btn-danger btn-small">Clear</button>
+      <button type="button" class="btn btn-ghost btn-small">Mark Success</button>
+      <button type="button" class="btn btn-danger btn-small">Clear</button>
     </div>
   </div>
 </div>
@@ -392,107 +363,6 @@
   </form>
 </dialog>
 {% endif %}
-
-<style>
-.dag-detail-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 16px 0; margin-bottom: 0; }
-.dag-detail-title { margin: 0; font-size: 1.2rem; font-family: monospace; }
-.dag-version-badge { background: var(--surface-strong); color: var(--muted); padding: 2px 8px; border-radius: 4px; font-size: 10px; }
-.dag-detail-meta { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--muted); }
-.dag-detail-meta strong { color: var(--ink-soft); }
-.dag-detail-actions { display: flex; gap: 8px; flex-shrink: 0; }
-
-.dag-tab-bar { display: flex; border-bottom: 2px solid var(--line); margin-bottom: 0; }
-.dag-tab-btn { padding: 10px 16px; background: none; border: none; color: var(--muted); font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
-.dag-tab-btn:hover { color: var(--ink); }
-.dag-tab-btn.active { color: var(--brand); border-bottom-color: var(--brand); }
-.dag-tab-pane { display: none; padding: 20px 0; }
-.dag-tab-pane.active { display: block; }
-
-.dag-grid-toolbar, .dag-graph-toolbar, .dag-code-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
-.dag-grid-container { display: flex; overflow-x: auto; }
-.dag-grid-labels { padding-top: 36px; flex-shrink: 0; }
-.dag-grid-label { height: 28px; padding-right: 12px; font-size: 11px; color: var(--muted); font-family: monospace; display: flex; align-items: center; }
-.dag-grid-matrix { display: flex; flex-direction: column; overflow-x: auto; }
-.dag-grid-header-row, .dag-grid-task-row { display: flex; }
-.dag-grid-run-header { width: 28px; height: 28px; margin: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.dag-grid-run-header.ok { background: rgba(46, 160, 67, 0.15); }
-.dag-grid-run-header.warn { background: rgba(0, 155, 215, 0.15); }
-.dag-grid-run-header.bad { background: rgba(248, 81, 73, 0.15); }
-.dag-grid-run-dot { width: 10px; height: 10px; border-radius: 3px; }
-.dag-grid-run-header.ok .dag-grid-run-dot { background: var(--ok-ink); }
-.dag-grid-run-header.warn .dag-grid-run-dot { background: var(--running-ink); }
-.dag-grid-run-header.bad .dag-grid-run-dot { background: var(--bad-ink); }
-.dag-grid-cell { width: 28px; height: 28px; margin: 4px; border-radius: 4px; cursor: pointer; transition: transform 0.1s; }
-.dag-grid-cell:hover { transform: scale(1.1); }
-.dag-grid-cell.ok { background: rgba(46, 160, 67, 0.4); }
-.dag-grid-cell.warn { background: rgba(0, 155, 215, 0.4); }
-.dag-grid-cell.bad { background: rgba(248, 81, 73, 0.4); }
-.dag-grid-cell.neutral { background: rgba(100, 116, 139, 0.3); }
-.dag-grid-legend { display: flex; gap: 16px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
-.legend-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--muted); }
-.legend-dot { width: 10px; height: 10px; border-radius: 3px; }
-.legend-dot.ok { background: var(--ok-ink); }
-.legend-dot.warn { background: var(--running-ink); }
-.legend-dot.bad { background: var(--bad-ink); }
-.legend-dot.neutral { background: var(--neutral-ink); }
-
-.dag-graph-canvas { overflow: auto; background: var(--surface-muted); border-radius: 8px; padding: 20px; }
-.dag-node-rect { fill: var(--surface); stroke: var(--line); }
-.dag-node-rect.ok { stroke: var(--ok-ink); }
-.dag-node-rect.warn { stroke: var(--running-ink); }
-.dag-node-rect.bad { stroke: var(--bad-ink); }
-.dag-node-dot { fill: var(--neutral-ink); }
-.dag-node-dot.ok { fill: var(--ok-ink); }
-.dag-node-dot.warn { fill: var(--running-ink); }
-.dag-node-dot.bad { fill: var(--bad-ink); }
-.dag-node-name { fill: var(--ink); font-size: 11px; font-family: monospace; }
-.dag-node-group { fill: var(--muted); font-size: 9px; }
-.dag-graph-node { cursor: pointer; }
-.dag-graph-node:hover .dag-node-rect { stroke-width: 2; }
-
-.dag-node-panel { position: fixed; bottom: 16px; right: 16px; width: 260px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; box-shadow: var(--shadow); z-index: 100; }
-.dag-node-panel-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
-.dag-node-panel-header button { background: none; border: none; color: var(--muted); cursor: pointer; }
-.dag-node-panel-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; font-size: 11px; color: var(--muted); }
-.dag-node-panel-meta span { color: var(--ink-soft); display: block; }
-.dag-node-panel-actions { display: flex; gap: 6px; }
-
-.dag-gantt-container { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
-.dag-gantt-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-.dag-gantt-label { width: 160px; font-size: 11px; color: var(--muted); font-family: monospace; text-align: right; flex-shrink: 0; }
-.dag-gantt-track { flex: 1; height: 20px; background: var(--surface-strong); border-radius: 4px; position: relative; }
-.dag-gantt-bar { position: absolute; top: 2px; height: 16px; border-radius: 3px; }
-.dag-gantt-bar.ok { background: var(--ok-ink); opacity: 0.8; }
-.dag-gantt-bar.warn { background: var(--running-ink); opacity: 0.8; }
-.dag-gantt-bar.bad { background: var(--bad-ink); opacity: 0.8; }
-.dag-gantt-duration { width: 50px; font-size: 10px; color: var(--muted); text-align: right; }
-.dag-gantt-axis { display: flex; margin-left: 172px; margin-top: 8px; }
-.dag-gantt-axis span { flex: 1; font-size: 9px; color: var(--muted); text-align: right; }
-.dag-gantt-axis span:first-child { text-align: left; flex: 0; }
-
-.dag-code-container { background: var(--surface-muted); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-.dag-code-header { display: flex; justify-content: space-between; padding: 8px 16px; background: var(--surface); border-bottom: 1px solid var(--line); font-size: 11px; color: var(--muted); }
-.dag-code-block { margin: 0; padding: 16px; font-size: 12px; line-height: 1.6; overflow-x: auto; }
-.dag-code-block .line-num { display: inline-block; width: 30px; color: var(--line); user-select: none; text-align: right; padding-right: 12px; }
-
-.dag-task-panel { position: fixed; right: 0; top: 0; bottom: 0; width: 380px; background: var(--surface); border-left: 1px solid var(--line); z-index: 200; display: flex; flex-direction: column; }
-.dag-task-panel[hidden] { display: none; }
-.dag-task-panel-header { display: flex; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--line); }
-.dag-task-panel-header button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; }
-.dag-task-panel-tabs { display: flex; border-bottom: 1px solid var(--line); padding: 0 8px; }
-.dag-task-panel-tabs button { padding: 8px 12px; background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
-.dag-task-panel-tabs button.active { color: var(--brand); border-bottom-color: var(--brand); }
-.dag-task-panel-content { flex: 1; overflow: auto; padding: 16px; }
-.dag-task-panel-details { display: grid; gap: 10px; }
-.detail-row { display: flex; justify-content: space-between; font-size: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
-.detail-row span:first-child { color: var(--muted); }
-.detail-row span:last-child { color: var(--ink-soft); }
-.dag-task-panel-actions { display: flex; gap: 6px; margin-top: 16px; flex-wrap: wrap; }
-
-.dag-modal { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 24px; min-width: 360px; }
-.dag-modal::backdrop { background: rgba(0,0,0,0.5); }
-.dag-modal h3 { margin: 0 0 16px; }
-</style>
 
 <script>
 (function(){
@@ -524,10 +394,16 @@ function resetZoom() {
 
 function selectNode(el) {
   var name = el.dataset.node;
+  var rawStatus = el.dataset.status || 'queued';
+  var duration = el.dataset.duration || '-';
+  var statusMap = { ok: 'success', warn: 'running', bad: 'failed', neutral: 'queued' };
+  var toneMap = { success: 'ok', completed: 'ok', running: 'warn', pending: 'warn', queued: 'neutral', failed: 'bad' };
+  var tone = toneMap[rawStatus] || rawStatus;
+  var normalizedStatus = statusMap[tone] || rawStatus;
   var panel = document.getElementById('node-panel');
   document.getElementById('panel-task-name').textContent = name;
-  document.getElementById('panel-status').innerHTML = '<span class="status ok">success</span>';
-  document.getElementById('panel-duration').textContent = '2m 14s';
+  document.getElementById('panel-status').innerHTML = '<span class="status ' + tone + '">' + normalizedStatus + '</span>';
+  document.getElementById('panel-duration').textContent = duration;
   panel.hidden = false;
 }
 
@@ -535,10 +411,13 @@ function showTaskPanel(cell) {
   var panel = document.getElementById('task-panel');
   document.getElementById('task-panel-name').textContent = cell.dataset.task;
   document.getElementById('task-panel-run').textContent = cell.dataset.run;
-  var status = cell.dataset.status;
+  var rawStatus = cell.dataset.status || 'queued';
+  var duration = cell.dataset.duration || '-';
   var statusMap = { ok: 'success', warn: 'running', bad: 'failed', neutral: 'queued' };
-  document.getElementById('task-panel-status').innerHTML = '<span class="status ' + status + '">' + (statusMap[status] || status) + '</span>';
-  document.getElementById('task-panel-duration').textContent = '2m 14s';
+  var toneMap = { success: 'ok', completed: 'ok', running: 'warn', pending: 'warn', queued: 'neutral', failed: 'bad' };
+  var tone = toneMap[rawStatus] || rawStatus;
+  document.getElementById('task-panel-status').innerHTML = '<span class="status ' + tone + '">' + (statusMap[tone] || rawStatus) + '</span>';
+  document.getElementById('task-panel-duration').textContent = duration;
   panel.hidden = false;
 }
 </script>

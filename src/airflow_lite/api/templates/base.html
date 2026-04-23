@@ -70,7 +70,12 @@
 
           {# Browse submenu #}
           <div class="sidebar-submenu-group">
-            {% set browse_paths = ['/monitor/browse/backfills', '/monitor/browse/jobs', '/monitor/browse/audit-logs', '/monitor/browse/task-instances', '/monitor/browse/dag-runs'] %}
+            {% set backfills_path = MONITOR_BROWSE_BACKFILLS_PATH %}
+            {% set jobs_path = MONITOR_BROWSE_JOBS_PATH %}
+            {% set audit_logs_path = MONITOR_BROWSE_AUDIT_LOGS_PATH %}
+            {% set task_instances_path = MONITOR_BROWSE_TASK_INSTANCES_PATH %}
+            {% set dag_runs_path = MONITOR_DAG_RUNS_PATH %}
+            {% set browse_paths = [backfills_path, jobs_path, audit_logs_path, task_instances_path, dag_runs_path] %}
             {% set browse_active = active_path in browse_paths %}
             <button class="submenu-toggle{% if browse_active %} active{% endif %}" type="button" data-submenu-toggle="browse" aria-expanded="{% if browse_active %}true{% else %}false{% endif %}">
               <span class="sidebar-icon" aria-hidden="true">{{ ICON_BROWSE }}</span>
@@ -78,11 +83,11 @@
               <span class="submenu-caret" aria-hidden="true"></span>
             </button>
             <div class="submenu-list" data-submenu-panel="browse" {% if not browse_active %}hidden{% endif %}>
-              <a class="submenu-link{% if '/monitor/browse/backfills' == active_path %} active{% endif %}" href="{{ lang_url('/monitor/browse/backfills') }}">Backfills</a>
-              <a class="submenu-link{% if '/monitor/browse/jobs' == active_path %} active{% endif %}" href="{{ lang_url('/monitor/browse/jobs') }}">Jobs</a>
-              <a class="submenu-link{% if '/monitor/browse/audit-logs' == active_path %} active{% endif %}" href="{{ lang_url('/monitor/browse/audit-logs') }}">Audit Logs</a>
-              <a class="submenu-link{% if '/monitor/browse/task-instances' == active_path %} active{% endif %}" href="{{ lang_url('/monitor/browse/task-instances') }}">Task Instances</a>
-              <a class="submenu-link{% if '/monitor/browse/dag-runs' == active_path %} active{% endif %}" href="{{ lang_url('/monitor/browse/dag-runs') }}">DAG Runs</a>
+              <a class="submenu-link{% if backfills_path == active_path %} active{% endif %}" href="{{ lang_url(backfills_path) }}">Backfills</a>
+              <a class="submenu-link{% if jobs_path == active_path %} active{% endif %}" href="{{ lang_url(jobs_path) }}">Jobs</a>
+              <a class="submenu-link{% if audit_logs_path == active_path %} active{% endif %}" href="{{ lang_url(audit_logs_path) }}">Audit Logs</a>
+              <a class="submenu-link{% if task_instances_path == active_path %} active{% endif %}" href="{{ lang_url(task_instances_path) }}">Task Instances</a>
+              <a class="submenu-link{% if dag_runs_path == active_path %} active{% endif %}" href="{{ lang_url(dag_runs_path) }}">DAG Runs</a>
             </div>
           </div>
 

@@ -18,13 +18,20 @@
       </thead>
       <tbody>
         {% for p in providers %}
+        {% set provider_docs_url = p.docs_url or p.doc_url or p.documentation_url %}
         <tr>
           <td><code class="u-text-sm">{{ p.name }}</code></td>
           <td><span class="chip">{{ p.version }}</span></td>
           <td style="color: var(--running-ink);">{{ p.hooks|default(0) }}</td>
-          <td style="color: #c084fc;">{{ p.operators|default(0) }}</td>
+          <td style="color: var(--operator-ink);">{{ p.operators|default(0) }}</td>
           <td style="color: var(--warn-ink);">{{ p.sensors|default(0) }}</td>
-          <td><a class="btn btn-ghost btn-small" href="#" target="_blank">View Docs ↗</a></td>
+          <td>
+            {% if provider_docs_url %}
+            <a class="btn btn-ghost btn-small" href="{{ provider_docs_url }}" target="_blank" rel="noreferrer">View Docs ↗</a>
+            {% else %}
+            <span class="btn btn-ghost btn-small" aria-disabled="true">View Docs ↗</span>
+            {% endif %}
+          </td>
         </tr>
         {% else %}
         <tr>

@@ -7,7 +7,7 @@
       <h2 class="u-m-0">XComs</h2>
       <p class="u-text-sm u-text-muted u-mt-xs">Showing recent XCom values. Values persist until manually cleared or TTL expires.</p>
     </div>
-    <button class="btn btn-danger btn-small">🗑 Clear Old XComs</button>
+    <button id="clear-old-xcoms-btn" type="button" class="btn btn-danger btn-small" disabled title="Coming soon">🗑 Clear Old XComs</button>
   </div>
 
   <div class="table-wrap">
@@ -27,13 +27,27 @@
         <tr>
           <td><span class="cell-code" style="color: var(--running-ink);">{{ x.dag_id }}</span></td>
           <td><code class="u-text-sm">{{ x.task_id }}</code></td>
-          <td><code class="u-text-sm" style="color: #c084fc;">{{ x.key }}</code></td>
+          <td><code class="u-text-sm" style="color: var(--operator-ink);">{{ x.key }}</code></td>
           <td><code class="u-text-sm" style="color: var(--ok-ink);">{{ x.value|truncate(50) }}</code></td>
           <td class="u-text-sm u-text-muted">{{ x.timestamp }}</td>
           <td class="cell-actions">
             <div class="cell-action-group">
-              <button class="btn btn-ghost btn-small">✏</button>
-              <button class="btn btn-danger btn-small">✕</button>
+              <button
+                type="button"
+                class="btn btn-ghost btn-small"
+                data-dag-id="{{ x.dag_id }}"
+                data-task-id="{{ x.task_id }}"
+                data-key="{{ x.key }}"
+                onclick="onEditXcom(this)"
+              >✏</button>
+              <button
+                type="button"
+                class="btn btn-danger btn-small"
+                data-dag-id="{{ x.dag_id }}"
+                data-task-id="{{ x.task_id }}"
+                data-key="{{ x.key }}"
+                onclick="onDeleteXcom(this)"
+              >✕</button>
             </div>
           </td>
         </tr>
@@ -44,5 +58,21 @@
     </table>
   </div>
 </section>
+
+<script>
+function onEditXcom(btn) {
+  var dagId = btn.dataset.dagId || '-';
+  var taskId = btn.dataset.taskId || '-';
+  var key = btn.dataset.key || '-';
+  window.alert('Edit XCom is not implemented yet. (' + dagId + ' / ' + taskId + ' / ' + key + ')');
+}
+
+function onDeleteXcom(btn) {
+  var dagId = btn.dataset.dagId || '-';
+  var taskId = btn.dataset.taskId || '-';
+  var key = btn.dataset.key || '-';
+  window.alert('Delete XCom is not implemented yet. (' + dagId + ' / ' + taskId + ' / ' + key + ')');
+}
+</script>
 
 {% endblock %}

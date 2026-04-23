@@ -5,9 +5,9 @@
   <div class="u-flex-between u-mb-lg">
     <h2 class="u-m-0">Variables</h2>
     <div class="u-flex u-gap-sm">
-      <button class="btn btn-ghost btn-small">⬆ Import</button>
-      <button class="btn btn-ghost btn-small">⬇ Export</button>
-      <button class="btn btn-primary btn-small" onclick="document.getElementById('add-form').scrollIntoView()">+ Add Variable</button>
+      <button type="button" class="btn btn-ghost btn-small">⬆ Import</button>
+      <button type="button" class="btn btn-ghost btn-small">⬇ Export</button>
+      <button type="button" class="btn btn-primary btn-small" onclick="document.getElementById('add-form').scrollIntoView()">+ Add Variable</button>
     </div>
   </div>
 
@@ -41,7 +41,7 @@
           <td class="u-text-sm u-text-muted">{{ v.description or '—' }}</td>
           <td class="cell-actions">
             <div class="cell-action-group">
-              <button class="btn btn-ghost btn-small">✏</button>
+              <button type="button" class="btn btn-ghost btn-small">✏</button>
               <form method="post" action="{{ MONITOR_ADMIN_PATH }}/variables/delete" class="inline-form" onsubmit="return confirm('Delete this variable?');">
                 <input type="hidden" name="key" value="{{ v.key }}">
                 <button type="submit" class="btn btn-danger btn-small">✕</button>

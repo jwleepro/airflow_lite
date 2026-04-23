@@ -9,7 +9,7 @@
       <h2 class="u-m-0">DAGs</h2>
       <p class="u-text-sm u-text-muted u-mt-xs">{{ pipeline_rows|length }} of {{ total_pipelines }} DAGs shown</p>
     </div>
-    <button class="btn btn-primary">+ Import DAG</button>
+    <button type="button" class="btn btn-primary">+ Import DAG</button>
   </div>
 
   <form class="dag-filter-row" method="get" action="{{ lang_url(MONITOR_PIPELINES_PATH) }}">
@@ -22,6 +22,7 @@
       <option value="ok"{% if selected_state == 'ok' %} selected{% endif %}>Success</option>
       <option value="warn"{% if selected_state == 'warn' %} selected{% endif %}>Running</option>
       <option value="bad"{% if selected_state == 'bad' %} selected{% endif %}>Failed</option>
+      <option value="paused"{% if selected_state == 'paused' %} selected{% endif %}>Paused</option>
     </select>
     <label class="dag-filter-checkbox">
       <input type="checkbox" name="show_paused" value="1"{% if show_paused %} checked{% endif %}>
@@ -58,7 +59,7 @@
         <tr>
           <td>
             <div class="dag-name-cell">
-              <label class="dag-toggle" title="Toggle DAG">
+              <label class="dag-toggle" title="Toggle DAG (coming soon)">
                 <input type="checkbox" {% if is_active %}checked{% endif %} disabled>
                 <span class="dag-toggle-track"></span>
               </label>
@@ -99,7 +100,7 @@
                 <button class="btn btn-ghost btn-small" type="submit" title="Trigger">▶</button>
               </form>
               {% endif %}
-              <button class="btn btn-ghost btn-small" title="More">⋯</button>
+              <button type="button" class="btn btn-ghost btn-small" title="More">⋯</button>
             </div>
           </td>
         </tr>

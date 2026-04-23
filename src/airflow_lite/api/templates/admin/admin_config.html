@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+{% set MASKED_SENTINEL = '**masked**' %}
 
 <section class="panel">
   <h2 class="u-mb-lg">Configuration</h2>
@@ -18,7 +19,7 @@
       {% for key, value in section_keys.items() %}
       <div class="config-row">
         <code class="config-key" style="color: var(--running-ink);">{{ key }}</code>
-        <code class="config-value" style="color: {% if value == '**masked**' %}var(--muted){% else %}var(--ok-ink){% endif %};">{{ value }}</code>
+        <code class="config-value" style="color: {% if value == MASKED_SENTINEL %}var(--muted){% else %}var(--ok-ink){% endif %};">{{ value }}</code>
       </div>
       {% endfor %}
     </div>

@@ -103,6 +103,7 @@ def get_monitor_pipeline_list_page(
     request: Request,
     q: str | None = Query(default=None),
     state: str | None = Query(default=None),
+    show_paused: bool | None = Query(default=None),
     language: str = Depends(get_language),
 ):
     settings = request.app.state.settings
@@ -116,7 +117,7 @@ def get_monitor_pipeline_list_page(
             webui_config=settings.webui,
             language=language,
             search_query=q or "",
-            state=state or "all",
+            state="paused" if show_paused else (state or "all"),
             pipeline_actions=build_pipeline_actions(request, pipeline_rows),
         )
     )

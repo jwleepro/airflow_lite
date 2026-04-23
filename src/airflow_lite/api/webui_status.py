@@ -38,7 +38,10 @@ def count_by_tone(rows: list[dict]) -> dict[str, int]:
     누락된 톤은 0으로 채워 돌려준다.
     """
     counts = {tone: 0 for tone in STATUS_GROUPS}
+    counts["paused"] = 0
     for row in rows:
+        if bool(row.get("is_paused")):
+            counts["paused"] += 1
         s = latest_run_status(row)
         for tone, members in STATUS_GROUPS.items():
             if s in members:

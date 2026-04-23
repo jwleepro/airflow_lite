@@ -84,6 +84,7 @@ class DefaultConfig:
 class PipelineConfig:
     name: str
     table: str
+    paused: bool = False
     source_where_template: str | None = None
     source_bind_params: dict[str, Any] = field(default_factory=dict)
     strategy: str = "full"  # "full" | "incremental"

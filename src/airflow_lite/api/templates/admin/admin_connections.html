@@ -5,7 +5,7 @@
 <section class="panel">
   <div class="u-flex-between u-mb-lg">
     <h2 class="u-m-0">Connections</h2>
-    <button class="btn btn-primary btn-small" onclick="document.getElementById('add-form').scrollIntoView()">+ Add Connection</button>
+    <button type="button" class="btn btn-primary btn-small" onclick="document.getElementById('add-form').scrollIntoView()">+ Add Connection</button>
   </div>
 
   <div class="dag-filter-row u-mb-lg">
@@ -44,8 +44,8 @@
           <td class="u-text-sm u-text-muted">{{ c.description or '—' }}</td>
           <td class="cell-actions">
             <div class="cell-action-group">
-              <button class="btn btn-ghost btn-small">✏</button>
-              <button class="btn btn-ghost btn-small">Test</button>
+              <button type="button" class="btn btn-ghost btn-small">✏</button>
+              <button type="button" class="btn btn-ghost btn-small">Test</button>
               <form method="post" action="{{ MONITOR_ADMIN_PATH }}/connections/delete" class="inline-form" onsubmit="return confirm('Delete this connection?');">
                 <input type="hidden" name="conn_id" value="{{ c.conn_id }}">
                 <button type="submit" class="btn btn-danger btn-small">✕</button>
@@ -83,11 +83,15 @@ function filterTable() {
   var table = document.getElementById('conn-table');
   var tr = table.getElementsByTagName('tr');
   for (var i = 1; i < tr.length; i++) {
-    var td = tr[i].getElementsByTagName('td')[0];
-    if (td) {
-      var txtValue = td.textContent || td.innerText;
-      tr[i].style.display = txtValue.toLowerCase().indexOf(filter) > -1 ? '' : 'none';
+    var tds = tr[i].getElementsByTagName('td');
+    var matched = false;
+    for (var j = 0; j < tds.length && !matched; j++) {
+      var txtValue = tds[j].textContent || tds[j].innerText;
+      if (txtValue.toLowerCase().indexOf(filter) > -1) {
+        matched = true;
+      }
     }
+    tr[i].style.display = matched ? '' : 'none';
   }
 }
 </script>

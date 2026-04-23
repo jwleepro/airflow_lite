@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from airflow_lite.api.schemas import build_run_response_with_steps
 from airflow_lite.api.webui_helpers import fmt_duration
 from airflow_lite.api.webui_status import tone_of
@@ -32,6 +34,7 @@ def build_pipeline_rows(settings, run_repo, step_repo) -> list[dict]:
     for pipeline in settings.pipelines:
         recent_runs: list[dict] = []
         latest_run = None
+        is_paused = bool(getattr(pipeline, "paused", getattr(pipeline, "is_paused", False)))
         if run_repo is not None:
             runs = run_repo.find_by_pipeline(pipeline.name, limit=webui.recent_runs_limit)
             recent_runs = [
@@ -47,6 +50,8 @@ def build_pipeline_rows(settings, run_repo, step_repo) -> list[dict]:
                 "strategy": pipeline.strategy,
                 "schedule": pipeline.schedule,
                 "next_run": calc_next_run(pipeline.schedule),
+                "is_paused": is_paused,
+                "is_active": not is_paused,
                 "latest_run": latest_run,
                 "recent_runs": recent_runs,
             }
@@ -74,28 +79,96 @@ def _collect_step_names(runs: list[dict]) -> list[str]:
     return step_names
 
 
+def _parse_dt(value) -> datetime | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        return datetime.fromisoformat(text)
+    except ValueError:
+        return None
+
+
 def _build_grid_runs(run_dicts: list[dict], step_names: list[str]) -> list[dict]:
-    return [
-        {
-            "id": run.get("id", ""),
-            "execution_date": run.get("execution_date", ""),
-            "status": run.get("status", ""),
-            "tone": tone_of(run.get("status", "")),
-            "step_tones": [
-                tone_of(
-                    next(
-                        (s.get("status") for s in run.get("steps", []) if s.get("step_name") == name),
-                        "",
-                    )
-                )
-                for name in step_names
-            ],
+    grid_runs: list[dict] = []
+    for run in run_dicts:
+        steps_by_name = {
+            step.get("step_name", "unknown"): step
+            for step in run.get("steps", [])
         }
-        for run in run_dicts
-    ]
+        step_statuses = [steps_by_name.get(name, {}).get("status", "") for name in step_names]
+        grid_runs.append(
+            {
+                "id": run.get("id", ""),
+                "execution_date": run.get("execution_date", ""),
+                "status": run.get("status", ""),
+                "tone": tone_of(run.get("status", "")),
+                "step_tones": [tone_of(status) for status in step_statuses],
+                "step_statuses": step_statuses,
+                "step_durations": [
+                    fmt_duration(
+                        steps_by_name.get(name, {}).get("started_at"),
+                        steps_by_name.get(name, {}).get("finished_at"),
+                    )
+                    for name in step_names
+                ],
+            }
+        )
+    return grid_runs
+
+
+def _latest_window(latest_run: dict | None) -> tuple[datetime | None, datetime | None]:
+    if not latest_run:
+        return (None, None)
+
+    starts: list[datetime] = []
+    ends: list[datetime] = []
+    run_start = _parse_dt(latest_run.get("started_at"))
+    run_end = _parse_dt(latest_run.get("finished_at"))
+    if run_start:
+        starts.append(run_start)
+    if run_end:
+        ends.append(run_end)
+
+    for step in latest_run.get("steps", []):
+        step_start = _parse_dt(step.get("started_at"))
+        step_end = _parse_dt(step.get("finished_at"))
+        if step_start:
+            starts.append(step_start)
+        if step_end:
+            ends.append(step_end)
+
+    if not starts:
+        return (None, None)
+    if not ends:
+        ends = starts.copy()
+
+    window_start = min(starts)
+    window_end = max(ends)
+    if window_end < window_start:
+        window_end = window_start
+    return (window_start, window_end)
 
 
 def _build_task_rows(run_dicts: list[dict], step_names: list[str], grid_runs: list[dict]) -> list[dict]:
+    latest_run = run_dicts[0] if run_dicts else None
+    latest_step_map = {
+        step.get("step_name", "unknown"): step
+        for step in (latest_run or {}).get("steps", [])
+    }
+    window_start, window_end = _latest_window(latest_run)
+    span_seconds = (
+        max((window_end - window_start).total_seconds(), 1.0)
+        if window_start and window_end
+        else None
+    )
+
     task_rows: list[dict] = []
     for name in step_names:
         instances = [
@@ -103,19 +176,36 @@ def _build_task_rows(run_dicts: list[dict], step_names: list[str], grid_runs: li
             for run in run_dicts
         ]
         instances = [s for s in instances if s]
+        latest_instance = latest_step_map.get(name) or (instances[0] if instances else {})
+
+        start_pct = None
+        width_pct = None
+        step_start = _parse_dt(latest_instance.get("started_at"))
+        step_end = _parse_dt(latest_instance.get("finished_at")) or step_start
+        if step_start and span_seconds and window_start is not None:
+            start_seconds = max((step_start - window_start).total_seconds(), 0.0)
+            start_pct = min(100.0, max(0.0, (start_seconds / span_seconds) * 100.0))
+            if step_end and step_end < step_start:
+                step_end = step_start
+            if step_end:
+                width_seconds = max((step_end - step_start).total_seconds(), 0.0)
+                width_pct = (width_seconds / span_seconds) * 100.0
+                width_pct = min(max(0.5 if width_seconds == 0 else 1.0, width_pct), max(0.5, 100.0 - start_pct))
 
         task_rows.append(
             {
                 "name": name,
-                "latest_status": (instances[0].get("status") if instances else ""),
-                "latest_tone": tone_of(instances[0].get("status", "") if instances else ""),
+                "latest_status": latest_instance.get("status", ""),
+                "latest_tone": tone_of(latest_instance.get("status", "")),
                 "success_count": sum(1 for item in instances if tone_of(item.get("status")) == "ok"),
                 "running_count": sum(1 for item in instances if tone_of(item.get("status")) == "warn"),
                 "failed_count": sum(1 for item in instances if tone_of(item.get("status")) == "bad"),
                 "latest_duration": fmt_duration(
-                    (instances[0] if instances else {}).get("started_at"),
-                    (instances[0] if instances else {}).get("finished_at"),
+                    latest_instance.get("started_at"),
+                    latest_instance.get("finished_at"),
                 ),
+                "start_pct": round(start_pct, 2) if start_pct is not None else None,
+                "width_pct": round(width_pct, 2) if width_pct is not None else None,
                 "recent_tones": [
                     next(
                         (

@@ -83,16 +83,6 @@ Oracle 11g -> [ingest] -> Parquet raw -> [mart] -> DuckDB -> [serve] -> FastAPI 
 
 ## Codex 협업 워크플로우
 
-### 시작 순서
-
-모든 agent는 아래 순서를 기본으로 따른다.
-
-1. `AGENTS.md`
-2. `PLAN.md`
-3. `PROGRESS.md`
-
-`.codex/`, local agent/skill, `reference/codex/`를 건드릴 때만 `reference/codex/index.json`과 관련 문서를 추가로 읽는다.
-
 ### Agent 선택 기준
 
 이 저장소가 별도로 유지하는 repository-local custom agent는 아래 3개를 둔다.
@@ -143,7 +133,6 @@ Oracle 11g -> [ingest] -> Parquet raw -> [mart] -> DuckDB -> [serve] -> FastAPI 
 
 - `PLAN.md` - 작업 계획, 우선순위, 완료 조건
 - `PROGRESS.md` - 진행 상태, 블로커, handoff 메모
-- 작업 시작 전 `AGENTS.md` -> `PLAN.md` -> `PROGRESS.md` 순서로 읽고 시작
 
 ## 빌드 & 테스트 명령어
 
