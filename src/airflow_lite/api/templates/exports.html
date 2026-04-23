@@ -2,27 +2,27 @@
 {% import "_macros.html" as m %}
 {% block content %}
 
-<section class="hero-surface">
+<section class="hero-surface exports-hero">
   <div class="hero-copy">
     <p class="eyebrow">{{ t('webui.exports.retention.eyebrow') }}</p>
     <h2>{{ t('webui.exports.retention.title') }}</h2>
     <p class="muted">{{ retention_description }}</p>
   </div>
-  <div class="chip-list">
+  <div class="chip-list exports-summary-chips">
     <span class="chip">{{ counts.completed }} {{ t('webui.exports.summary.completed.label') }}</span>
     <span class="chip {% if counts.running %}chip-warn{% endif %}">{{ counts.running }} {{ t('webui.exports.summary.running.label') }}</span>
     <span class="chip {% if counts.queued %}chip-warn{% endif %}">{{ counts.queued }} {{ t('webui.exports.summary.queued.label') }}</span>
   </div>
 </section>
 
-<section class="summary-grid">
+<section class="summary-grid exports-summary-grid">
   {{ m.summary_tile(t('webui.exports.summary.queued.label'), counts.queued|string, t('webui.exports.summary.queued.detail'), 'warn' if counts.queued else 'neutral') }}
   {{ m.summary_tile(t('webui.exports.summary.running.label'), counts.running|string, t('webui.exports.summary.running.detail'), 'warn' if counts.running else 'neutral') }}
   {{ m.summary_tile(t('webui.exports.summary.completed.label'), counts.completed|string, t('webui.exports.summary.completed.detail'), 'ok' if counts.completed else 'neutral') }}
   {{ m.summary_tile(t('webui.exports.summary.retention.label'), (retention_hours|string) ~ 'h', t('webui.exports.summary.retention.detail')) }}
 </section>
 
-<section class="panel">
+<section class="panel exports-retention-panel">
   <div class="panel-head">
     <div>
       <p class="eyebrow">{{ t('webui.exports.retention.eyebrow') }}</p>
@@ -31,10 +31,10 @@
     <span class="muted refresh-notice">{{ refresh_notice }}</span>
   </div>
   <p class="muted">{{ retention_description }}</p>
-  <div class="actions">
+  <div class="actions exports-actions">
     <a class="btn btn-ghost" href="{{ lang_url(MONITOR_EXPORTS_PATH) }}">{{ t('webui.exports.actions.all_datasets') }}</a>
     <a class="btn btn-ghost" href="{{ lang_url(analytics_href_raw) }}">{{ t('webui.exports.actions.analytics') }}</a>
-    <form method="post" action="{{ lang_url(MONITOR_EXPORT_DELETE_COMPLETED_PATH) }}" style="display:inline">
+    <form method="post" action="{{ lang_url(MONITOR_EXPORT_DELETE_COMPLETED_PATH) }}" class="exports-delete-form" style="display:inline">
       {% if dataset %}<input type="hidden" name="dataset" value="{{ dataset }}">{% endif %}
       <input type="hidden" name="lang" value="{{ language }}">
       <button type="submit" class="btn btn-danger" onclick="return confirm('{{ t('webui.exports.confirm.delete_all_completed') }}')">{{ t('webui.exports.actions.delete_all_completed') }}</button>
@@ -42,7 +42,7 @@
   </div>
 </section>
 
-<section class="panel">
+<section class="panel exports-inventory-panel">
   <div class="panel-head">
     <div>
       <p class="eyebrow">{{ t('webui.exports.inventory.eyebrow') }}</p>
@@ -50,8 +50,8 @@
     </div>
     <span class="muted">{{ t('webui.exports.inventory.hint') }}</span>
   </div>
-  <div class="table-wrap">
-    <table class="air-table">
+  <div class="table-wrap exports-table-wrap">
+    <table class="air-table exports-table">
       <thead>
         <tr>
           <th>{{ t('webui.exports.table.job_id') }}</th><th>{{ t('webui.exports.table.dataset') }}</th><th>{{ t('webui.exports.table.action') }}</th><th>{{ t('webui.exports.table.status') }}</th>
