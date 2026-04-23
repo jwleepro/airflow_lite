@@ -741,6 +741,22 @@ pre,
   margin-top: 12px;
 }
 
+.monitor-stats-grid {
+  margin-bottom: 24px;
+}
+
+.monitor-filter-panel {
+  margin-bottom: 20px;
+}
+
+.monitor-inventory-panel .table-wrap {
+  margin-top: 12px;
+}
+
+.monitor-inventory-chips {
+  margin-bottom: 12px;
+}
+
 /* ===== Chip ===== */
 .chip-list,
 .actions {
