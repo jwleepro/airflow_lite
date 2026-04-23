@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="panel">
+  <div class="u-flex-between u-mb-lg">
+    <h2 class="u-m-0">Variables</h2>
+    <div class="u-flex u-gap-sm">
+      <button type="button" class="btn btn-ghost btn-small">⬆ Import</button>
+      <button type="button" class="btn btn-ghost btn-small">⬇ Export</button>
+      <button type="button" class="btn btn-primary btn-small" onclick="document.getElementById('add-form').scrollIntoView()">+ Add Variable</button>
+    </div>
+  </div>
+
+  <div class="dag-filter-row u-mb-lg">
+    <div class="dag-search-box">
+      <span class="search-icon-inline">⌕</span>
+      <input type="text" id="var-search" placeholder="Search variables..." class="dag-search-input" onkeyup="filterTable()">
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table class="air-table" id="var-table">
+      <thead>
+        <tr>
+          <th>Key</th>
+          <th>Value</th>
+          <th>Description</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in variables %}
+        <tr>
+          <td><span class="cell-code" style="color: var(--running-ink);">{{ v.key }}</span></td>
+          <td>
+            <span class="u-flex-center u-gap-sm">
+              <code class="u-text-sm" style="color: var(--ok-ink);">{{ v.val if not v.is_masked else '••••••••' }}</code>
+              {% if v.is_masked %}<span class="u-text-muted">🔒</span>{% endif %}
+            </span>
+          </td>
+          <td class="u-text-sm u-text-muted">{{ v.description or '—' }}</td>
+          <td class="cell-actions">
+            <div class="cell-action-group">
+              <button type="button" class="btn btn-ghost btn-small">✏</button>
+              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/variables/delete" class="inline-form" onsubmit="return confirm('Delete this variable?');">
+                <input type="hidden" name="key" value="{{ v.key }}">
+                <button type="submit" class="btn btn-danger btn-small">✕</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="empty">No variables configured</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel" id="add-form">
+  <h3 class="u-mb-md">Add Variable</h3>
+  <form method="post" action="{{ MONITOR_ADMIN_PATH }}/variables" class="form-grid form-grid-3">
+    <label class="filter-field"><span>Key</span><input type="text" name="key" required></label>
+    <label class="filter-field"><span>Value</span><input type="text" name="val" required></label>
+    <label class="filter-field"><span>Description</span><input type="text" name="description"></label>
+    <div class="form-actions"><button type="submit" class="btn btn-primary">Add Variable</button></div>
+  </form>
+</section>
+
+<script>
+function filterTable() {
+  var input = document.getElementById('var-search');
+  var filter = input.value.toLowerCase();
+  var table = document.getElementById('var-table');
+  var tr = table.getElementsByTagName('tr');
+  for (var i = 1; i < tr.length; i++) {
+    var td = tr[i].getElementsByTagName('td')[0];
+    if (td) {
+      var txtValue = td.textContent || td.innerText;
+      tr[i].style.display = txtValue.toLowerCase().indexOf(filter) > -1 ? '' : 'none';
+    }
+  }
+}
+</script>
+
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="panel">
+  <h2 class="u-mb-lg">{{ t('webui.admin.plugins.title') }}</h2>
+
+  {% if plugins %}
+  <div class="table-wrap">
+    <table class="air-table">
+      <thead>
+        <tr>
+          <th>{{ t('webui.admin.plugins.column.name') }}</th>
+          <th>{{ t('webui.admin.plugins.column.version') }}</th>
+          <th>{{ t('webui.admin.plugins.column.description') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in plugins %}
+        <tr>
+          <td><code>{{ p.name }}</code></td>
+          <td>{{ p.version }}</td>
+          <td class="u-text-muted">{{ p.description }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="u-text-center u-p-lg" style="padding: 60px 40px;">
+    <div style="font-size: 2.5rem; margin-bottom: 12px;">🔌</div>
+    <div class="u-text-muted" style="font-size: 1rem;">{{ t('webui.admin.plugins.empty.title') }}</div>
+    <div class="u-text-muted u-text-sm u-mt-sm">{{ t('webui.admin.plugins.empty.description') }}</div>
+    <div class="u-mt-lg">
+      {% if plugin_docs_url %}
+      <a class="btn btn-ghost" href="{{ plugin_docs_url }}" target="_blank" rel="noreferrer">{{ t('webui.admin.plugins.docs_link') }}</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</section>
+
+{% endblock %}

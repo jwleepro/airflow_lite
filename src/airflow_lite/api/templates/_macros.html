@@ -5,3 +5,7 @@
   <p class="summary-detail">{{ detail }}</p>
 </article>
 {% endmacro %}
+
+{% macro status_badge(status, tone='neutral') %}
+<span class="status {{ tone }}">{{ status|capitalize }}</span>
+{% endmacro %}

@@ -1,5 +1,6 @@
 """Task-007: FastAPI REST API TestClient 기반 통합 테스트."""
 import pytest
+import re
 import time
 from datetime import date, datetime
 from urllib.parse import parse_qs, urlparse
@@ -210,16 +211,15 @@ def test_monitor_home_page_renders_html_with_system_summary(client):
     body = response.text
     assert "Home" in body
     assert "Ops Console" in body
-    assert "Environment overview" in body
+    assert "System Health" in body
     assert "Latest pipeline runs" in body
     assert "test_pipeline" in body
     assert "/monitor/pipelines" in body
-    assert "/monitor/exports" in body
+    assert "/monitor/analytics" in body
     assert "/monitor/pipelines/test_pipeline/runs/run-001" in body
-    assert "manual" in body
     assert "success" in body
     assert 'class="panel home-health-panel"' in body
-    assert 'class="summary-grid home-stats-grid"' in body
+    assert 'class="grid-2"' in body
     assert 'class="panel home-recent-runs"' in body
 
 
@@ -233,18 +233,12 @@ def test_monitor_pipeline_list_page_renders_html_with_pipeline_summary(client):
     assert "Dag List" in body
     assert "test_pipeline" in body
     assert '/monitor/pipelines/test_pipeline"' in body
-    assert "/monitor/pipelines/test_pipeline/runs/run-001" in body
     assert "run-grid" in body
-    assert "Recent Runs (latest→oldest)" in body
-    assert "manual" in body
+    assert "Recent Runs (15)" in body
     assert "success" in body
-    assert "Trigger" in body
-    assert "Force rerun" in body
-    assert "Force rerun runs again for the latest run date." in body
     assert "/monitor/pipelines/test_pipeline/trigger" in body
-    assert 'class="summary-grid monitor-stats-grid"' in body
-    assert 'class="panel monitor-filter-panel"' in body
-    assert 'class="panel monitor-inventory-panel"' in body
+    assert 'class="panel dag-filter-panel"' in body
+    assert 'class="air-table dag-table"' in body
 
 
 def test_monitor_pipeline_list_page_recent_runs_render_latest_to_oldest():
@@ -351,16 +345,12 @@ def test_monitor_pipeline_detail_page_renders_dag_details_tabs(client):
 
     assert response.status_code == 200
     assert "DAG Details" in response.text
-    assert "Overview" in response.text
-    assert "Grid View" in response.text
-    assert "Graph View" in response.text
-    assert "Runs" in response.text
-    assert "Tasks" in response.text
-    assert "Details" in response.text
-    assert "Grid columns are ordered latest run → oldest run" in response.text
+    assert "Grid" in response.text
+    assert "Graph" in response.text
+    assert "Gantt" in response.text
+    assert "Code" in response.text
     assert "Trigger now" in response.text
     assert "Re-run latest" in response.text
-    assert "Backfill control" in response.text
     assert "/monitor/pipelines/test_pipeline/runs/run-001" in response.text
 
 
@@ -400,13 +390,13 @@ def test_monitor_pipeline_detail_grid_view_uses_step_row_index_for_tones():
 
     assert response.status_code == 200
     body = response.text
-    assert body.index('class="grid-col-header" title="2026-01-02"') < body.index(
-        'class="grid-col-header" title="2026-01-01"'
+    assert body.index('class="dag-grid-run-header warn" title="2026-01-02"') < body.index(
+        'class="dag-grid-run-header ok" title="2026-01-01"'
     )
-    assert 'class="run-block ok" title="2026-01-01 · extract"' in body
-    assert 'class="run-block bad" title="2026-01-02 · extract"' in body
-    assert 'class="run-block bad" title="2026-01-01 · load"' in body
-    assert 'class="run-block ok" title="2026-01-02 · load"' in body
+    extract_cells = re.findall(r'data-task="extract"\s+data-run="([^"]+)"\s+data-status="([^"]+)"', body)
+    load_cells = re.findall(r'data-task="load"\s+data-run="([^"]+)"\s+data-status="([^"]+)"', body)
+    assert extract_cells == [("2026-01-02", "failed"), ("2026-01-01", "success")]
+    assert load_cells == [("2026-01-02", "success"), ("2026-01-01", "failed")]
 
     run_response = local_client.get("/monitor/pipelines/test_pipeline/runs/run-002")
     assert run_response.status_code == 200
@@ -423,11 +413,11 @@ def test_monitor_pipeline_detail_page_supports_korean_language_query(client):
     body = response.text
     assert '<html lang="ko">' in body
     assert "DAG 상세" in body
-    assert "그리드 뷰" in body
-    assert "태스크" in body
-    assert "그리드 열 순서: 최신 실행 → 오래된 실행" in body
+    assert "Grid" in body
+    assert "Graph" in body
+    assert "Gantt" in body
+    assert "Code" in body
     assert "즉시 실행" in body
-    assert "백필 제어" in body
 
 
 def test_monitor_pipeline_detail_page_returns_404_for_unknown_pipeline(client):

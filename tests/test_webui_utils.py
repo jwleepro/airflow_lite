@@ -70,19 +70,19 @@ class TestLatestRunStatus:
 class TestCountByTone:
     def test_counts_include_all_groups_even_if_zero(self):
         result = count_by_tone([])
-        assert result == {"ok": 0, "warn": 0, "bad": 0}
+        assert result == {"ok": 0, "warn": 0, "bad": 0, "paused": 0}
 
     def test_mixed_rows(self):
         rows = [
             {"latest_run": {"status": "success"}},
             {"latest_run": {"status": "completed"}},
-            {"latest_run": {"status": "running"}},
+            {"latest_run": {"status": "running"}, "is_paused": True},
             {"latest_run": {"status": "failed"}},
             {"latest_run": None},  # no tone
             {},  # no tone
         ]
         result = count_by_tone(rows)
-        assert result == {"ok": 2, "warn": 1, "bad": 1}
+        assert result == {"ok": 2, "warn": 1, "bad": 1, "paused": 1}
 
 
 def test_app_css_does_not_include_legacy_btn_delete_alias():

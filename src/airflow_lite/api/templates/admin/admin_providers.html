@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="panel">
+  <h2 class="u-mb-lg">Providers</h2>
+
+  <div class="table-wrap">
+    <table class="air-table">
+      <thead>
+        <tr>
+          <th>Package Name</th>
+          <th>Version</th>
+          <th>Hooks</th>
+          <th>Operators</th>
+          <th>Sensors</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in providers %}
+        {% set provider_docs_url = p.docs_url or p.doc_url or p.documentation_url %}
+        <tr>
+          <td><code class="u-text-sm">{{ p.name }}</code></td>
+          <td><span class="chip">{{ p.version }}</span></td>
+          <td style="color: var(--running-ink);">{{ p.hooks|default(0) }}</td>
+          <td style="color: var(--operator-ink);">{{ p.operators|default(0) }}</td>
+          <td style="color: var(--warn-ink);">{{ p.sensors|default(0) }}</td>
+          <td>
+            {% if provider_docs_url %}
+            <a class="btn btn-ghost btn-small" href="{{ provider_docs_url }}" target="_blank" rel="noreferrer">View Docs ↗</a>
+            {% else %}
+            <span class="btn btn-ghost btn-small" aria-disabled="true">View Docs ↗</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="u-text-center u-p-lg">
+            <div style="font-size: 2rem; margin-bottom: 8px;">📦</div>
+            <div class="u-text-muted">No providers installed</div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% endblock %}

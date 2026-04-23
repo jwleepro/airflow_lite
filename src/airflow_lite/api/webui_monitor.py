@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 from airflow_lite.api.paths import (
     MONITOR_ADMIN_PATH,
     MONITOR_ANALYTICS_PATH,
@@ -12,7 +14,7 @@ from airflow_lite.api.paths import (
 )
 from airflow_lite.api.template_env import PageChrome, render_page
 from airflow_lite.api.webui_helpers import build_url, cfg, fmt, t
-from airflow_lite.api.webui_status import STATUS_GROUPS, count_by_tone, latest_run_status
+from airflow_lite.api.webui_status import STATUS_GROUPS, count_by_tone, latest_run_status, tone_of
 from airflow_lite.i18n import DEFAULT_LANGUAGE
 
 
@@ -87,6 +89,8 @@ def _filter_pipeline_rows(
         return query in haystack
 
     def _matches_state(row: dict) -> bool:
+        if state == "paused":
+            return bool(row.get("is_paused"))
         if state not in STATUS_GROUPS:
             return True
         return latest_run_status(row) in STATUS_GROUPS[state]
@@ -121,6 +125,100 @@ def _recent_activity_rows(pipeline_rows: list[dict], *, limit: int) -> list[dict
     return recent_rows[:limit]
 
 
+def _parse_dt(value) -> datetime | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value.replace(tzinfo=None) if value.tzinfo else value
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    return parsed.replace(tzinfo=None) if parsed.tzinfo else parsed
+
+
+def _format_percent_change(current: int, previous: int) -> str:
+    if previous <= 0:
+        return "+0%" if current <= 0 else "+100%"
+    change = ((current - previous) / previous) * 100.0
+    sign = "+" if change >= 0 else ""
+    return f"{sign}{int(round(change))}%"
+
+
+def _format_avg_duration(total_seconds: float, count: int) -> str:
+    if count <= 0:
+        return "-"
+    seconds = max(0, int(round(total_seconds / count)))
+    if seconds < 60:
+        return f"{seconds}s"
+    minutes, secs = divmod(seconds, 60)
+    if minutes < 60:
+        return f"{minutes}m {secs}s"
+    hours, mins = divmod(minutes, 60)
+    return f"{hours}h {mins}m"
+
+
+def _build_last_24h_stats(pipeline_rows: list[dict]) -> dict[str, int | str]:
+    now = datetime.now()
+    window_start = now - timedelta(hours=24)
+    previous_window_start = window_start - timedelta(hours=24)
+
+    total_runs_24h = 0
+    previous_runs_24h = 0
+    successful_runs_24h = 0
+    failed_tasks = 0
+    failed_dag_names: set[str] = set()
+    duration_total_seconds = 0.0
+    duration_samples = 0
+
+    for row in pipeline_rows:
+        dag_has_failed_task = False
+        for run in row.get("recent_runs") or []:
+            run_time = _parse_dt(run.get("finished_at")) or _parse_dt(run.get("started_at")) or _parse_dt(run.get("execution_date"))
+            if run_time is None:
+                continue
+
+            if window_start <= run_time <= now:
+                total_runs_24h += 1
+                if tone_of(run.get("status")) == "ok":
+                    successful_runs_24h += 1
+
+                for step in run.get("steps") or []:
+                    if tone_of(step.get("status")) == "bad":
+                        failed_tasks += 1
+                        dag_has_failed_task = True
+
+                started_at = _parse_dt(run.get("started_at"))
+                finished_at = _parse_dt(run.get("finished_at"))
+                if started_at and finished_at and finished_at >= started_at:
+                    duration_total_seconds += (finished_at - started_at).total_seconds()
+                    duration_samples += 1
+            elif previous_window_start <= run_time < window_start:
+                previous_runs_24h += 1
+
+        if dag_has_failed_task and row.get("name"):
+            failed_dag_names.add(str(row.get("name")))
+
+    success_rate = (
+        f"{int(round((successful_runs_24h / total_runs_24h) * 100))}%"
+        if total_runs_24h > 0
+        else "0%"
+    )
+    return {
+        "total_runs_24h": total_runs_24h,
+        "runs_change": _format_percent_change(total_runs_24h, previous_runs_24h),
+        "success_rate": success_rate,
+        "failed_tasks": failed_tasks,
+        "failed_dags": len(failed_dag_names),
+        "avg_duration": _format_avg_duration(duration_total_seconds, duration_samples),
+    }
+
+
 def render_monitor_home_page(
     pipeline_rows: list[dict],
     *,
@@ -131,6 +229,7 @@ def render_monitor_home_page(
     monitor_refresh_seconds = cfg(webui_config, "monitor_refresh_seconds", 30)
     recent_activity_limit = cfg(webui_config, "recent_runs_limit", 10)
     tone_counts = count_by_tone(pipeline_rows)
+    last_24h_stats = _build_last_24h_stats(pipeline_rows)
 
     chrome = PageChrome(
         title=t(language, "webui.monitor.home.title"),
@@ -155,6 +254,13 @@ def render_monitor_home_page(
         active_runs=tone_counts["warn"],
         healthy_runs=tone_counts["ok"],
         failed_runs=tone_counts["bad"],
+        paused_pipelines=tone_counts["paused"],
+        total_runs_24h=last_24h_stats["total_runs_24h"],
+        runs_change=last_24h_stats["runs_change"],
+        success_rate=last_24h_stats["success_rate"],
+        failed_tasks=last_24h_stats["failed_tasks"],
+        failed_dags=last_24h_stats["failed_dags"],
+        avg_duration=last_24h_stats["avg_duration"],
         health_checks=health_checks or [],
         monitor_notice=_build_monitor_notice(
             pipeline_rows,
@@ -247,7 +353,8 @@ def render_pipeline_list_page(
             error_message_max_length=error_message_max_length,
         ),
         search_query=search_query,
-        selected_state=state if state in STATUS_GROUPS else "all",
+        selected_state=state if state in STATUS_GROUPS or state == "paused" else "all",
+        show_paused=(state == "paused"),
         filter_reset_href_raw=build_url(MONITOR_PIPELINES_PATH),
         filter_summary=t(
             language,
