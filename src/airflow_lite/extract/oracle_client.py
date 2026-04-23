@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 
 import oracledb
 
@@ -27,6 +28,12 @@ class OracleClient:
         self._connection = None
         self._ensure_thick_mode()
 
+    def _connection_target(self) -> str:
+        host = getattr(self.config, "host", "<unknown>")
+        port = getattr(self.config, "port", "<unknown>")
+        service_name = getattr(self.config, "service_name", "<unknown>")
+        return f"host={host} port={port} service_name={service_name}"
+
     def _ensure_thick_mode(self):
         """Oracle 11g 연결을 위해 thick mode를 초기화.
 
@@ -52,30 +59,60 @@ class OracleClient:
 
     def get_connection(self):
         """Oracle 연결 반환. 연결 끊김 시 재연결 시도."""
-        if self._connection is None or not self._is_alive():
+        target = self._connection_target()
+        if self._connection is None:
+            logger.info("Oracle connection not initialized, opening new connection (%s)", target)
             self._connection = self._create_connection()
+        elif not self._is_alive():
+            logger.warning("Oracle connection health check failed, reconnecting (%s)", target)
+            self._connection = self._create_connection()
+        else:
+            logger.debug("Reusing healthy Oracle connection (%s)", target)
         return self._connection
 
     def _create_connection(self):
+        target = self._connection_target()
+        start = time.perf_counter()
         try:
             dsn = oracledb.makedsn(
                 self.config.host,
                 self.config.port,
                 service_name=self.config.service_name,
             )
-            return oracledb.connect(
+            logger.info("Opening Oracle connection (%s)", target)
+            connection = oracledb.connect(
                 user=self.config.user,
                 password=self.config.password,
                 dsn=dsn,
             )
+            elapsed = time.perf_counter() - start
+            logger.info("Oracle connection established in %.2fs (%s)", elapsed, target)
+            return connection
         except oracledb.DatabaseError as e:
-            raise self.classify_error(e) from e
+            elapsed = time.perf_counter() - start
+            classified = self.classify_error(e)
+            error_obj = e.args[0] if e.args else None
+            code = getattr(error_obj, "code", None)
+            logger.warning(
+                "Oracle connection failed after %.2fs (%s, code=%s, retryable=%s): %s",
+                elapsed,
+                target,
+                code,
+                isinstance(classified, RetryableOracleError),
+                e,
+            )
+            raise classified from e
 
     def _is_alive(self) -> bool:
         try:
             self._connection.ping()
             return True
-        except Exception:
+        except Exception as exc:
+            logger.warning(
+                "Oracle connection ping failed (%s): %s",
+                self._connection_target(),
+                exc,
+            )
             return False
 
     def classify_error(self, error) -> Exception:
@@ -94,7 +131,11 @@ class OracleClient:
         if self._connection is not None:
             try:
                 self._connection.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning(
+                    "Oracle connection close failed (%s): %s",
+                    self._connection_target(),
+                    exc,
+                )
             finally:
                 self._connection = None

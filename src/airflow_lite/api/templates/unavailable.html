@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <p class="eyebrow">{{ t('webui.unavailable.eyebrow') }}</p>
+      <h2>{{ t('webui.unavailable.title') }}</h2>
+    </div>
+    <span class="status bad">{{ t('webui.unavailable.status') }}</span>
+  </div>
+  <p class="muted">{{ message }}</p>
+  <p class="muted">{{ t('webui.unavailable.enable_hint') }}</p>
+</section>
+{% endblock %}

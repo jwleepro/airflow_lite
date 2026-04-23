@@ -4,6 +4,8 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from airflow_lite.storage.backup_policy import PartitionBackupPolicy
+
 logger = logging.getLogger("airflow_lite.transform.parquet_writer")
 
 
@@ -20,6 +22,10 @@ class ParquetWriter:
     def __init__(self, base_path: str, compression: str = "snappy"):
         self.base_path = Path(base_path)
         self.compression = compression
+        self._active_writers: dict[tuple[str, int, int], pq.ParquetWriter] = {}
+
+    def _partition_key(self, table_name: str, year: int, month: int) -> tuple[str, int, int]:
+        return table_name, year, month
 
     def _get_paths(self, table_name: str, year: int, month: int) -> tuple[Path, Path]:
         output_dir = (
@@ -28,6 +34,35 @@ class ParquetWriter:
         output_file = output_dir / f"{table_name}_{year:04d}_{month:02d}.parquet"
         return output_dir, output_file
 
+    def _list_partition_files(
+        self, table_name: str, year: int, month: int, *, suffix: str
+    ) -> list[Path]:
+        output_dir, output_file = self._get_paths(table_name, year, month)
+        if not output_dir.exists():
+            return []
+        return sorted(
+            path
+            for path in output_dir.glob(f"{output_file.stem}*{suffix}")
+            if path.suffix == suffix
+        )
+
+    def _list_parquet_files(self, table_name: str, year: int, month: int) -> list[Path]:
+        return self._list_partition_files(table_name, year, month, suffix=".parquet")
+
+    def _list_backup_files(self, table_name: str, year: int, month: int) -> list[Path]:
+        return self._list_partition_files(table_name, year, month, suffix=".bak")
+
+    def finalize_partition(self, table_name: str, year: int, month: int) -> None:
+        key = self._partition_key(table_name, year, month)
+        writer = self._active_writers.pop(key, None)
+        if writer is not None:
+            writer.close()
+
+    def _next_chunk_file(self, table_name: str, year: int, month: int) -> Path:
+        output_dir, output_file = self._get_paths(table_name, year, month)
+        part_index = len(self._list_parquet_files(table_name, year, month))
+        return output_dir / f"{output_file.stem}.part{part_index:05d}.parquet"
+
     def write_chunk(
         self,
         table: pa.Table,
@@ -35,40 +70,84 @@ class ParquetWriter:
         year: int,
         month: int,
         append: bool = False,
+        append_mode: str = "sidecar",
     ) -> Path:
         """PyArrow Table을 Parquet 파일로 저장.
 
         - 디렉터리 자동 생성
-        - append=True: 기존 파일에 row group 추가 (읽고 병합 후 재저장)
+        - append_mode="single_file": 같은 parquet 파일에 row group 추가
+        - append_mode="sidecar": append 시 part parquet 파일 추가 생성
         - append=False: 새 파일 생성 (기존 파일 덮어쓰기)
         """
         output_dir, output_file = self._get_paths(table_name, year, month)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        if append and output_file.exists():
-            # ParquetFile로 직접 읽어 Hive 파티션 경로에서 컬럼이 자동 추가되는 것을 방지
-            existing = pq.ParquetFile(str(output_file)).read()
-            merged = pa.concat_tables([existing, table])
-            pq.write_table(merged, str(output_file), compression=self.compression)
-        else:
-            pq.write_table(table, str(output_file), compression=self.compression)
+        if append_mode == "single_file":
+            key = self._partition_key(table_name, year, month)
+            if not append:
+                self.finalize_partition(table_name, year, month)
+                writer = pq.ParquetWriter(
+                    str(output_file),
+                    table.schema,
+                    compression=self.compression,
+                )
+                self._active_writers[key] = writer
+                writer.write_table(table)
+                return output_file
+
+            writer = self._active_writers.get(key)
+            if writer is None:
+                raise RuntimeError(
+                    "single_file append requires an active writer; "
+                    "write the first chunk with append=False."
+                )
+            writer.write_table(table)
+            return output_file
+
+        if append and self._list_parquet_files(table_name, year, month):
+            chunk_file = self._next_chunk_file(table_name, year, month)
+            pq.write_table(table, str(chunk_file), compression=self.compression)
+            return chunk_file
+
+        self.finalize_partition(table_name, year, month)
+        pq.write_table(table, str(output_file), compression=self.compression)
 
         return output_file
 
     def backup_existing(self, table_name: str, year: int, month: int) -> bool:
-        """기존 Parquet 파일을 .bak으로 이동. 파일이 없으면 False 반환."""
-        _, output_file = self._get_paths(table_name, year, month)
-        if output_file.exists():
-            bak_file = output_file.with_suffix(".bak")
-            output_file.rename(bak_file)
-            logger.info("기존 파일 백업: %s -> %s", output_file, bak_file)
-            return True
-        return False
+        """기존 Parquet 파일을 .bak으로 이동."""
+        self.finalize_partition(table_name, year, month)
+        output_dir, _ = self._get_paths(table_name, year, month)
+        if not output_dir.exists():
+            return False
+        backed_up = PartitionBackupPolicy.backup_all(output_dir)
+        return len(backed_up) > 0
+
+    def remove_partition_files(self, table_name: str, year: int, month: int) -> int:
+        """현재 파티션의 parquet 파일을 모두 삭제한다."""
+        self.finalize_partition(table_name, year, month)
+        output_dir, _ = self._get_paths(table_name, year, month)
+        return PartitionBackupPolicy.remove_all(output_dir)
+
+    def remove_backups(self, table_name: str, year: int, month: int) -> int:
+        """성공 후 남아 있는 .bak 파일을 정리한다."""
+        output_dir, _ = self._get_paths(table_name, year, month)
+        return PartitionBackupPolicy.remove_backups(output_dir)
+
+    def restore_backups(self, table_name: str, year: int, month: int) -> int:
+        """실패 시 현재 출력물을 제거하고 .bak 파일을 원래 parquet 이름으로 복원한다."""
+        self.finalize_partition(table_name, year, month)
+        output_dir, _ = self._get_paths(table_name, year, month)
+        backed_up = sorted(output_dir.glob("*.bak"))
+        PartitionBackupPolicy.remove_all(output_dir)
+        restored = PartitionBackupPolicy.restore_all(output_dir, backed_up)
+        return len(restored)
 
     def count_rows(self, table_name: str, year: int, month: int) -> int:
         """Parquet 파일의 행 수 반환. 파일이 없으면 0."""
-        _, output_file = self._get_paths(table_name, year, month)
-        if not output_file.exists():
-            return 0
-        metadata = pq.read_metadata(str(output_file))
-        return metadata.num_rows
+        self.finalize_partition(table_name, year, month)
+        total_rows = 0
+        for parquet_file in self._list_parquet_files(table_name, year, month):
+            metadata = pq.read_metadata(str(parquet_file))
+            total_rows += metadata.num_rows
+        return total_rows

@@ -1,5 +1,5 @@
 import pytest
-from datetime import date, datetime
+from datetime import date
 
 from airflow_lite.engine.stage import (
     RetryConfig,
@@ -10,6 +10,7 @@ from airflow_lite.engine.stage import (
 )
 from airflow_lite.engine.state_machine import InvalidTransitionError, StageStateMachine
 from airflow_lite.engine.pipeline import PipelineDefinition, PipelineRunner
+from airflow_lite.engine.run_state_manager import RunStateManager
 from airflow_lite.storage.models import PipelineRun, StepRun
 
 
@@ -23,7 +24,8 @@ def state_machine(step_repo):
 @pytest.fixture
 def make_runner(pipeline_repo, step_repo, state_machine):
     """PipelineRunner 팩토리 픽스처."""
-    def _factory(stages, pipeline_name="test_pipeline"):
+    run_state_manager = RunStateManager(state_machine, step_repo)
+    def _factory(stages, pipeline_name="test_pipeline", on_run_success=None):
         pipeline = PipelineDefinition(
             name=pipeline_name,
             stages=stages,
@@ -33,8 +35,8 @@ def make_runner(pipeline_repo, step_repo, state_machine):
         return PipelineRunner(
             pipeline=pipeline,
             run_repo=pipeline_repo,
-            step_repo=step_repo,
-            state_machine=state_machine,
+            run_state_manager=run_state_manager,
+            on_run_success=on_run_success,
         )
     return _factory
 
@@ -176,6 +178,7 @@ def test_run_all_stages_success(make_runner, step_repo):
 
     steps = step_repo.find_by_pipeline_run(pipeline_run.id)
     assert all(s.status == "success" for s in steps)
+    assert all(s.started_at is not None for s in steps)
     assert {s.step_name for s in steps} == {"extract", "transform", "load"}
 
 
@@ -189,6 +192,15 @@ def test_run_records_processed_persisted(make_runner, step_repo):
 
     steps = step_repo.find_by_pipeline_run(pipeline_run.id)
     assert steps[0].records_processed == 500
+
+
+def test_run_sets_step_started_at(make_runner, step_repo):
+    stages = [_make_stage("extract", lambda ctx: StageResult(records_processed=1))]
+    runner = make_runner(stages)
+    pipeline_run = runner.run(date(2024, 4, 3))
+
+    steps = step_repo.find_by_pipeline_run(pipeline_run.id)
+    assert steps[0].started_at is not None
 
 
 # ── 단계 실패 시 후속 단계 SKIPPED 처리 ────────────────────────────────────────
@@ -302,6 +314,7 @@ def test_retry_exhausted_marks_stage_failed(make_runner, step_repo):
     statuses = {s.step_name: s.status for s in steps}
     assert statuses["extract"]   == "failed"
     assert statuses["transform"] == "skipped"
+    assert next(s for s in steps if s.step_name == "extract").retry_count == 2
 
 
 def test_non_retryable_exception_fails_immediately(make_runner, step_repo):
@@ -323,6 +336,9 @@ def test_non_retryable_exception_fails_immediately(make_runner, step_repo):
 
     assert pipeline_run.status == "failed"
     assert len(attempts) == 1  # 재시도 없이 즉시 실패
+
+    steps = step_repo.find_by_pipeline_run(pipeline_run.id)
+    assert steps[0].retry_count == 0
 
 
 # ── on_failure_callback 호출 ──────────────────────────────────────────────────
@@ -413,6 +429,48 @@ def test_on_failure_callback_receives_original_exception(make_runner):
     assert isinstance(received_exceptions[0], RetryableOracleError)
 
 
+def test_on_run_success_callback_called_on_pipeline_success(make_runner):
+    callback_calls = []
+
+    def ok_fn(ctx):
+        return StageResult(records_processed=1)
+
+    def success_callback(ctx):
+        callback_calls.append(ctx)
+
+    runner = make_runner(
+        [_make_stage("extract", ok_fn)],
+        on_run_success=success_callback,
+    )
+    runner.run(date(2024, 7, 4))
+
+    assert len(callback_calls) == 1
+    assert callback_calls[0].pipeline_name == "test_pipeline"
+
+
+def test_run_passes_trigger_type_into_stage_context_and_success_callback(make_runner):
+    observed_trigger_types = []
+
+    def ok_fn(ctx):
+        observed_trigger_types.append(("stage", ctx.trigger_type))
+        return StageResult(records_processed=1)
+
+    def success_callback(ctx):
+        observed_trigger_types.append(("success", ctx.trigger_type))
+
+    runner = make_runner(
+        [_make_stage("extract", ok_fn)],
+        on_run_success=success_callback,
+    )
+    pipeline_run = runner.run(date(2024, 7, 5), trigger_type="backfill")
+
+    assert pipeline_run.trigger_type == "backfill"
+    assert observed_trigger_types == [
+        ("stage", "backfill"),
+        ("success", "backfill"),
+    ]
+
+
 # ── 멱등성 (idempotency) ──────────────────────────────────────────────────────
 
 def test_run_idempotent_returns_existing_success(make_runner):
@@ -433,3 +491,19 @@ def test_run_idempotent_returns_existing_success(make_runner):
     run2 = r.run(date(2024, 8, 1))
     assert run2.id == run1.id
     assert len(calls) == 1  # fn이 다시 호출되지 않음
+
+
+def test_run_force_rerun_creates_new_success(make_runner):
+    calls = []
+
+    def fn(ctx):
+        calls.append(1)
+        return StageResult(records_processed=1)
+
+    runner = make_runner([_make_stage("extract", fn)])
+
+    run1 = runner.run(date(2024, 8, 2))
+    run2 = runner.run(date(2024, 8, 2), force_rerun=True)
+
+    assert run1.id != run2.id
+    assert len(calls) == 2

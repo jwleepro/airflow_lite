@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repo Indexing"
+  short_description: "Map code paths, entry points, and tests quickly"
+  default_prompt: "Use $repo-indexing to identify the smallest relevant edit surface, related tests, and likely regression areas."

@@ -22,6 +22,8 @@ ENV/
 
 # Testing
 .pytest_cache/
+.tmp_pytest*/
+.tmp_*/
 .coverage
 htmlcov/
 .tox/
@@ -43,11 +45,20 @@ Thumbs.db
 *.log
 logs/
 
+# Runtime outputs
+data/
+var/
+
 # Local config / secrets
 .env
 .env.*
 !.env.example
 *.local
+config/pipelines.yaml
 
 # Jupyter
 .ipynb_checkpoints/
+
+# claude local settings
+.claude/settings.json
+.claude/settings.local.json

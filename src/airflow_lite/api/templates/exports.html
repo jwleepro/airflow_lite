@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block content %}
+
+<section class="hero-surface">
+  <div class="hero-copy">
+    <p class="eyebrow">{{ t('webui.exports.retention.eyebrow') }}</p>
+    <h2>{{ t('webui.exports.retention.title') }}</h2>
+    <p class="muted">{{ retention_description }}</p>
+  </div>
+  <div class="chip-list">
+    <span class="chip">{{ counts.completed }} {{ t('webui.exports.summary.completed.label') }}</span>
+    <span class="chip {% if counts.running %}chip-warn{% endif %}">{{ counts.running }} {{ t('webui.exports.summary.running.label') }}</span>
+    <span class="chip {% if counts.queued %}chip-warn{% endif %}">{{ counts.queued }} {{ t('webui.exports.summary.queued.label') }}</span>
+  </div>
+</section>
+
+<section class="summary-grid">
+  {{ m.summary_tile(t('webui.exports.summary.queued.label'), counts.queued|string, t('webui.exports.summary.queued.detail'), 'warn' if counts.queued else 'neutral') }}
+  {{ m.summary_tile(t('webui.exports.summary.running.label'), counts.running|string, t('webui.exports.summary.running.detail'), 'warn' if counts.running else 'neutral') }}
+  {{ m.summary_tile(t('webui.exports.summary.completed.label'), counts.completed|string, t('webui.exports.summary.completed.detail'), 'ok' if counts.completed else 'neutral') }}
+  {{ m.summary_tile(t('webui.exports.summary.retention.label'), (retention_hours|string) ~ 'h', t('webui.exports.summary.retention.detail')) }}
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <p class="eyebrow">{{ t('webui.exports.retention.eyebrow') }}</p>
+      <h2>{{ t('webui.exports.retention.title') }}</h2>
+    </div>
+    <span class="muted refresh-notice">{{ refresh_notice }}</span>
+  </div>
+  <p class="muted">{{ retention_description }}</p>
+  <div class="actions">
+    <a class="btn btn-ghost" href="{{ lang_url(MONITOR_EXPORTS_PATH) }}">{{ t('webui.exports.actions.all_datasets') }}</a>
+    <a class="btn btn-ghost" href="{{ lang_url(analytics_href_raw) }}">{{ t('webui.exports.actions.analytics') }}</a>
+    <form method="post" action="{{ lang_url(MONITOR_EXPORT_DELETE_COMPLETED_PATH) }}" style="display:inline">
+      {% if dataset %}<input type="hidden" name="dataset" value="{{ dataset }}">{% endif %}
+      <input type="hidden" name="lang" value="{{ language }}">
+      <button type="submit" class="btn btn-danger" onclick="return confirm('{{ t('webui.exports.confirm.delete_all_completed') }}')">{{ t('webui.exports.actions.delete_all_completed') }}</button>
+    </form>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <p class="eyebrow">{{ t('webui.exports.inventory.eyebrow') }}</p>
+      <h2>{{ t('webui.exports.inventory.title') }}</h2>
+    </div>
+    <span class="muted">{{ t('webui.exports.inventory.hint') }}</span>
+  </div>
+  <div class="table-wrap">
+    <table class="air-table">
+      <thead>
+        <tr>
+          <th>{{ t('webui.exports.table.job_id') }}</th><th>{{ t('webui.exports.table.dataset') }}</th><th>{{ t('webui.exports.table.action') }}</th><th>{{ t('webui.exports.table.status') }}</th>
+          <th>{{ t('webui.exports.table.format') }}</th><th>{{ t('webui.exports.table.rows') }}</th><th>{{ t('webui.exports.table.created') }}</th><th>{{ t('webui.exports.table.updated') }}</th>
+          <th>{{ t('webui.exports.table.expires') }}</th><th>{{ t('webui.exports.table.download') }}</th><th>{{ t('webui.exports.table.error') }}</th><th>{{ t('webui.exports.table.admin') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in jobs %}
+        {% set is_active = job.status in ['running','queued'] %}
+        {% set pulse_cls = ' pulse' if is_active else '' %}
+        <tr class="{{ 'highlight' if selected_job_id and job.job_id == selected_job_id else '' }}">
+          <td class="cell-code">{{ job.job_id[:20] }}…</td>
+          <td>{{ job.dataset }}</td>
+          <td>{{ job.action_key }}</td>
+          <td><span class="status {{ tone_of(job.status) }}{{ pulse_cls }}">{{ job.status }}</span></td>
+          <td>{{ job.format }}</td>
+          <td>{{ fmt(job.row_count) }}</td>
+          <td>{{ fmt(job.created_at) }}</td>
+          <td>{{ fmt(job.updated_at) }}</td>
+          <td>{{ fmt(job.expires_at) }}</td>
+          <td>
+            {% if job.download_endpoint %}
+            <a class="table-link" href="{{ lang_url(job.download_endpoint) }}">{{ t('webui.exports.download') }}</a>
+            {% else %}
+            <span class="muted">{{ t('webui.exports.not_ready') }}</span>
+            {% endif %}
+          </td>
+          <td>{{ fmt(job.error_message, fallback='') }}</td>
+          <td>
+            {% if not is_active %}
+            <form method="post" action="{{ lang_url(MONITOR_EXPORT_DELETE_JOB_PATH) }}" style="display:inline">
+              <input type="hidden" name="job_id" value="{{ job.job_id }}">
+              {% if dataset %}<input type="hidden" name="dataset" value="{{ dataset }}">{% endif %}
+              <input type="hidden" name="lang" value="{{ language }}">
+              <button type="submit" class="btn btn-danger btn-small" onclick="return confirm('{{ t('webui.exports.confirm.delete_job') }}')">{{ t('webui.exports.delete') }}</button>
+            </form>
+            {% else %}<span class="muted">-</span>{% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="12" class="empty">{{ t('webui.exports.empty.no_jobs') }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% endblock %}

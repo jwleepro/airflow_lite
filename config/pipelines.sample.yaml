@@ -1,0 +1,87 @@
+# config/pipelines.sample.yaml — 배포 전 복사해서 사용하는 샘플 설정
+
+# 암복호화 키 (SQLite connections 테이블의 비밀번호 암호화에 사용).
+# 배포 시 반드시 새로 생성하여 교체하고, 이후 절대 변경/유실 금지.
+# 키 생성: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+security:
+  fernet_key: REPLACE_WITH_GENERATED_FERNET_KEY
+
+# 로컬 런타임 산출물 저장 경로
+# parquet_base_path: 추출 결과 Parquet 루트 디렉터리
+# sqlite_path: 실행 이력/메타데이터를 저장하는 SQLite 파일 경로
+# log_path: 애플리케이션 로그 출력 디렉터리
+storage:
+  parquet_base_path: D:/data/parquet
+  sqlite_path: D:/data/airflow_lite.db
+  log_path: D:/data/logs
+
+# 공통 기본 실행 옵션
+# chunk_size: Oracle에서 한 번에 읽어올 기본 row 수
+# retry: 실패 시 재시도 정책
+# parquet.compression: Parquet 파일 압축 코덱
+defaults:
+  chunk_size: 10000
+  retry:
+    max_attempts: 3
+    min_wait_seconds: 4
+    max_wait_seconds: 60
+  parquet:
+    compression: snappy
+
+# DuckDB mart 생성/갱신 옵션
+# enabled: raw Parquet 이후 mart 단계를 활성화할지 여부
+# root_path: mart staging/current/snapshots 루트 경로
+# refresh_on_success: 파이프라인 성공 후 mart refresh 자동 수행 여부
+# pipeline_datasets: 각 파이프라인 결과를 어떤 dataset 이름으로 묶을지 매핑
+mart:
+  enabled: false
+  root_path: D:/data/mart
+  refresh_on_success: true
+  pipeline_datasets:
+    production_log: mes_ops
+    equipment_status: mes_ops
+
+# Read-only 운영 UI 튜닝
+webui:
+  monitor_refresh_seconds: 30
+  analytics_refresh_seconds: 60
+  exports_active_refresh_seconds: 10
+  exports_idle_refresh_seconds: 30
+  recent_runs_limit: 25
+  detail_preview_page_size: 8
+  analytics_export_jobs_limit: 8
+  export_jobs_page_limit: 50
+  error_message_max_length: 120
+  default_dataset: mes_ops
+  default_dashboard_id: operations_overview
+  # en | ko
+  default_language: ko
+
+# 파이프라인 예시
+# source_where_template:
+#   - Oracle WHERE 절 조각만 작성 (SELECT/FROM 제외)
+#   - :data_interval_start / :data_interval_end 와 각 구성요소 bind를 기본 제공
+#   - 예: :data_interval_start_year, :data_interval_start_month
+# source_bind_params:
+#   - 추가 bind가 필요할 때 JSON object로 선언
+#   - 값은 Jinja 형태로 data_interval_start / data_interval_end / logical_date를 참조 가능
+#
+# pipelines:
+#   - name: production_log
+#     table: PRODUCTION_LOG
+#     source_where_template: |
+#       LOG_DATE >= :data_interval_start
+#       AND LOG_DATE < :data_interval_end
+#     strategy: full
+#     schedule: "0 2 * * *"
+#
+#   - name: equipment_status
+#     table: EQUIPMENT_STATUS
+#     source_where_template: |
+#       STATUS_YEAR = :year
+#       AND STATUS_MONTH = :month
+#     source_bind_params:
+#       year: "{{ data_interval_start.year }}"
+#       month: "{{ data_interval_start.month }}"
+#     strategy: full
+#     schedule: "0 2 * * *"

@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block content %}
+
+<section class="hero-surface">
+  <div class="hero-copy">
+    <p class="eyebrow">{{ t('webui.analytics.metadata.eyebrow') }}</p>
+    <h2>{{ dashboard.title }}</h2>
+    <p class="muted">{{ analytics_refresh_notice }}</p>
+  </div>
+  <div class="chip-list">
+    <span class="chip">{{ dataset }}</span>
+    <span class="chip">{{ dashboard.contract_version }}</span>
+    <span class="chip">{{ active_filter_count }} {{ t('webui.analytics.summary.active_filters.label') }}</span>
+  </div>
+</section>
+
+<section class="summary-grid">
+  {{ m.summary_tile(t('webui.analytics.summary.dashboard.label'), dashboard.title, t('webui.analytics.summary.dashboard.detail')) }}
+  {{ m.summary_tile(t('webui.analytics.summary.charts.label'), (dashboard.charts|length)|string, t('webui.analytics.summary.charts.detail')) }}
+  {{ m.summary_tile(t('webui.analytics.summary.active_filters.label'), active_filter_count|string, t('webui.analytics.summary.active_filters.detail')) }}
+  {{ m.summary_tile(t('webui.analytics.summary.recent_jobs.label'), (export_jobs|length)|string, t('webui.analytics.summary.recent_jobs.detail'), 'warn' if export_jobs else 'neutral') }}
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div><p class="eyebrow">{{ t('webui.analytics.metadata.eyebrow') }}</p><h2>{{ dashboard.title }}</h2></div>
+    <span class="muted refresh-notice">{{ analytics_refresh_notice }}</span>
+  </div>
+  <dl class="meta-grid">
+    <div><dt>{{ t('webui.analytics.metadata.dashboard_id') }}</dt><dd>{{ dashboard_id }}</dd></div>
+    <div><dt>{{ t('webui.analytics.metadata.dataset') }}</dt><dd>{{ dataset }}</dd></div>
+    <div><dt>{{ t('webui.analytics.metadata.last_refreshed') }}</dt><dd>{{ fmt(dashboard.last_refreshed_at) }}</dd></div>
+    <div><dt>{{ t('webui.analytics.metadata.contract') }}</dt><dd>{{ dashboard.contract_version }}</dd></div>
+  </dl>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div><p class="eyebrow">{{ t('webui.analytics.filter_bar.eyebrow') }}</p><h2>{{ t('webui.analytics.filter_bar.title') }}</h2></div>
+    <span class="muted">{{ t('webui.analytics.filter_bar.readonly_hint') }}</span>
+  </div>
+  <form class="filter-form" method="get" action="{{ lang_url(MONITOR_ANALYTICS_PATH) }}">
+    <input type="hidden" name="dataset" value="{{ dataset }}">
+    <input type="hidden" name="dashboard_id" value="{{ dashboard_id }}">
+    <div class="filter-grid">
+      {% if dashboard.filters %}
+        {% for filter_def in dashboard.filters %}
+        {% set selected_values = filters_applied.get(filter_def.key, []) %}
+        <label class="filter-field">
+          <span>{{ filter_def.label }}</span>
+          <select name="{{ filter_def.key }}" multiple size="{{ [2, [6, filter_def.options|length]|min]|max }}">
+            {% for opt in filter_def.options %}
+            <option value="{{ opt.value }}"{% if opt.value in selected_values %} selected{% endif %}>{{ opt.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        {% endfor %}
+      {% else %}
+        <p class="empty">{{ t('webui.analytics.empty.no_dashboard_filters') }}</p>
+      {% endif %}
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" type="submit">{{ t('webui.analytics.filter_bar.apply_filters') }}</button>
+      <a class="btn btn-ghost" href="{{ lang_url(reset_href_raw) }}">{{ t('webui.analytics.filter_bar.reset') }}</a>
+      <a class="btn btn-ghost" href="{{ lang_url(dashboard_api_href_raw) }}" target="_blank" rel="noreferrer">{{ t('webui.analytics.filter_bar.dashboard_api') }}</a>
+    </div>
+  </form>
+  <div class="chip-list panel-chip-list">
+    {% if filters_applied %}
+      {% for key, values in filters_applied.items() %}
+        {% for value in values %}
+        <span class="chip">{{ filter_key_map.get(key, key) }}: {{ value }}</span>
+        {% endfor %}
+      {% endfor %}
+    {% else %}
+      <span class="chip">{{ t('webui.analytics.filters.none_applied') }}</span>
+    {% endif %}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div><p class="eyebrow">{{ t('webui.analytics.dataset_overview.eyebrow') }}</p><h2>{{ t('webui.analytics.dataset_overview.title') }}</h2></div>
+    <span class="muted">{{ t('webui.analytics.dataset_overview.hint') }}</span>
+  </div>
+  <div class="summary-grid">
+    {% if dashboard.cards %}
+      {% for card in dashboard.cards %}
+      {% set metric = metric_map.get(card.metric_key, {}) %}
+      <article class="summary-tile neutral">
+        <p class="summary-label">{{ card.label }}</p>
+        <div class="summary-value">{{ fmt(metric.get('value')) }}</div>
+        <p class="summary-detail">
+          {{ fmt(metric.get('unit'), fallback=t('webui.analytics.metric.no_unit')) }} ·
+          {{ fmt(card.description, fallback=t('webui.analytics.metric.default_description')) }}
+        </p>
+      </article>
+      {% endfor %}
+    {% else %}
+      <p class="empty">{{ t('webui.analytics.empty.no_summary_cards') }}</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><div><p class="eyebrow">{{ t('webui.analytics.charts.eyebrow') }}</p><h2>{{ t('webui.analytics.charts.title') }}</h2></div></div>
+  <div class="grid-2">
+    {% if dashboard.charts %}
+      {% for chart_def in dashboard.charts %}
+      {% set chart_response = charts.get(chart_def.chart_id) %}
+      {% set points = (chart_response.series[0].points if chart_response and chart_response.series else []) %}
+      {% set max_value = (points|map(attribute='value')|max) if points else 1 %}
+      <section class="subpanel">
+        <div class="panel-head">
+          <div><p class="eyebrow">{{ t('webui.analytics.chart.eyebrow') }}</p><h2>{{ chart_def.title }}</h2></div>
+          <a class="table-link" href="{{ lang_url(chart_def.query_endpoint) }}" target="_blank" rel="noreferrer">{{ t('webui.analytics.chart.query_api') }}</a>
+        </div>
+        <div class="chart-list">
+          {% if points %}
+            {% for p in points %}
+            {% set width = ([6, (p.value / max_value * 100)|int]|max) if max_value else 0 %}
+            <div class="chart-row">
+              <strong>{{ p.label or p.bucket }}</strong>
+              <div class="chart-bar"><span style="width:{{ width }}%"></span></div>
+              <span>{{ fmt(p.value) }}</span>
+            </div>
+            {% endfor %}
+          {% else %}
+            <p class="empty">{{ t('webui.analytics.empty.no_chart_data') }}</p>
+          {% endif %}
+        </div>
+      </section>
+      {% endfor %}
+    {% else %}
+      <p class="empty">{{ t('webui.analytics.empty.no_charts') }}</p>
+    {% endif %}
+  </div>
+</section>
+
+<div class="grid-2">
+  <section class="panel">
+    <div class="panel-head">
+      <div><p class="eyebrow">{{ t('webui.analytics.drilldown.eyebrow') }}</p><h2>{{ t('webui.analytics.drilldown.title') }}</h2></div>
+      <span class="muted">{{ t('webui.analytics.drilldown.hint') }}</span>
+    </div>
+    {% if detail_preview %}
+      <div class="table-wrap">
+        <table class="air-table">
+          <thead><tr>
+            {% for col in detail_preview.columns %}<th>{{ col.label }}</th>{% endfor %}
+          </tr></thead>
+          <tbody>
+            {% if detail_preview.rows %}
+              {% for row in detail_preview.rows %}
+              <tr>
+                {% for col in detail_preview.columns %}<td>{{ fmt(row.get(col.key)) }}</td>{% endfor %}
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="{{ detail_preview.columns|length }}" class="empty">{{ t('webui.analytics.empty.no_rows') }}</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="empty">{{ t('webui.analytics.empty.no_drilldown_preview') }}</p>
+    {% endif %}
+  </section>
+  <section class="stack">
+    <section class="panel">
+      <div class="panel-head">
+        <div><p class="eyebrow">{{ t('webui.analytics.exports.eyebrow') }}</p><h2>{{ t('webui.analytics.exports.title') }}</h2></div>
+        <span class="muted">{{ t('webui.analytics.exports.hint') }}</span>
+      </div>
+      <div class="actions">
+        {% set available_actions = dashboard.export_actions|selectattr('status','equalto','available')|list %}
+        {% if available_actions %}
+          {% for action in available_actions %}
+          <form class="inline-form" method="post" action="{{ lang_url(MONITOR_ANALYTICS_PATH ~ '/exports') }}">
+            <input type="hidden" name="dataset" value="{{ dataset }}">
+            <input type="hidden" name="dashboard_id" value="{{ dashboard_id }}">
+            <input type="hidden" name="lang" value="{{ language }}">
+            <input type="hidden" name="action_key" value="{{ action.key }}">
+            <input type="hidden" name="format" value="{{ action.format or '' }}">
+            {% for key, values in filters_applied.items() %}
+              {% for value in values %}
+              <input type="hidden" name="{{ key }}" value="{{ value }}">
+              {% endfor %}
+            {% endfor %}
+            <button class="btn btn-primary" type="submit">{{ action.label }}</button>
+          </form>
+          {% endfor %}
+        {% else %}
+          <p class="empty">{{ t('webui.analytics.empty.no_export_actions') }}</p>
+        {% endif %}
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-head">
+        <div><p class="eyebrow">{{ t('webui.analytics.recent_jobs.eyebrow') }}</p><h2>{{ t('webui.analytics.recent_jobs.title') }}</h2></div>
+        <a class="table-link" href="{{ lang_url(full_export_monitor_href_raw) }}">{{ t('webui.analytics.recent_jobs.full_monitor') }}</a>
+      </div>
+      <div class="table-wrap">
+        <table class="air-table">
+          <thead><tr><th>{{ t('webui.analytics.recent_jobs.table.job_id') }}</th><th>{{ t('webui.analytics.recent_jobs.table.status') }}</th><th>{{ t('webui.analytics.recent_jobs.table.format') }}</th><th>{{ t('webui.analytics.recent_jobs.table.updated') }}</th></tr></thead>
+          <tbody>
+            {% for job in export_jobs %}
+            <tr>
+              <td class="cell-code">{{ job.job_id[:16] }}…</td>
+              <td><span class="status {{ tone_of(job.status) }}">{{ job.status }}</span></td>
+              <td>{{ job.format }}</td>
+              <td>{{ fmt(job.updated_at) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="empty">{{ t('webui.analytics.empty.no_export_jobs') }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </section>
+</div>
+
+{% endblock %}

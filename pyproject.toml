@@ -7,10 +7,15 @@ name = "airflow-lite"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
+    "oracledb>=2.0",
+    "duckdb>=1.0",
     "pyarrow>=14.0",
     "pandas>=2.1",
+    "python-dateutil>=2.8",
     "tenacity>=8.2",
     "pyyaml>=6.0",
+    "cryptography>=42.0",
+    "ruamel.yaml>=0.18.0",
 ]
 
 [project.optional-dependencies]
@@ -20,7 +25,11 @@ phase2 = [
     "uvicorn>=0.27",
     "pydantic>=2.6",
     "httpx>=0.27",
+    "sqlalchemy>=2.0",
     "pywin32>=306",
+    "jinja2>=3.1",
+    "structlog>=24.1.0",
+    "openpyxl>=3.1",
 ]
 dev = [
     "pytest>=8.0",
@@ -32,3 +41,19 @@ packages = ["src/airflow_lite"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "integration: tests requiring live Oracle DB (skip with '-m not integration')",
+    "slow: tests taking more than 30 seconds",
+]
+addopts = "--strict-markers -p no:cacheprovider"
+
+[tool.coverage.run]
+source = ["src/airflow_lite"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+]

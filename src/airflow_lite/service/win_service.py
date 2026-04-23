@@ -7,6 +7,8 @@ import win32event
 import servicemanager
 import uvicorn
 
+from airflow_lite.bootstrap import build_runtime_services, get_api_bind, load_settings
+
 logger = logging.getLogger("airflow_lite.service")
 
 
@@ -19,6 +21,7 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
         win32serviceutil.ServiceFramework.__init__(self, args)
         self.stop_event = win32event.CreateEvent(None, 0, 0, None)
         self.scheduler = None
+        self.runtime = None
         self.uvicorn_server = None
         self.api_thread = None
 
@@ -40,44 +43,43 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
             )
 
             # 1. Settings 로드
-            from airflow_lite.config.settings import Settings
-            settings = Settings.load("config/pipelines.yaml")
+            config_path, settings = load_settings()
 
             # 2. 로깅 설정
-            from airflow_lite.logging_config.setup import setup_logging
-            setup_logging(settings.storage.log_path)
+            from airflow_lite.logging_config.structured import setup_structlog
+            setup_structlog(settings.storage.log_path)
 
-            # 3. DB 초기화 및 Repository 생성
-            from airflow_lite.storage.database import Database
-            from airflow_lite.storage.repository import PipelineRunRepository, StepRunRepository
-            db = Database(settings.storage.sqlite_path)
-            db.initialize()
-            run_repo = PipelineRunRepository(db)
-            step_repo = StepRunRepository(db)
-
-            # 4. PipelineScheduler 시작
-            runner_factory = self._create_runner_factory(settings, run_repo, step_repo)
+            # 3. 런타임 구성 생성
+            self.runtime = build_runtime_services(settings, config_path)
 
             from airflow_lite.scheduler.scheduler import PipelineScheduler
-            self.scheduler = PipelineScheduler(settings, runner_factory)
+            self.scheduler = PipelineScheduler(
+                settings=settings,
+                config_path=config_path,
+                dispatch_service=self.runtime.dispatch_service,
+            )
             self.scheduler.register_pipelines()
             self.scheduler.start()
 
-            # 5. uvicorn을 별도 스레드에서 실행
-            runner_map = {p.name: runner_factory(p.name) for p in settings.pipelines}
-
+            # 4. uvicorn을 별도 스레드에서 실행
             from airflow_lite.api.app import create_app
             app = create_app(
                 settings,
-                runner_map=runner_map,
-                run_repo=run_repo,
-                step_repo=step_repo,
+                runner_map=self.runtime.runner_map,
+                backfill_map=self.runtime.backfill_map,
+                run_repo=self.runtime.run_repo,
+                step_repo=self.runtime.step_repo,
+                admin_repo=self.runtime.admin_repo,
+                analytics_query_service=self.runtime.analytics_query_service,
+                analytics_export_service=self.runtime.analytics_export_service,
+                dispatch_service=self.runtime.dispatch_service,
             )
+            host, port = get_api_bind(settings)
 
             config = uvicorn.Config(
                 app=app,
-                host=getattr(settings.api, "host", "0.0.0.0"),
-                port=getattr(settings.api, "port", 8000),
+                host=host,
+                port=port,
                 log_level="info",
             )
             self.uvicorn_server = uvicorn.Server(config)
@@ -112,6 +114,9 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
         if self.uvicorn_server:
             self.uvicorn_server.should_exit = True
 
+        if self.runtime:
+            self.runtime.shutdown()
+
         if self.scheduler:
             self.scheduler.shutdown(wait=True)
 
@@ -120,80 +125,3 @@ class AirflowLiteService(win32serviceutil.ServiceFramework):
 
         win32event.SetEvent(self.stop_event)
         logger.info("서비스 종료됨")
-
-    def _create_runner_factory(self, settings, run_repo, step_repo):
-        """pipeline_name을 받아 PipelineRunner를 생성하는 팩토리 함수 반환.
-
-        공유 인프라(OracleClient, ParquetWriter, StageStateMachine)는 한 번 생성하고,
-        PipelineRunner는 호출마다 새 인스턴스를 반환한다.
-        """
-        from airflow_lite.engine.pipeline import PipelineDefinition, PipelineRunner
-        from airflow_lite.engine.stage import RetryConfig, StageDefinition, StageResult
-        from airflow_lite.engine.state_machine import StageStateMachine
-        from airflow_lite.engine.strategy import FullMigrationStrategy, IncrementalMigrationStrategy
-        from airflow_lite.extract.chunked_reader import ChunkedReader
-        from airflow_lite.extract.oracle_client import OracleClient
-        from airflow_lite.transform.parquet_writer import ParquetWriter
-
-        oracle_client = OracleClient(settings.oracle)
-        parquet_writer = ParquetWriter(
-            base_path=settings.storage.parquet_base_path,
-            compression=settings.defaults.parquet.compression,
-        )
-        state_machine = StageStateMachine(step_repo)
-        pipeline_config_map = {p.name: p for p in settings.pipelines}
-
-        def factory(pipeline_name: str) -> PipelineRunner:
-            pipeline_config = pipeline_config_map[pipeline_name]
-            chunk_size = pipeline_config.chunk_size or settings.defaults.chunk_size
-            chunked_reader = ChunkedReader(connection=None, chunk_size=chunk_size)
-
-            if pipeline_config.strategy == "full":
-                strategy = FullMigrationStrategy(oracle_client, chunked_reader, parquet_writer)
-            else:
-                strategy = IncrementalMigrationStrategy(oracle_client, chunked_reader, parquet_writer)
-
-            retry_config = RetryConfig(
-                max_attempts=settings.defaults.retry.max_attempts,
-                min_wait_seconds=settings.defaults.retry.min_wait_seconds,
-                max_wait_seconds=settings.defaults.retry.max_wait_seconds,
-            )
-
-            def etl_stage(context) -> StageResult:
-                total = 0
-                for chunk in strategy.extract(context):
-                    arrow_table = strategy.transform(chunk, context)
-                    total += strategy.load(arrow_table, context)
-                return StageResult(records_processed=total)
-
-            def verify_stage(context) -> StageResult:
-                strategy.verify(context)
-                return StageResult()
-
-            stages = [
-                StageDefinition(
-                    name="extract_transform_load",
-                    callable=etl_stage,
-                    retry_config=retry_config,
-                ),
-                StageDefinition(
-                    name="verify",
-                    callable=verify_stage,
-                    retry_config=RetryConfig(max_attempts=1),
-                ),
-            ]
-
-            return PipelineRunner(
-                pipeline=PipelineDefinition(
-                    name=pipeline_name,
-                    stages=stages,
-                    strategy=strategy,
-                    table_config=pipeline_config,
-                    chunk_size=chunk_size,
-                ),
-                run_repo=run_repo,
-                step_repo=step_repo,
-                state_machine=state_machine,
-            )
-
-        return factory

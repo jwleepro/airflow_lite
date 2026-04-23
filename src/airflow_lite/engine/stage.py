@@ -1,5 +1,5 @@
 from enum import Enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Callable, TYPE_CHECKING
 from datetime import date
 
@@ -22,6 +22,7 @@ class StageContext:
     table_config: "PipelineConfig | None"
     run_id: str
     chunk_size: int
+    trigger_type: str = "scheduled"
 
 
 @dataclass

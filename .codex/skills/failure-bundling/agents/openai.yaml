@@ -1,0 +1,4 @@
+interface:
+  display_name: "Failure Bundling"
+  short_description: "Package failures into reproducible handoff notes"
+  default_prompt: "Use $failure-bundling to collect the minimum logs, repro steps, changed paths, and likely owner for this failure."

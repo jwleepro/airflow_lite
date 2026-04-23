@@ -1,8 +1,15 @@
 import pytest
-import os
+from unittest.mock import mock_open, patch
 from airflow_lite.config.settings import (
     _substitute_env_vars,
     _walk_and_substitute,
+    AlertingConfig,
+    EmailChannelConfig,
+    ExportConfig,
+    MartConfig,
+    SchedulerConfig,
+    WebhookChannelConfig,
+    WebUIConfig,
     Settings,
 )
 
@@ -74,8 +81,557 @@ class TestSettingsLoad:
         assert settings.pipelines[0].name == "test_pipeline"
         assert settings.pipelines[0].strategy == "full"
 
+    def test_load_without_oracle_section_returns_none(self, tmp_path):
+        """YAML 에 oracle 섹션이 없고 SQLite connections 도 비어 있을 때,
+        Settings.load 는 예외 없이 oracle=None 으로 기동을 허용해야 한다.
+        (빈 DB 초기 기동 → Admin UI 에서 connection 등록 시나리오)"""
+        config_path = tmp_path / "pipelines.yaml"
+        sqlite_path = (tmp_path / "empty.db").as_posix()
+        parquet_path = (tmp_path / "parquet").as_posix()
+        log_path = (tmp_path / "logs").as_posix()
+        config_path.write_text(
+            f"""\
+security:
+  fernet_key: Zm9vYmFyZm9vYmFyZm9vYmFyZm9vYmFyZm9vYmFyZm8=
+
+storage:
+  parquet_base_path: {parquet_path}
+  sqlite_path: {sqlite_path}
+  log_path: {log_path}
+
+defaults:
+  chunk_size: 10000
+""",
+            encoding="utf-8",
+        )
+
+        settings = Settings.load(str(config_path))
+
+        assert settings.oracle is None
+        assert settings.pipelines == []
+
     def test_load_missing_env_var(self, sample_yaml, monkeypatch):
         monkeypatch.delenv("ORACLE_HOST", raising=False)
         with pytest.raises(EnvironmentError) as exc_info:
             Settings.load(str(sample_yaml))
         assert "ORACLE_HOST" in str(exc_info.value)
+
+    def test_load_rejects_invalid_data_interval_schedule(self, tmp_path):
+        config_path = tmp_path / "pipelines.yaml"
+        config_path.write_text(
+            """\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines:
+  - name: "invalid_schedule_pipeline"
+    table: "TEST_TABLE"
+    source_where_template: "DATE_COL >= :data_interval_start AND DATE_COL < :data_interval_end"
+    strategy: "full"
+    schedule: "every day 2am"
+""",
+            encoding="utf-8",
+        )
+
+        with pytest.raises(ValueError, match="data_interval 계산을 위해 schedule"):
+            Settings.load(str(config_path))
+
+    def test_load_coerces_numeric_env_values(self, tmp_path, monkeypatch):
+        config_path = tmp_path / "pipelines.yaml"
+        config_path.write_text(
+            """\
+oracle:
+  host: ${ORACLE_HOST}
+  port: ${ORACLE_PORT}
+  service_name: ${ORACLE_SERVICE}
+  user: ${ORACLE_USER}
+  password: ${ORACLE_PASSWORD}
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+defaults:
+  chunk_size: ${DEFAULT_CHUNK_SIZE}
+
+api:
+  port: ${API_PORT}
+
+pipelines:
+  - name: "test_pipeline"
+    table: "TEST_TABLE"
+    source_where_template: "DATE_COL >= :data_interval_start AND DATE_COL < :data_interval_end"
+    strategy: "full"
+    schedule: "0 2 * * *"
+    chunk_size: ${PIPELINE_CHUNK_SIZE}
+""",
+            encoding="utf-8",
+        )
+
+        monkeypatch.setenv("ORACLE_HOST", "localhost")
+        monkeypatch.setenv("ORACLE_PORT", "1521")
+        monkeypatch.setenv("ORACLE_SERVICE", "ORCL")
+        monkeypatch.setenv("ORACLE_USER", "scott")
+        monkeypatch.setenv("ORACLE_PASSWORD", "tiger")
+        monkeypatch.setenv("DEFAULT_CHUNK_SIZE", "20000")
+        monkeypatch.setenv("API_PORT", "8100")
+        monkeypatch.setenv("PIPELINE_CHUNK_SIZE", "40000")
+
+        settings = Settings.load(str(config_path))
+
+        assert settings.oracle.port == 1521
+        assert isinstance(settings.oracle.port, int)
+        assert settings.defaults.chunk_size == 20000
+        assert settings.api.port == 8100
+        assert settings.pipelines[0].chunk_size == 40000
+
+    def test_load_prefers_dag_files_over_yaml_pipelines(self, tmp_path, monkeypatch):
+        config_path = tmp_path / "pipelines.yaml"
+        config_path.write_text(
+            """\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines:
+  - name: "yaml_pipeline"
+    table: "YAML_TABLE"
+    strategy: "full"
+    schedule: "0 2 * * *"
+""",
+            encoding="utf-8",
+        )
+        dags_dir = tmp_path / "dags"
+        dags_dir.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setenv("AIRFLOW_LITE_DAGS_DIR", str(dags_dir))
+        (dags_dir / "custom.py").write_text(
+            """\
+from airflow_lite.dag_api import Pipeline
+
+pipelines = [
+    Pipeline(id="dag_pipeline", table="DAG_TABLE", strategy="full", schedule="0 1 * * *"),
+]
+""",
+            encoding="utf-8",
+        )
+
+        settings = Settings.load(str(config_path))
+
+        assert len(settings.pipelines) == 1
+        assert settings.pipelines[0].name == "dag_pipeline"
+        assert settings.pipelines[0].table == "DAG_TABLE"
+
+    def test_load_rejects_invalid_dag_schedule(self, tmp_path, monkeypatch):
+        config_path = tmp_path / "pipelines.yaml"
+        config_path.write_text(
+            """\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines: []
+""",
+            encoding="utf-8",
+        )
+        dags_dir = tmp_path / "dags"
+        dags_dir.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setenv("AIRFLOW_LITE_DAGS_DIR", str(dags_dir))
+        (dags_dir / "invalid.py").write_text(
+            """\
+from airflow_lite.dag_api import Pipeline
+
+pipelines = [
+    Pipeline(
+        id="invalid_dag_pipeline",
+        table="DAG_TABLE",
+        source_where_template="DATE_COL >= :data_interval_start AND DATE_COL < :data_interval_end",
+        strategy="full",
+        schedule="bad schedule",
+    ),
+]
+""",
+            encoding="utf-8",
+        )
+
+        with pytest.raises(ValueError, match="data_interval 계산을 위해 schedule"):
+            Settings.load(str(config_path))
+
+class TestAlertingConfig:
+    """Settings.load()의 alerting 섹션 파싱 검증."""
+
+    def _make_yaml(self, tmp_path, oracle_content, alerting_content=""):
+        content = f"""\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines: []
+{alerting_content}
+"""
+        yaml_file = tmp_path / "pipelines.yaml"
+        yaml_file.write_text(content, encoding="utf-8")
+        return yaml_file
+
+    def test_load_email_channel(self, tmp_path):
+        yaml_file = self._make_yaml(tmp_path, "", """\
+alerting:
+  channels:
+    - type: "email"
+      smtp_host: "mail.internal"
+      smtp_port: 25
+      recipients:
+        - "ops@company.com"
+  triggers:
+    on_failure: true
+    on_success: false
+""")
+        settings = Settings.load(str(yaml_file))
+        assert len(settings.alerting.channels) == 1
+        ch = settings.alerting.channels[0]
+        assert isinstance(ch, EmailChannelConfig)
+        assert ch.smtp_host == "mail.internal"
+        assert ch.smtp_port == 25
+        assert ch.recipients == ["ops@company.com"]
+
+    def test_load_webhook_channel(self, tmp_path):
+        yaml_file = self._make_yaml(tmp_path, "", """\
+alerting:
+  channels:
+    - type: "webhook"
+      url: "https://messenger.internal/webhook/abc"
+""")
+        settings = Settings.load(str(yaml_file))
+        assert len(settings.alerting.channels) == 1
+        ch = settings.alerting.channels[0]
+        assert isinstance(ch, WebhookChannelConfig)
+        assert ch.url == "https://messenger.internal/webhook/abc"
+
+    def test_load_multiple_channels(self, tmp_path):
+        yaml_file = self._make_yaml(tmp_path, "", """\
+alerting:
+  channels:
+    - type: "email"
+      smtp_host: "mail.internal"
+      recipients: ["ops@company.com"]
+    - type: "webhook"
+      url: "https://messenger.internal/webhook/abc"
+""")
+        settings = Settings.load(str(yaml_file))
+        assert len(settings.alerting.channels) == 2
+        assert isinstance(settings.alerting.channels[0], EmailChannelConfig)
+        assert isinstance(settings.alerting.channels[1], WebhookChannelConfig)
+
+    def test_load_triggers_on_failure_true(self, tmp_path):
+        yaml_file = self._make_yaml(tmp_path, "", """\
+alerting:
+  channels: []
+  triggers:
+    on_failure: true
+    on_success: false
+""")
+        settings = Settings.load(str(yaml_file))
+        assert settings.alerting.triggers.on_failure is True
+        assert settings.alerting.triggers.on_success is False
+
+    def test_load_triggers_defaults_when_omitted(self, tmp_path):
+        yaml_file = self._make_yaml(tmp_path, "", """\
+alerting:
+  channels: []
+""")
+        settings = Settings.load(str(yaml_file))
+        assert settings.alerting.triggers.on_failure is True
+        assert settings.alerting.triggers.on_success is False
+
+    def test_load_no_alerting_section_uses_defaults(self, tmp_path):
+        yaml_file = self._make_yaml(tmp_path, "")
+        settings = Settings.load(str(yaml_file))
+        assert isinstance(settings.alerting, AlertingConfig)
+        assert settings.alerting.channels == []
+        assert settings.alerting.triggers.on_failure is True
+
+    def test_load_unknown_channel_type_raises(self, tmp_path):
+        yaml_file = self._make_yaml(tmp_path, "", """\
+alerting:
+  channels:
+    - type: "sms"
+      phone: "+82-10-1234-5678"
+""")
+        with pytest.raises(ValueError, match="알 수 없는 알림 채널 타입"):
+            Settings.load(str(yaml_file))
+
+    def test_load_smtp_port_coercion(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SMTP_PORT", "587")
+        yaml_file = self._make_yaml(tmp_path, "", """\
+alerting:
+  channels:
+    - type: "email"
+      smtp_host: "mail.internal"
+      smtp_port: ${SMTP_PORT}
+      recipients: ["ops@company.com"]
+""")
+        settings = Settings.load(str(yaml_file))
+        ch = settings.alerting.channels[0]
+        assert ch.smtp_port == 587
+        assert isinstance(ch.smtp_port, int)
+
+
+class TestMartConfig:
+    def test_load_mart_config(self):
+        config_text = """\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines: []
+
+mart:
+  enabled: true
+  root_path: "/tmp/mart"
+  refresh_on_success: true
+  pipeline_datasets:
+    production_log: "mes_ops"
+"""
+
+        with patch("builtins.open", mock_open(read_data=config_text)):
+            settings = Settings.load("pipelines.yaml")
+
+        assert isinstance(settings.mart, MartConfig)
+        assert settings.mart.enabled is True
+        assert settings.mart.root_path == "/tmp/mart"
+        assert settings.mart.pipeline_datasets["production_log"] == "mes_ops"
+
+    def test_load_export_config(self):
+        config_text = """\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines: []
+
+export:
+  retention_hours: 48
+  cleanup_cooldown_seconds: 120
+  root_path: "/tmp/exports"
+"""
+
+        with patch("builtins.open", mock_open(read_data=config_text)):
+            settings = Settings.load("pipelines.yaml")
+
+        assert isinstance(settings.export, ExportConfig)
+        assert settings.export.retention_hours == 48
+        assert settings.export.cleanup_cooldown_seconds == 120
+        assert settings.export.root_path == "/tmp/exports"
+
+    def test_export_config_defaults(self):
+        config_text = """\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines: []
+"""
+
+        with patch("builtins.open", mock_open(read_data=config_text)):
+            settings = Settings.load("pipelines.yaml")
+
+        assert isinstance(settings.export, ExportConfig)
+        assert settings.export.retention_hours == 72
+        assert settings.export.cleanup_cooldown_seconds == 300
+
+    def test_load_extended_export_scheduler_and_webui_config(self):
+        config_text = """\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines: []
+
+export:
+  root_path: "/tmp/exports"
+  max_workers: 4
+  rows_per_batch: 4096
+  parquet_compression: "zstd"
+  zip_compression: "stored"
+
+scheduler:
+  coalesce: false
+  max_instances: 2
+  misfire_grace_time_seconds: 120
+  dispatch_max_workers: 3
+
+webui:
+  monitor_refresh_seconds: 15
+  analytics_refresh_seconds: 45
+  exports_active_refresh_seconds: 5
+  exports_idle_refresh_seconds: 25
+  recent_runs_limit: 12
+  detail_preview_page_size: 6
+  analytics_export_jobs_limit: 4
+  export_jobs_page_limit: 20
+  error_message_max_length: 80
+  default_dataset: "custom_ops"
+  default_dashboard_id: "operations_overview"
+  default_language: "ko"
+"""
+
+        with patch("builtins.open", mock_open(read_data=config_text)):
+            settings = Settings.load("pipelines.yaml")
+
+        assert settings.export.max_workers == 4
+        assert settings.export.rows_per_batch == 4096
+        assert settings.export.parquet_compression == "zstd"
+        assert settings.export.zip_compression == "stored"
+        assert isinstance(settings.scheduler, SchedulerConfig)
+        assert settings.scheduler.coalesce is False
+        assert settings.scheduler.max_instances == 2
+        assert settings.scheduler.misfire_grace_time_seconds == 120
+        assert settings.scheduler.dispatch_max_workers == 3
+        assert isinstance(settings.webui, WebUIConfig)
+        assert settings.webui.monitor_refresh_seconds == 15
+        assert settings.webui.analytics_refresh_seconds == 45
+        assert settings.webui.default_dataset == "custom_ops"
+        assert settings.webui.default_language == "ko"
+
+    def test_load_coerces_scheduler_dispatch_max_workers_from_env(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DISPATCH_MAX_WORKERS", "4")
+        config_text = """\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines: []
+
+scheduler:
+  dispatch_max_workers: ${DISPATCH_MAX_WORKERS}
+"""
+
+        with patch("builtins.open", mock_open(read_data=config_text)):
+            settings = Settings.load("pipelines.yaml")
+
+        assert settings.scheduler.dispatch_max_workers == 4
+        assert isinstance(settings.scheduler.dispatch_max_workers, int)
+
+    def test_scheduler_and_webui_config_defaults(self):
+        config_text = """\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines: []
+"""
+
+        with patch("builtins.open", mock_open(read_data=config_text)):
+            settings = Settings.load("pipelines.yaml")
+
+        assert isinstance(settings.scheduler, SchedulerConfig)
+        assert settings.scheduler.max_instances == 1
+        assert isinstance(settings.webui, WebUIConfig)
+        assert settings.webui.default_dataset == "mes_ops"
+        assert settings.webui.export_jobs_page_limit == 50
+        assert settings.webui.default_language == "en"
+
+    def test_webui_default_language_rejects_unsupported_values(self):
+        config_text = """\
+oracle:
+  host: localhost
+  port: 1521
+  service_name: ORCL
+  user: scott
+  password: tiger
+
+storage:
+  parquet_base_path: "/tmp/parquet"
+  sqlite_path: "/tmp/airflow_lite.db"
+  log_path: "/tmp/logs"
+
+pipelines: []
+
+webui:
+  default_language: "jp"
+"""
+
+        with patch("builtins.open", mock_open(read_data=config_text)):
+            with pytest.raises(ValueError, match="지원되지 않는 언어 값"):
+                Settings.load("pipelines.yaml")

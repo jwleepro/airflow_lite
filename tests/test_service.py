@@ -5,6 +5,7 @@ pywin32가 미설치된 환경에서도 동작하도록 win32 모듈을 sys.modu
 stub으로 주입한 뒤 테스트한다. pywin32가 설치된 환경에서는 실제 모듈을 사용한다.
 """
 import sys
+from datetime import date
 import pytest
 from unittest.mock import MagicMock, patch
 
@@ -70,8 +71,48 @@ def _make_settings(pipelines=None):
     s.defaults.chunk_size = 10000
     s.api.host = "127.0.0.1"
     s.api.port = 8000
+    s.mart.enabled = False
+    s.mart.refresh_on_success = False
+    s.mart.root_path = "/tmp/mart"
+    s.mart.database_filename = "analytics.duckdb"
+    s.mart.pipeline_datasets = {}
+    s.export.root_path = "/tmp/exports"
+    s.export.retention_hours = 72
+    s.export.cleanup_cooldown_seconds = 300
+    s.export.max_workers = 2
+    s.export.rows_per_batch = 10000
+    s.export.parquet_compression = "snappy"
+    s.export.zip_compression = "deflated"
+    s.scheduler.coalesce = True
+    s.scheduler.max_instances = 1
+    s.scheduler.misfire_grace_time_seconds = 3600
+    s.webui.monitor_refresh_seconds = 30
+    s.webui.analytics_refresh_seconds = 60
+    s.webui.exports_active_refresh_seconds = 10
+    s.webui.exports_idle_refresh_seconds = 30
+    s.webui.recent_runs_limit = 25
+    s.webui.detail_preview_page_size = 8
+    s.webui.analytics_export_jobs_limit = 8
+    s.webui.export_jobs_page_limit = 50
+    s.webui.error_message_max_length = 120
+    s.webui.default_dataset = "mes_ops"
+    s.webui.default_dashboard_id = "operations_overview"
+    s.webui.default_language = "en"
     s.pipelines = pipelines if pipelines is not None else []
     return s
+
+
+def _make_runtime(settings):
+    runtime = MagicMock(name="runtime")
+    runtime.settings = settings
+    runtime.run_repo = MagicMock(name="run_repo")
+    runtime.step_repo = MagicMock(name="step_repo")
+    runtime.runner_factory = MagicMock(name="runner_factory")
+    runtime.runner_map = {}
+    runtime.backfill_map = {}
+    runtime.analytics_query_service = MagicMock(name="analytics_query_service")
+    runtime.analytics_export_service = MagicMock(name="analytics_export_service")
+    return runtime
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -136,51 +177,50 @@ class TestSvcDoRun:
     def run_ctx(self, svc):
         """모든 의존성을 mock 하고 SvcDoRun() 을 한 번 실행, mock 딕셔너리를 yield."""
         mock_settings = _make_settings()
+        mock_runtime = _make_runtime(mock_settings)
         mock_scheduler = MagicMock(name="scheduler")
         mock_uvicorn_server = MagicMock(name="uvicorn_server")
         mock_api_thread = MagicMock(name="api_thread")
 
-        with patch("airflow_lite.config.settings.Settings") as MockSettings, \
-             patch("airflow_lite.logging_config.setup.setup_logging") as mock_logging, \
-             patch("airflow_lite.storage.database.Database") as MockDatabase, \
-             patch("airflow_lite.storage.repository.PipelineRunRepository"), \
-             patch("airflow_lite.storage.repository.StepRunRepository"), \
+        with patch("airflow_lite.service.win_service.load_settings") as mock_load_settings, \
+             patch("airflow_lite.service.win_service.build_runtime_services", return_value=mock_runtime) as mock_build_runtime, \
+             patch("airflow_lite.logging_config.structured.setup_structlog") as mock_logging, \
              patch("airflow_lite.scheduler.scheduler.PipelineScheduler",
                    return_value=mock_scheduler), \
              patch("airflow_lite.api.app.create_app"), \
-             patch.object(svc, "_create_runner_factory", return_value=MagicMock()), \
              patch("airflow_lite.service.win_service.uvicorn") as mock_uvicorn_mod, \
              patch("airflow_lite.service.win_service.threading") as mock_threading_mod, \
              patch("airflow_lite.service.win_service.servicemanager"), \
              patch.object(win32event, "WaitForSingleObject"):
 
-            MockSettings.load.return_value = mock_settings
+            mock_load_settings.return_value = ("config/pipelines.yaml", mock_settings)
             mock_uvicorn_mod.Server.return_value = mock_uvicorn_server
             mock_threading_mod.Thread.return_value = mock_api_thread
 
             svc.SvcDoRun()
 
             yield {
-                "MockSettings": MockSettings,
+                "load_settings": mock_load_settings,
+                "build_runtime_services": mock_build_runtime,
                 "setup_logging": mock_logging,
-                "MockDatabase": MockDatabase,
                 "scheduler": mock_scheduler,
                 "uvicorn_server": mock_uvicorn_server,
                 "api_thread": mock_api_thread,
                 "settings": mock_settings,
+                "runtime": mock_runtime,
                 "threading": mock_threading_mod,
             }
 
     def test_loads_settings_from_yaml(self, run_ctx):
-        run_ctx["MockSettings"].load.assert_called_once_with("config/pipelines.yaml")
+        run_ctx["load_settings"].assert_called_once_with()
 
     def test_calls_setup_logging_with_log_path(self, run_ctx):
         run_ctx["setup_logging"].assert_called_once_with(
             run_ctx["settings"].storage.log_path
         )
 
-    def test_initializes_database(self, run_ctx):
-        run_ctx["MockDatabase"].return_value.initialize.assert_called_once()
+    def test_builds_runtime_services(self, run_ctx):
+        run_ctx["build_runtime_services"].assert_called_once()
 
     def test_registers_pipelines(self, run_ctx):
         run_ctx["scheduler"].register_pipelines.assert_called_once()
@@ -196,33 +236,59 @@ class TestSvcDoRun:
         _, call_kwargs = run_ctx["threading"].Thread.call_args
         assert call_kwargs.get("daemon") is True
 
+    def test_passes_backfill_map_to_app(self, svc):
+        pipeline = MagicMock(name="pipeline")
+        pipeline.name = "test_pipeline"
+        mock_settings = _make_settings(pipelines=[pipeline])
+        mock_runtime = _make_runtime(mock_settings)
+        mock_runtime.runner_map = {"test_pipeline": MagicMock(name="runner_entry")}
+        mock_runtime.backfill_map = {"test_pipeline": MagicMock(name="backfill_entry")}
+        create_app_mock = MagicMock()
+
+        with patch("airflow_lite.service.win_service.load_settings") as mock_load_settings, \
+             patch("airflow_lite.service.win_service.build_runtime_services", return_value=mock_runtime), \
+             patch("airflow_lite.logging_config.setup.setup_logging"), \
+             patch("airflow_lite.scheduler.scheduler.PipelineScheduler"), \
+             patch("airflow_lite.api.app.create_app", create_app_mock), \
+             patch("airflow_lite.service.win_service.uvicorn"), \
+             patch("airflow_lite.service.win_service.threading"), \
+             patch("airflow_lite.service.win_service.servicemanager"), \
+             patch.object(win32event, "WaitForSingleObject"):
+
+            mock_load_settings.return_value = ("config/pipelines.yaml", mock_settings)
+            svc.SvcDoRun()
+
+        _, kwargs = create_app_mock.call_args
+        assert "backfill_map" in kwargs
+        assert list(kwargs["backfill_map"].keys()) == ["test_pipeline"]
+        assert callable(kwargs["backfill_map"]["test_pipeline"])
+        assert callable(kwargs["runner_map"]["test_pipeline"])
+
     def test_waits_for_stop_event_with_infinite_timeout(self, svc):
         """WaitForSingleObject(stop_event, INFINITE) 로 종료 이벤트를 대기해야 한다."""
         mock_settings = _make_settings()
-        with patch("airflow_lite.config.settings.Settings") as MockSettings, \
+        mock_runtime = _make_runtime(mock_settings)
+        with patch("airflow_lite.service.win_service.load_settings") as mock_load_settings, \
+             patch("airflow_lite.service.win_service.build_runtime_services", return_value=mock_runtime), \
              patch("airflow_lite.logging_config.setup.setup_logging"), \
-             patch("airflow_lite.storage.database.Database"), \
-             patch("airflow_lite.storage.repository.PipelineRunRepository"), \
-             patch("airflow_lite.storage.repository.StepRunRepository"), \
              patch("airflow_lite.scheduler.scheduler.PipelineScheduler"), \
              patch("airflow_lite.api.app.create_app"), \
-             patch.object(svc, "_create_runner_factory", return_value=MagicMock()), \
              patch("airflow_lite.service.win_service.uvicorn"), \
              patch("airflow_lite.service.win_service.threading"), \
              patch("airflow_lite.service.win_service.servicemanager"), \
              patch.object(win32event, "WaitForSingleObject") as mock_wait:
 
-            MockSettings.load.return_value = mock_settings
+            mock_load_settings.return_value = ("config/pipelines.yaml", mock_settings)
             svc.SvcDoRun()
 
         mock_wait.assert_called_once_with(svc.stop_event, win32event.INFINITE)
 
     def test_startup_failure_does_not_propagate_exception(self, svc):
         """Settings.load() 실패 시 예외가 밖으로 전파되지 않아야 한다."""
-        with patch("airflow_lite.config.settings.Settings") as MockSettings, \
+        with patch("airflow_lite.service.win_service.load_settings") as mock_load_settings, \
              patch("airflow_lite.service.win_service.servicemanager"), \
              patch.object(win32event, "WaitForSingleObject"):
-            MockSettings.load.side_effect = FileNotFoundError("config not found")
+            mock_load_settings.side_effect = FileNotFoundError("config not found")
             svc.SvcDoRun()  # should not raise
 
 
@@ -256,6 +322,16 @@ class TestSvcStop:
             svc.SvcStop()
 
         mock_scheduler.shutdown.assert_called_once_with(wait=True)
+
+    def test_shuts_down_runtime_resources(self, svc):
+        mock_runtime = MagicMock()
+        svc.runtime = mock_runtime
+
+        with patch.object(svc, "ReportServiceStatus"), \
+             patch.object(win32event, "SetEvent"):
+            svc.SvcStop()
+
+        mock_runtime.shutdown.assert_called_once_with()
 
     def test_joins_api_thread_with_30s_timeout(self, svc):
         mock_thread = MagicMock()
@@ -326,14 +402,14 @@ class TestCreateRunnerFactory:
                 PipelineConfig(
                     name="full_pipe",
                     table="T_FULL",
-                    partition_column="DT",
+                    source_where_template="DT >= :data_interval_start AND DT < :data_interval_end",
                     strategy="full",
                     schedule="0 2 * * *",
                 ),
                 PipelineConfig(
                     name="inc_pipe",
                     table="T_INC",
-                    partition_column="DT",
+                    source_where_template="DT >= :data_interval_start AND DT < :data_interval_end",
                     strategy="incremental",
                     schedule="0 */6 * * *",
                     incremental_key="UPDATED_AT",
@@ -351,35 +427,175 @@ class TestCreateRunnerFactory:
 
     def test_returns_callable(self, svc, real_settings, repos):
         run_repo, step_repo = repos
-        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
         assert callable(factory)
 
     def test_factory_returns_pipeline_runner(self, svc, real_settings, repos):
         from airflow_lite.engine.pipeline import PipelineRunner
         run_repo, step_repo = repos
-        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
         runner = factory("full_pipe")
         assert isinstance(runner, PipelineRunner)
 
     def test_factory_uses_full_strategy_for_full_config(self, svc, real_settings, repos):
         from airflow_lite.engine.strategy import FullMigrationStrategy
         run_repo, step_repo = repos
-        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
         runner = factory("full_pipe")
         assert isinstance(runner.pipeline.strategy, FullMigrationStrategy)
 
     def test_factory_uses_incremental_strategy_for_incremental_config(self, svc, real_settings, repos):
         from airflow_lite.engine.strategy import IncrementalMigrationStrategy
         run_repo, step_repo = repos
-        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
         runner = factory("inc_pipe")
         assert isinstance(runner.pipeline.strategy, IncrementalMigrationStrategy)
 
     def test_factory_sets_correct_pipeline_name(self, svc, real_settings, repos):
         run_repo, step_repo = repos
-        factory = svc._create_runner_factory(real_settings, run_repo, step_repo)
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
         runner = factory("full_pipe")
         assert runner.pipeline.name == "full_pipe"
+
+    def test_factory_sets_on_failure_callback(self, svc, real_settings, repos):
+        """RetryConfig.on_failure_callback이 None이 아니어야 한다."""
+        run_repo, step_repo = repos
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
+        runner = factory("full_pipe")
+        etl_stage = runner.pipeline.stages[0]
+        assert etl_stage.retry_config.on_failure_callback is not None
+        assert callable(etl_stage.retry_config.on_failure_callback)
+
+    def test_factory_on_failure_callback_calls_alert_manager(self, svc, real_settings, repos):
+        """on_failure_callback 호출 시 AlertManager.notify()가 실행된다."""
+        from datetime import date as date_cls
+        from airflow_lite.engine.stage import StageContext
+
+        run_repo, step_repo = repos
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
+        runner = factory("full_pipe")
+        callback = runner.pipeline.stages[0].retry_config.on_failure_callback
+
+        context = StageContext(
+            pipeline_name="full_pipe",
+            execution_date=date_cls(2026, 1, 1),
+            table_config=real_settings.pipelines[0],
+            run_id="test-run-id",
+            chunk_size=10000,
+        )
+        exc = RuntimeError("테스트 오류")
+
+        with patch("airflow_lite.alerting.base.AlertManager.notify") as mock_notify:
+            callback(context, exc)
+
+        mock_notify.assert_called_once()
+        alert_arg = mock_notify.call_args[0][0]
+        assert alert_arg.pipeline_name == "full_pipe"
+        assert alert_arg.status == "failed"
+        assert "테스트 오류" in alert_arg.error_message
+
+    def test_factory_marks_run_failed_when_verify_returns_false(self, svc, real_settings, repos):
+        run_repo, step_repo = repos
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
+        runner = factory("full_pipe")
+
+        runner.pipeline.strategy.extract = MagicMock(return_value=iter([]))
+        runner.pipeline.strategy.transform = MagicMock()
+        runner.pipeline.strategy.load = MagicMock()
+        runner.pipeline.strategy.verify = MagicMock(return_value=False)
+
+        result = runner.run(date(2026, 1, 1))
+        steps = step_repo.find_by_pipeline_run(result.id)
+        statuses = {step.step_name: step.status for step in steps}
+
+        assert result.status == "failed"
+        assert statuses["extract_transform_load"] == "success"
+        assert statuses["verify"] == "failed"
+
+    def test_factory_sets_on_run_success_callback(self, svc, real_settings, repos):
+        run_repo, step_repo = repos
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
+        runner = factory("full_pipe")
+
+        assert runner.on_run_success is not None
+        assert callable(runner.on_run_success)
+
+    def test_factory_on_run_success_calls_alert_manager(self, svc, real_settings, repos):
+        from datetime import date as date_cls
+        from airflow_lite.engine.stage import StageContext
+
+        run_repo, step_repo = repos
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
+        runner = factory("full_pipe")
+
+        context = StageContext(
+            pipeline_name="full_pipe",
+            execution_date=date_cls(2026, 1, 1),
+            table_config=real_settings.pipelines[0],
+            run_id="test-run-id",
+            chunk_size=10000,
+        )
+
+        with patch("airflow_lite.alerting.base.AlertManager.notify") as mock_notify:
+            runner.on_run_success(context)
+
+        mock_notify.assert_called_once()
+        alert_arg = mock_notify.call_args[0][0]
+        assert alert_arg.pipeline_name == "full_pipe"
+        assert alert_arg.status == "success"
+
+    def test_factory_on_run_success_plans_mart_refresh_when_enabled(self, svc, real_settings, repos):
+        from datetime import date as date_cls
+        from airflow_lite.engine.stage import StageContext
+        from airflow_lite.mart import MartRefreshMode
+
+        run_repo, step_repo = repos
+        real_settings.mart.enabled = True
+        real_settings.mart.refresh_on_success = True
+        real_settings.mart.pipeline_datasets = {"full_pipe": "ops_dataset"}
+
+        from airflow_lite.runtime import create_runner_factory
+        factory = create_runner_factory(real_settings, run_repo, step_repo)
+        runner = factory("full_pipe")
+        context = StageContext(
+            pipeline_name="full_pipe",
+            execution_date=date_cls(2026, 1, 1),
+            table_config=real_settings.pipelines[0],
+            run_id="test-run-id",
+            chunk_size=10000,
+        )
+
+        mock_plan = MagicMock()
+        mock_plan.request.dataset_name = "ops_dataset"
+        mock_plan.request.mode = MartRefreshMode.FULL
+        mock_plan.request.source_paths = ("source.parquet",)
+        mock_plan.build_plan.paths.staging_db_path = "staging.duckdb"
+        mock_plan.build_plan.paths.snapshot_db_path = "snapshot.duckdb"
+
+        refresh_result = MagicMock()
+        refresh_result.validation_report.is_valid = True
+        refresh_result.promoted = True
+        refresh_result.plan = mock_plan
+        refresh_result.build_result.row_count = 10
+        refresh_result.build_result.file_count = 1
+
+        with patch("airflow_lite.alerting.base.AlertManager.notify"), \
+             patch("airflow_lite.mart.orchestration.MartRefreshCoordinator.plan_refresh", return_value=mock_plan) as mock_refresh, \
+             patch("airflow_lite.mart.refresh.MartRefreshExecutor.execute_refresh", return_value=refresh_result) as mock_execute:
+            runner.on_run_success(context)
+
+        mock_refresh.assert_called_once_with(context)
+        mock_execute.assert_called_once_with(mock_plan)
 
 
 # ── CLI __main__.py 검증 ──────────────────────────────────────────────────────

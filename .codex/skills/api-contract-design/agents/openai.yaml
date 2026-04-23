@@ -1,0 +1,4 @@
+interface:
+  display_name: "API Contract Design"
+  short_description: "Design analytics API boundaries and payloads"
+  default_prompt: "Use $api-contract-design to define stable summary, chart, detail, export, and admin API contracts for this analytics system."

@@ -1,0 +1,33 @@
+# Cache / build
+__pycache__/
+*.pyc
+*.pyo
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+
+# Virtual env
+.venv/
+venv/
+
+# Runtime data (large files)
+data/
+var/
+
+# Logs
+# logs/
+# *.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+.env.*
+*.local

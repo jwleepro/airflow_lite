@@ -1,0 +1,77 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
+personality = "pragmatic"
+model_reasoning_effort = "high"
+model_verbosity = "low"
+project_doc_fallback_filenames = ["AGENTS.md"]
+project_root_markers = [".git", "pyproject.toml", "AGENTS.md"]
+
+[features]
+multi_agent = true
+
+[agents]
+max_threads = 6
+max_depth = 2
+job_max_runtime_seconds = 1800
+
+[agents.github-automation-agent]
+description = "Own GitHub Actions CI, PR gates, labels, and publish workflow glue for this repository."
+config_file = "./agents/github-automation-agent.toml"
+nickname_candidates = ["GitHub Auto", "PR Gate", "Actions"]
+
+[agents.codex-meta-agent]
+description = "Own repository-local Codex files under .codex and the reusable research docs under reference/codex. Read the indexed Codex references before changing local agent, command, or skill structure."
+config_file = "./agents/codex-meta-agent.toml"
+nickname_candidates = ["Codex Meta", "Meta", "Workflow"]
+
+[[skills.config]]
+path = "./skills/project-bootstrap"
+enabled = true
+
+[[skills.config]]
+path = "./skills/progress-discipline"
+enabled = true
+
+[[skills.config]]
+path = "./skills/repo-indexing"
+enabled = true
+
+[[skills.config]]
+path = "./skills/task-slicing"
+enabled = true
+
+[[skills.config]]
+path = "./skills/oracle-batch-etl"
+enabled = true
+
+[[skills.config]]
+path = "./skills/parquet-layout-design"
+enabled = true
+
+[[skills.config]]
+path = "./skills/duckdb-mart-design"
+enabled = true
+
+[[skills.config]]
+path = "./skills/duckdb-query-tuning"
+enabled = true
+
+[[skills.config]]
+path = "./skills/api-contract-design"
+enabled = true
+
+[[skills.config]]
+path = "./skills/export-policy"
+enabled = true
+
+[[skills.config]]
+path = "./skills/windows-ops"
+enabled = true
+
+[[skills.config]]
+path = "./skills/failure-bundling"
+enabled = true
+
+[[skills.config]]
+path = "./skills/reference-reader"
+enabled = true

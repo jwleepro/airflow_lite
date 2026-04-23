@@ -1,8 +1,20 @@
 import os
 import re
+import sqlite3
 import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
+
+from airflow_lite.i18n import require_supported_language
+from airflow_lite.pipeline_config_validation import (
+    coerce_source_query_from_mapping,
+    validate_data_interval_schedule,
+)
+from airflow_lite.storage._helpers import decode_password
+from airflow_lite.storage._sqlite_schema import table_exists
+from airflow_lite.storage.crypto import Crypto
+from ._coerce import coerce_int as _coerce_int, coerce_int_fields as _coerce_int_fields
 
 # 환경변수 치환 패턴: ${VAR_NAME}
 ENV_VAR_PATTERN = re.compile(r"\$\{(\w+)\}")
@@ -74,9 +86,10 @@ class DefaultConfig:
 class PipelineConfig:
     name: str
     table: str
-    partition_column: str
-    strategy: str  # "full" | "incremental"
-    schedule: str
+    source_where_template: str | None = None
+    source_bind_params: dict[str, Any] = field(default_factory=dict)
+    strategy: str = "full"  # "full" | "incremental"
+    schedule: str = "0 2 * * *"
     chunk_size: int | None = None
     columns: list[str] | None = None
     incremental_key: str | None = None
@@ -89,39 +102,177 @@ class ApiConfig:
     port: int = 8000
 
 
+@dataclass
+class EmailChannelConfig:
+    type: str
+    smtp_host: str
+    smtp_port: int = 25
+    sender: str = "airflow-lite@company.com"
+    recipients: list = field(default_factory=list)
+
+
+@dataclass
+class WebhookChannelConfig:
+    type: str
+    url: str
+    timeout: float = 10.0
+
+
+@dataclass
+class AlertingTriggersConfig:
+    on_failure: bool = True
+    on_success: bool = False
+
+
+@dataclass
+class AlertingConfig:
+    channels: list = field(default_factory=list)
+    triggers: AlertingTriggersConfig = field(default_factory=AlertingTriggersConfig)
+
+
+@dataclass
+class ExportConfig:
+    retention_hours: int = 72
+    cleanup_cooldown_seconds: int = 300
+    root_path: str = "data/exports"
+    max_workers: int = 2
+    rows_per_batch: int = 10000
+    parquet_compression: str = "snappy"
+    zip_compression: str = "deflated"
+
+
+@dataclass
+class SchedulerConfig:
+    coalesce: bool = True
+    max_instances: int = 1
+    misfire_grace_time_seconds: int = 3600
+    dispatch_max_workers: int = 2
+
+
+@dataclass
+class WebUIConfig:
+    monitor_refresh_seconds: int = 30
+    analytics_refresh_seconds: int = 60
+    exports_active_refresh_seconds: int = 10
+    exports_idle_refresh_seconds: int = 30
+    recent_runs_limit: int = 25
+    detail_preview_page_size: int = 8
+    analytics_export_jobs_limit: int = 8
+    export_jobs_page_limit: int = 50
+    error_message_max_length: int = 120
+    default_dataset: str = "mes_ops"
+    default_dashboard_id: str = "operations_overview"
+    default_language: str = "en"
+
+
+@dataclass
+class MartConfig:
+    enabled: bool = False
+    root_path: str = "data/mart"
+    database_filename: str = "analytics.duckdb"
+    refresh_on_success: bool = True
+    pipeline_datasets: dict[str, str] = field(default_factory=dict)
+
+def _build_pipeline_configs(pipeline_items: list[dict]) -> list[PipelineConfig]:
+    pipelines: list[PipelineConfig] = []
+    for index, pipeline_data in enumerate(pipeline_items, start=1):
+        pipeline_values = dict(pipeline_data)
+        pipeline_values["schedule"] = validate_data_interval_schedule(
+            pipeline_values.get("schedule", "0 2 * * *")
+        )
+        if pipeline_values.get("chunk_size") is not None:
+            pipeline_values["chunk_size"] = _coerce_int(
+                pipeline_values["chunk_size"], f"pipelines[{index}].chunk_size"
+            )
+        (
+            pipeline_values["source_where_template"],
+            pipeline_values["source_bind_params"],
+        ) = coerce_source_query_from_mapping(
+            pipeline_values,
+            strategy=pipeline_values.get("strategy", "full"),
+        )
+        pipeline_values.pop("partition_column", None)
+        pipeline_values.pop("partition_year_column", None)
+        pipeline_values.pop("partition_month_column", None)
+        pipeline_values["columns"] = _normalize_columns(pipeline_values.get("columns"))
+        pipelines.append(PipelineConfig(**pipeline_values))
+    return pipelines
+
+
+def _normalize_columns(value) -> list[str] | None:
+    if value is None:
+        return None
+    if isinstance(value, list):
+        normalized = [str(item).strip() for item in value if str(item).strip()]
+        return normalized or None
+    if isinstance(value, str):
+        normalized = [item.strip() for item in value.split(",") if item and item.strip()]
+        return normalized or None
+    return None
+
+
+def _load_oracle_from_sqlite(sqlite_path: str, crypto: Crypto) -> OracleConfig | None:
+    db_path = Path(sqlite_path)
+    if not db_path.exists():
+        return None
+
+    connection = sqlite3.connect(str(db_path))
+    connection.row_factory = sqlite3.Row
+    try:
+        if not table_exists(connection, "connections"):
+            return None
+        row = connection.execute(
+            """
+            SELECT host, port, schema, login, password
+            FROM connections
+            WHERE conn_id = 'oracle'
+            """
+        ).fetchone()
+        if row is None:
+            return None
+        if not row["host"] or not row["schema"] or not row["login"] or row["password"] is None:
+            return None
+        return OracleConfig(
+            host=row["host"],
+            port=_coerce_int(row["port"], "oracle.port"),
+            service_name=row["schema"],
+            user=row["login"],
+            password=decode_password(row["password"], crypto) or "",
+        )
+    finally:
+        connection.close()
+
+
 class Settings:
     """YAML 설정 로더. 환경변수 ${VAR} 참조를 자동 치환한다."""
 
-    def __init__(self, oracle, storage, defaults, pipelines, api=None):
+    def __init__(
+        self,
+        oracle,
+        storage,
+        defaults,
+        pipelines,
+        api=None,
+        alerting=None,
+        mart=None,
+        export=None,
+        scheduler=None,
+        webui=None,
+        crypto: Crypto | None = None,
+    ):
         self.oracle = oracle
         self.storage = storage
         self.defaults = defaults
         self.pipelines = pipelines
         self.api = api or ApiConfig()
+        self.alerting = alerting or AlertingConfig()
+        self.mart = mart or MartConfig()
+        self.export = export or ExportConfig()
+        self.scheduler = scheduler or SchedulerConfig()
+        self.webui = webui or WebUIConfig()
+        self.crypto = crypto or Crypto.from_env()
 
     @classmethod
     def load(cls, config_path: str) -> "Settings":
-        path = Path(config_path)
-        with open(path, "r", encoding="utf-8") as f:
-            raw = yaml.safe_load(f)
-
-        data = _walk_and_substitute(raw)
-
-        oracle = OracleConfig(**data["oracle"])
-        storage = StorageConfig(**data["storage"])
-
-        defaults_data = data.get("defaults", {})
-        retry = RetryDefaults(**defaults_data.get("retry", {}))
-        parquet = ParquetDefaults(**defaults_data.get("parquet", {}))
-        defaults = DefaultConfig(
-            chunk_size=defaults_data.get("chunk_size", 10000),
-            retry=retry,
-            parquet=parquet,
-        )
-
-        pipelines = [PipelineConfig(**p) for p in data.get("pipelines", [])]
-
-        api_data = data.get("api", {})
-        api = ApiConfig(**api_data) if api_data else ApiConfig()
-
-        return cls(oracle=oracle, storage=storage, defaults=defaults, pipelines=pipelines, api=api)
+        from .loader import SettingsLoader
+        return SettingsLoader(config_path).load()

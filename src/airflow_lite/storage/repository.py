@@ -1,5 +1,6 @@
 from datetime import date, datetime
-from typing import Optional
+
+from airflow_lite.logging_config.decorators import log_db_operation
 
 from .database import Database
 from .models import PipelineRun, StepRun
@@ -51,10 +52,10 @@ class PipelineRunRepository:
     def __init__(self, database: Database):
         self.database = database
 
+    @log_db_operation("pipeline_runs")
     def create(self, run: PipelineRun) -> PipelineRun:
         """INSERT. id는 UUID 자동 생성."""
-        conn = self.database.get_connection()
-        try:
+        with self.database.connection() as conn:
             conn.execute(
                 """
                 INSERT INTO pipeline_runs
@@ -74,16 +75,14 @@ class PipelineRunRepository:
                 ),
             )
             conn.commit()
-        finally:
-            conn.close()
         return run
 
+    @log_db_operation("pipeline_runs")
     def update_status(
         self, run_id: str, status: str, finished_at: datetime | None = None
     ) -> None:
         """status, finished_at 업데이트."""
-        conn = self.database.get_connection()
-        try:
+        with self.database.connection() as conn:
             conn.execute(
                 "UPDATE pipeline_runs SET status = ?, finished_at = ? WHERE id = ?",
                 (
@@ -93,26 +92,32 @@ class PipelineRunRepository:
                 ),
             )
             conn.commit()
-        finally:
-            conn.close()
 
+    @log_db_operation("pipeline_runs")
+    def mark_running(self, run_id: str, started_at: datetime) -> None:
+        """queued → running 전이 + started_at 기록."""
+        with self.database.connection() as conn:
+            conn.execute(
+                "UPDATE pipeline_runs SET status = 'running', started_at = ? WHERE id = ?",
+                (started_at.isoformat(), run_id),
+            )
+            conn.commit()
+
+    @log_db_operation("pipeline_runs")
     def find_by_id(self, run_id: str) -> PipelineRun | None:
         """단건 조회."""
-        conn = self.database.get_connection()
-        try:
+        with self.database.connection() as conn:
             row = conn.execute(
                 "SELECT * FROM pipeline_runs WHERE id = ?", (run_id,)
             ).fetchone()
-        finally:
-            conn.close()
         return _row_to_pipeline_run(row) if row else None
 
+    @log_db_operation("pipeline_runs")
     def find_by_pipeline(
         self, pipeline_name: str, limit: int = 50
     ) -> list[PipelineRun]:
         """파이프라인 이름으로 최근 실행 이력 조회."""
-        conn = self.database.get_connection()
-        try:
+        with self.database.connection() as conn:
             rows = conn.execute(
                 """
                 SELECT * FROM pipeline_runs
@@ -122,17 +127,15 @@ class PipelineRunRepository:
                 """,
                 (pipeline_name, limit),
             ).fetchall()
-        finally:
-            conn.close()
         return [_row_to_pipeline_run(r) for r in rows]
 
+    @log_db_operation("pipeline_runs")
     def find_by_pipeline_paginated(
         self, pipeline_name: str, page: int = 1, page_size: int = 50
     ) -> tuple[list[PipelineRun], int]:
         """파이프라인 이름으로 실행 이력 조회 (pagination). (runs, total) 반환."""
         offset = (page - 1) * page_size
-        conn = self.database.get_connection()
-        try:
+        with self.database.connection() as conn:
             total = conn.execute(
                 "SELECT COUNT(*) FROM pipeline_runs WHERE pipeline_name = ?",
                 (pipeline_name,),
@@ -146,16 +149,14 @@ class PipelineRunRepository:
                 """,
                 (pipeline_name, page_size, offset),
             ).fetchall()
-        finally:
-            conn.close()
         return [_row_to_pipeline_run(r) for r in rows], total
 
+    @log_db_operation("pipeline_runs")
     def find_by_execution_date(
         self, pipeline_name: str, execution_date: date
     ) -> PipelineRun | None:
         """특정 파이프라인의 특정 날짜 실행 조회."""
-        conn = self.database.get_connection()
-        try:
+        with self.database.connection() as conn:
             row = conn.execute(
                 """
                 SELECT * FROM pipeline_runs
@@ -165,8 +166,56 @@ class PipelineRunRepository:
                 """,
                 (pipeline_name, execution_date.isoformat()),
             ).fetchone()
-        finally:
-            conn.close()
+        return _row_to_pipeline_run(row) if row else None
+
+    @log_db_operation("pipeline_runs")
+    def find_latest_success_by_execution_date(
+        self, pipeline_name: str, execution_date: date
+    ) -> PipelineRun | None:
+        with self.database.connection() as conn:
+            row = conn.execute(
+                """
+                SELECT * FROM pipeline_runs
+                WHERE pipeline_name = ? AND execution_date = ? AND status = 'success'
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (pipeline_name, execution_date.isoformat()),
+            ).fetchone()
+        return _row_to_pipeline_run(row) if row else None
+
+    @log_db_operation("pipeline_runs")
+    def find_active_by_execution_date(
+        self, pipeline_name: str, execution_date: date
+    ) -> PipelineRun | None:
+        """queued/running 상태의 실행 조회. 중복 트리거 차단용."""
+        with self.database.connection() as conn:
+            row = conn.execute(
+                """
+                SELECT * FROM pipeline_runs
+                WHERE pipeline_name = ? AND execution_date = ?
+                  AND status IN ('queued', 'running')
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (pipeline_name, execution_date.isoformat()),
+            ).fetchone()
+        return _row_to_pipeline_run(row) if row else None
+
+    @log_db_operation("pipeline_runs")
+    def find_any_active_by_pipeline(self, pipeline_name: str) -> PipelineRun | None:
+        """execution_date 와 무관하게 queued/running 상태의 최신 실행 조회."""
+        with self.database.connection() as conn:
+            row = conn.execute(
+                """
+                SELECT * FROM pipeline_runs
+                WHERE pipeline_name = ?
+                  AND status IN ('queued', 'running')
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (pipeline_name,),
+            ).fetchone()
         return _row_to_pipeline_run(row) if row else None
 
 
@@ -176,10 +225,10 @@ class StepRunRepository:
     def __init__(self, database: Database):
         self.database = database
 
+    @log_db_operation("step_runs")
     def create(self, step_run: StepRun) -> StepRun:
         """INSERT. id는 UUID 자동 생성."""
-        conn = self.database.get_connection()
-        try:
+        with self.database.connection() as conn:
             conn.execute(
                 """
                 INSERT INTO step_runs
@@ -201,42 +250,36 @@ class StepRunRepository:
                 ),
             )
             conn.commit()
-        finally:
-            conn.close()
         return step_run
 
+    @log_db_operation("step_runs")
     def update_status(self, step_id: str, status: str, **kwargs) -> None:
         """status 업데이트. kwargs로 finished_at, records_processed,
         error_message, retry_count 등 선택적 필드 업데이트."""
-        allowed = {"finished_at", "records_processed", "error_message", "retry_count"}
+        allowed = {"started_at", "finished_at", "records_processed", "error_message", "retry_count"}
         sets = ["status = ?"]
         params: list = [status]
 
         for key, value in kwargs.items():
             if key not in allowed:
                 raise ValueError(f"허용되지 않은 필드: {key}")
-            if key == "finished_at" and isinstance(value, datetime):
+            if key in {"started_at", "finished_at"} and isinstance(value, datetime):
                 value = value.isoformat()
             sets.append(f"{key} = ?")
             params.append(value)
 
         params.append(step_id)
         sql = f"UPDATE step_runs SET {', '.join(sets)} WHERE id = ?"
-        conn = self.database.get_connection()
-        try:
+        with self.database.connection() as conn:
             conn.execute(sql, params)
             conn.commit()
-        finally:
-            conn.close()
 
+    @log_db_operation("step_runs")
     def find_by_pipeline_run(self, pipeline_run_id: str) -> list[StepRun]:
         """특정 파이프라인 실행의 모든 단계 조회."""
-        conn = self.database.get_connection()
-        try:
+        with self.database.connection() as conn:
             rows = conn.execute(
                 "SELECT * FROM step_runs WHERE pipeline_run_id = ? ORDER BY created_at",
                 (pipeline_run_id,),
             ).fetchall()
-        finally:
-            conn.close()
         return [_row_to_step_run(r) for r in rows]
