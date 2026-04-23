@@ -680,6 +680,18 @@ pre,
   margin-top: 14px;
 }
 
+.home-stats-grid {
+  margin-bottom: 24px;
+}
+
+.home-quick-links {
+  margin-bottom: 24px;
+}
+
+.home-recent-runs .table-wrap {
+  margin-top: 12px;
+}
+
 /* ===== Chip ===== */
 .chip-list,
 .actions {
