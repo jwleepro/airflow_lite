@@ -195,3 +195,63 @@ def test_base_template_contains_sidebar_redesign_structure():
     assert 'data-submenu-toggle="admin"' in html
     assert 'data-submenu-toggle="security"' in html
     assert 'class="sidebar-profile"' in html
+
+
+# ---------------------------------------------------------------------------
+# Accessible-name tests (issue #99)
+# ---------------------------------------------------------------------------
+
+def test_pipeline_detail_close_buttons_have_aria_labels():
+    """Close buttons in node-panel and task-panel must carry aria-label."""
+    template_path = (
+        Path(__file__).resolve().parents[1]
+        / "src" / "airflow_lite" / "api" / "templates" / "pipeline_detail.html"
+    )
+    html = template_path.read_text(encoding="utf-8")
+    assert 'aria-label="Close node panel"' in html
+    assert 'aria-label="Close task panel"' in html
+
+
+def test_admin_connections_icon_buttons_have_aria_labels():
+    """✏ and ✕ action buttons in admin_connections must carry aria-label."""
+    template_path = (
+        Path(__file__).resolve().parents[1]
+        / "src" / "airflow_lite" / "api" / "templates" / "admin" / "admin_connections.html"
+    )
+    html = template_path.read_text(encoding="utf-8")
+    # Each row action must have an aria-label pattern
+    assert 'aria-label="Edit connection' in html
+    assert 'aria-label="Delete connection' in html
+
+
+def test_admin_variables_icon_buttons_have_aria_labels():
+    """✏ and ✕ action buttons in admin_variables must carry aria-label."""
+    template_path = (
+        Path(__file__).resolve().parents[1]
+        / "src" / "airflow_lite" / "api" / "templates" / "admin" / "admin_variables.html"
+    )
+    html = template_path.read_text(encoding="utf-8")
+    assert 'aria-label="Edit variable' in html
+    assert 'aria-label="Delete variable' in html
+
+
+def test_admin_pools_icon_buttons_have_aria_labels():
+    """✏ and ✕ action buttons in admin_pools must carry aria-label."""
+    template_path = (
+        Path(__file__).resolve().parents[1]
+        / "src" / "airflow_lite" / "api" / "templates" / "admin" / "admin_pools.html"
+    )
+    html = template_path.read_text(encoding="utf-8")
+    assert 'aria-label="Edit pool' in html
+    assert 'aria-label="Delete pool' in html
+
+
+def test_task_logs_attempt_buttons_have_aria_labels():
+    """Attempt selector buttons in task_logs must carry aria-label."""
+    template_path = (
+        Path(__file__).resolve().parents[1]
+        / "src" / "airflow_lite" / "api" / "templates" / "task_logs.html"
+    )
+    html = template_path.read_text(encoding="utf-8")
+    assert 'aria-label="Attempt' in html
+    assert 'aria-label="Filter by log level' in html

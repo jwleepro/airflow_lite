@@ -41,10 +41,10 @@
           <td class="u-text-sm u-text-muted">{{ v.description or '—' }}</td>
           <td class="cell-actions">
             <div class="cell-action-group">
-              <button type="button" class="btn btn-ghost btn-small">✏</button>
+              <button type="button" class="btn btn-ghost btn-small" aria-label="Edit variable {{ v.key }}">✏</button>
               <form method="post" action="{{ MONITOR_ADMIN_PATH }}/variables/delete" class="inline-form" onsubmit="return confirm('Delete this variable?');">
                 <input type="hidden" name="key" value="{{ v.key }}">
-                <button type="submit" class="btn btn-danger btn-small">✕</button>
+                <button type="submit" class="btn btn-danger btn-small" aria-label="Delete variable {{ v.key }}">✕</button>
               </form>
             </div>
           </td>

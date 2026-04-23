@@ -45,10 +45,10 @@
           <td class="u-text-sm u-text-muted">{{ p.description or '—' }}</td>
           <td class="cell-actions">
             <div class="cell-action-group">
-              <button type="button" class="btn btn-ghost btn-small">✏</button>
+              <button type="button" class="btn btn-ghost btn-small" aria-label="Edit pool {{ p.pool_name }}">✏</button>
               <form method="post" action="{{ MONITOR_ADMIN_PATH }}/pools/delete" class="inline-form" onsubmit="return confirm('Delete this pool?');">
                 <input type="hidden" name="pool_name" value="{{ p.pool_name }}">
-                <button type="submit" class="btn btn-danger btn-small">✕</button>
+                <button type="submit" class="btn btn-danger btn-small" aria-label="Delete pool {{ p.pool_name }}">✕</button>
               </form>
             </div>
           </td>
