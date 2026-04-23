@@ -43,7 +43,7 @@
       <div>
         <h2>Connections</h2>
       </div>
-      <button type="button" class="btn btn-ghost btn-small" onclick="document.getElementById('conn-add-form').classList.toggle('active')">+ Add Connection</button>
+      <button type="button" class="btn btn-ghost btn-small" onclick="(function(el){el.hidden=!el.hidden;})(document.getElementById('conn-add-form'))">+ Add Connection</button>
     </div>
     <div class="table-wrap">
       <table class="air-table">
@@ -98,7 +98,7 @@
       <div>
         <h2>Variables</h2>
       </div>
-      <button type="button" class="btn btn-ghost btn-small" onclick="document.getElementById('var-add-form').classList.toggle('active')">+ Add Variable</button>
+      <button type="button" class="btn btn-ghost btn-small" onclick="(function(el){el.hidden=!el.hidden;})(document.getElementById('var-add-form'))">+ Add Variable</button>
     </div>
     <div class="table-wrap">
       <table class="air-table">
@@ -143,7 +143,7 @@
       <div>
         <h2>Pools</h2>
       </div>
-      <button type="button" class="btn btn-ghost btn-small" onclick="document.getElementById('pool-add-form').classList.toggle('active')">+ Add Pool</button>
+      <button type="button" class="btn btn-ghost btn-small" onclick="(function(el){el.hidden=!el.hidden;})(document.getElementById('pool-add-form'))">+ Add Pool</button>
     </div>
     <div class="table-wrap">
       <table class="air-table">
