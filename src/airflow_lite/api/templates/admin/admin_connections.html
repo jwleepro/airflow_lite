@@ -44,11 +44,11 @@
           <td class="u-text-sm u-text-muted">{{ c.description or '—' }}</td>
           <td class="cell-actions">
             <div class="cell-action-group">
-              <button type="button" class="btn btn-ghost btn-small">✏</button>
-              <button type="button" class="btn btn-ghost btn-small">Test</button>
+              <button type="button" class="btn btn-ghost btn-small" aria-label="Edit connection {{ c.conn_id }}">✏</button>
+              <button type="button" class="btn btn-ghost btn-small" aria-label="Test connection {{ c.conn_id }}">Test</button>
               <form method="post" action="{{ MONITOR_ADMIN_PATH }}/connections/delete" class="inline-form" onsubmit="return confirm('Delete this connection?');">
                 <input type="hidden" name="conn_id" value="{{ c.conn_id }}">
-                <button type="submit" class="btn btn-danger btn-small">✕</button>
+                <button type="submit" class="btn btn-danger btn-small" aria-label="Delete connection {{ c.conn_id }}">✕</button>
               </form>
             </div>
           </td>

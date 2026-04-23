@@ -32,6 +32,7 @@
     <span class="u-text-sm u-text-muted">Attempt:</span>
     {% for i in range(1, max_attempts + 1) %}
     <button type="button" class="logs-attempt-btn {% if i == attempt %}active{% endif %}"
+            aria-label="Attempt {{ i }}"
             onclick="selectAttempt({{ i }})">{{ i }}</button>
     {% endfor %}
   </div>
@@ -43,6 +44,7 @@
     {% for level in ['ALL', 'INFO', 'WARNING', 'ERROR', 'DEBUG'] %}
     <button type="button" class="logs-level-btn {% if level == selected_level %}active{% endif %} logs-level-{{ level|lower }}"
             data-level="{{ level }}"
+            aria-label="Filter by log level {{ level }}"
             onclick="filterByLevel('{{ level }}')">{{ level }}</button>
     {% endfor %}
   </div>
