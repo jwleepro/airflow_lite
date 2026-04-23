@@ -12,7 +12,7 @@
     </div>
   </div>
 
-  <form class="dag-filter-row" method="get" action="/monitor/browse/audit-logs">
+  <form class="dag-filter-row" method="get" action="{{ MONITOR_BROWSE_AUDIT_LOGS_PATH }}">
     <div class="dag-search-box">
       <span class="search-icon-inline">&#x290D;</span>
       <input type="text" name="q" value="{{ search_query|default('') }}" placeholder="Search audit logs..." class="dag-search-input">
