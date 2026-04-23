@@ -56,13 +56,17 @@
         <tr>
           <td><a class="table-link" href="{{ lang_url(monitor_pipeline_detail_path(task.dag_id)) }}">{{ task.dag_id }}</a></td>
           <td class="cell-code">{{ task.task_id }}</td>
-          <td class="cell-code u-text-muted">{{ task.run_id[:12] }}</td>
+          <td class="cell-code u-text-muted">{{ truncate_id(task.run_id) }}</td>
           <td><span class="status {{ tone_of(task.status) }}">{{ task.status }}</span></td>
           <td class="u-text-center">{{ task.try_number|default(1) }}/{{ task.max_tries|default(3) }}</td>
           <td>{{ task.start_date|default('-') }}</td>
           <td>{{ task.duration|default('-') }}</td>
           <td class="cell-actions">
+            {% if task.run_id %}
             <a class="btn btn-ghost btn-small" href="{{ lang_url(monitor_pipeline_run_detail_path(task.dag_id, task.run_id)) }}">Logs</a>
+            {% else %}
+            <span class="btn btn-ghost btn-small" aria-disabled="true" style="opacity:0.4;cursor:not-allowed;">Logs</span>
+            {% endif %}
           </td>
         </tr>
         {% else %}

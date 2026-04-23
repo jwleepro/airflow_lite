@@ -64,6 +64,22 @@ from airflow_lite.api.webui_status import tone_of
 from airflow_lite.i18n import DEFAULT_LANGUAGE
 
 
+def truncate_id(value: object, length: int = 12, fallback: str = "-") -> str:
+    """Return a safely truncated string representation of *value*.
+
+    When *value* is ``None``, an empty string, or not a string, *fallback*
+    is returned instead of raising a ``TypeError`` / ``AttributeError``.
+    If the string is longer than *length* characters a trailing ``"…"`` is
+    appended so the caller can distinguish a truncated ID from an exact one.
+    """
+    if not value:
+        return fallback
+    s = str(value)
+    if len(s) <= length:
+        return s
+    return s[:length] + "…"
+
+
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 
@@ -96,6 +112,7 @@ def _make_env() -> Environment:
         fmt=fmt,
         fmt_duration=fmt_duration,
         tone_of=tone_of,
+        truncate_id=truncate_id,
         # Raw SVG icons — must be output with |safe
         ICON_HOME=Markup(ICON_HOME),
         ICON_PIPELINES=Markup(ICON_PIPELINES),
