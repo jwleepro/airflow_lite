@@ -247,7 +247,7 @@ def render_pipeline_list_page(
             error_message_max_length=error_message_max_length,
         ),
         search_query=search_query,
-        selected_state=state if state in {"ok", "warn", "bad"} else "all",
+        selected_state=state if state in STATUS_GROUPS else "all",
         filter_reset_href_raw=build_url(MONITOR_PIPELINES_PATH),
         filter_summary=t(
             language,
