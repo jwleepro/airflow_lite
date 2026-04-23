@@ -24,7 +24,7 @@
   </head>
   <body>
     <div class="app-shell">
-      <aside class="sidebar">
+      <aside class="sidebar" id="sidebar" data-collapsed="false">
         <div class="sidebar-brand-wrap">
           <a class="sidebar-brand" href="{{ lang_url(MONITOR_PATH) }}" aria-label="Airflow Lite">
             <svg class="brand-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -35,6 +35,10 @@
               <span class="brand-subtitle">{{ t('webui.layout.brand_subtitle') }}</span>
             </div>
           </a>
+          <button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-label="Toggle sidebar" aria-expanded="true">
+            <span class="sidebar-toggle-line" aria-hidden="true"></span>
+            <span class="sidebar-toggle-line" aria-hidden="true"></span>
+          </button>
         </div>
 
         <nav class="sidebar-nav" aria-label="Primary">
@@ -70,23 +74,52 @@
             {% endfor %}
           </div>
           {% endfor %}
+          <div class="sidebar-submenu-group">
+            {% set browse_active = active_path in [MONITOR_PIPELINES_PATH, MONITOR_ANALYTICS_PATH, MONITOR_EXPORTS_PATH] %}
+            <button class="submenu-toggle{% if browse_active %} active{% endif %}" type="button" data-submenu-toggle="browse" aria-expanded="{% if browse_active %}true{% else %}false{% endif %}">
+              <span class="sidebar-icon" aria-hidden="true">{{ ICON_PIPELINES }}</span>
+              <span class="sidebar-label">Browse</span>
+              <span class="submenu-caret" aria-hidden="true"></span>
+            </button>
+            <div class="submenu-list" data-submenu-panel="browse" {% if not browse_active %}hidden{% endif %}>
+              <a class="submenu-link{% if MONITOR_PIPELINES_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}">{{ t('webui.layout.nav.pipelines') }}</a>
+              <a class="submenu-link{% if MONITOR_ANALYTICS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ANALYTICS_PATH) }}">{{ t('webui.layout.nav.analytics') }}</a>
+              <a class="submenu-link{% if MONITOR_EXPORTS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_EXPORTS_PATH) }}">{{ t('webui.layout.nav.exports') }}</a>
+            </div>
+          </div>
+          <div class="sidebar-submenu-group">
+            {% set admin_active = active_path == MONITOR_ADMIN_PATH %}
+            <button class="submenu-toggle{% if admin_active %} active{% endif %}" type="button" data-submenu-toggle="admin" aria-expanded="{% if admin_active %}true{% else %}false{% endif %}">
+              <span class="sidebar-icon" aria-hidden="true">{{ ICON_ADMIN }}</span>
+              <span class="sidebar-label">Admin</span>
+              <span class="submenu-caret" aria-hidden="true"></span>
+            </button>
+            <div class="submenu-list" data-submenu-panel="admin" {% if not admin_active %}hidden{% endif %}>
+              <a class="submenu-link{% if MONITOR_ADMIN_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_PATH) }}">{{ t('webui.layout.nav.admin') }}</a>
+              <a class="submenu-link" href="{{ lang_url('/docs') }}" target="_blank" rel="noreferrer">{{ t('webui.layout.link.swagger') }}</a>
+            </div>
+          </div>
+          <div class="sidebar-submenu-group">
+            <button class="submenu-toggle" type="button" data-submenu-toggle="security" aria-expanded="false">
+              <span class="sidebar-icon" aria-hidden="true">{{ ICON_DOCS }}</span>
+              <span class="sidebar-label">Security</span>
+              <span class="submenu-caret" aria-hidden="true"></span>
+            </button>
+            <div class="submenu-list" data-submenu-panel="security" hidden>
+              <span class="submenu-link is-disabled">Policies</span>
+              <span class="submenu-link is-disabled">Audit Logs</span>
+            </div>
+          </div>
         </nav>
 
         <div class="sidebar-footer">
-          <p class="sidebar-section-label">{{ t('webui.layout.section.platform') }}</p>
-          <a
-            class="sidebar-utility{% if MONITOR_ADMIN_PATH == active_path %} active{% endif %}"
-            href="{{ lang_url(MONITOR_ADMIN_PATH) }}"
-            title="{{ t('webui.layout.nav.admin') }}"
-            aria-current="{% if MONITOR_ADMIN_PATH == active_path %}page{% else %}false{% endif %}"
-          >
-            <span class="sidebar-icon" aria-hidden="true">{{ ICON_ADMIN }}</span>
-            <span class="sidebar-label">{{ t('webui.layout.nav.admin') }}</span>
-          </a>
-          <a class="sidebar-utility" href="{{ lang_url('/docs') }}" target="_blank" rel="noreferrer" title="{{ t('webui.layout.link.swagger') }}">
-            <span class="sidebar-icon" aria-hidden="true">{{ ICON_DOCS }}</span>
-            <span class="sidebar-label">{{ t('webui.layout.link.swagger') }}</span>
-          </a>
+          <div class="sidebar-profile">
+            <div class="sidebar-avatar" aria-hidden="true">AL</div>
+            <div class="sidebar-profile-copy">
+              <strong>Airflow Lite</strong>
+              <span>Local Operator</span>
+            </div>
+          </div>
           <button id="theme-toggle" class="sidebar-utility theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme"></button>
         </div>
       </aside>
@@ -164,6 +197,50 @@
         if (!btn) {
           return;
         }
+
+        function togglePanel(toggle, panel, expanded) {
+          toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+          if (expanded) {
+            panel.removeAttribute("hidden");
+          } else {
+            panel.setAttribute("hidden", "");
+          }
+        }
+
+        var sidebar = document.getElementById("sidebar");
+        var sidebarToggle = document.getElementById("sidebar-toggle");
+        if (sidebar && sidebarToggle) {
+          var collapsed = false;
+          try {
+            collapsed = localStorage.getItem("airflow_lite_sidebar_collapsed") === "1";
+          } catch (e) {}
+
+          function setSidebarCollapsed(value) {
+            sidebar.setAttribute("data-collapsed", value ? "true" : "false");
+            sidebarToggle.setAttribute("aria-expanded", value ? "false" : "true");
+            try { localStorage.setItem("airflow_lite_sidebar_collapsed", value ? "1" : "0"); } catch (e) {}
+          }
+
+          setSidebarCollapsed(collapsed);
+
+          sidebarToggle.addEventListener("click", function() {
+            var next = sidebar.getAttribute("data-collapsed") !== "true";
+            setSidebarCollapsed(next);
+          });
+        }
+
+        var submenuToggles = document.querySelectorAll("[data-submenu-toggle]");
+        submenuToggles.forEach(function(toggle) {
+          var name = toggle.getAttribute("data-submenu-toggle");
+          var panel = document.querySelector("[data-submenu-panel='" + name + "']");
+          if (!panel) {
+            return;
+          }
+          toggle.addEventListener("click", function() {
+            var expanded = toggle.getAttribute("aria-expanded") === "true";
+            togglePanel(toggle, panel, !expanded);
+          });
+        });
 
         renderButton(btn);
         btn.addEventListener("click", function() {

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <p class="eyebrow">{{ t('webui.assets.table.eyebrow') }}</p>
+      <h2>{{ t('webui.assets.table.title') }}</h2>
+    </div>
+    <span class="muted">{{ t('webui.assets.table.hint') }}</span>
+  </div>
+  <div class="table-wrap">
+    <table class="air-table">
+      <thead>
+        <tr>
+          <th>{{ t('webui.assets.table.name') }}</th>
+          <th>{{ t('webui.assets.table.type') }}</th>
+          <th>{{ t('webui.assets.table.status') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>{{ t('webui.assets.table.empty.name') }}</td>
+          <td>-</td>
+          <td><span class="status pending">{{ t('webui.assets.status.placeholder') }}</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <p class="eyebrow">{{ t('webui.browse.task_instances.eyebrow') }}</p>
+      <h2>{{ t('webui.browse.task_instances.table.title') }}</h2>
+    </div>
+    <span class="muted">{{ t('webui.browse.placeholder.hint') }}</span>
+  </div>
+  <div class="table-wrap">
+    <table class="air-table">
+      <thead>
+        <tr>
+          <th>{{ t('webui.browse.task_instances.table.column_1') }}</th>
+          <th>{{ t('webui.browse.task_instances.table.column_2') }}</th>
+          <th>{{ t('webui.browse.task_instances.table.column_3') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>{{ t('webui.browse.placeholder.empty') }}</td>
+          <td>-</td>
+          <td><span class="status pending">{{ t('webui.browse.placeholder.status') }}</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
