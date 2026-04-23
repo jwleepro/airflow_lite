@@ -9,7 +9,13 @@ from airflow_lite.api.paths import (
     MONITOR_BROWSE_JOBS_PATH,
     MONITOR_BROWSE_TASK_INSTANCES_PATH,
 )
-from airflow_lite.api.webui_browse import render_browse_page
+from airflow_lite.api.webui_browse import (
+    render_browse_audit_logs_page,
+    render_browse_backfills_page,
+    render_browse_dag_runs_page,
+    render_browse_jobs_page,
+    render_browse_task_instances_page,
+)
 
 router = APIRouter(include_in_schema=False)
 
@@ -17,10 +23,7 @@ router = APIRouter(include_in_schema=False)
 @router.get(MONITOR_BROWSE_BACKFILLS_PATH, response_class=HTMLResponse)
 def get_browse_backfills_page(language: str = Depends(get_language)):
     return HTMLResponse(
-        render_browse_page(
-            "browse/browse_backfills.html",
-            title_key="webui.browse.backfills.title",
-            subtitle_key="webui.browse.backfills.subtitle",
+        render_browse_backfills_page(
             active_path=MONITOR_BROWSE_BACKFILLS_PATH,
             language=language,
         )
@@ -30,10 +33,7 @@ def get_browse_backfills_page(language: str = Depends(get_language)):
 @router.get(MONITOR_BROWSE_JOBS_PATH, response_class=HTMLResponse)
 def get_browse_jobs_page(language: str = Depends(get_language)):
     return HTMLResponse(
-        render_browse_page(
-            "browse/browse_jobs.html",
-            title_key="webui.browse.jobs.title",
-            subtitle_key="webui.browse.jobs.subtitle",
+        render_browse_jobs_page(
             active_path=MONITOR_BROWSE_JOBS_PATH,
             language=language,
         )
@@ -43,10 +43,7 @@ def get_browse_jobs_page(language: str = Depends(get_language)):
 @router.get(MONITOR_BROWSE_AUDIT_LOGS_PATH, response_class=HTMLResponse)
 def get_browse_audit_logs_page(language: str = Depends(get_language)):
     return HTMLResponse(
-        render_browse_page(
-            "browse/browse_audit_logs.html",
-            title_key="webui.browse.audit_logs.title",
-            subtitle_key="webui.browse.audit_logs.subtitle",
+        render_browse_audit_logs_page(
             active_path=MONITOR_BROWSE_AUDIT_LOGS_PATH,
             language=language,
         )
@@ -56,10 +53,7 @@ def get_browse_audit_logs_page(language: str = Depends(get_language)):
 @router.get(MONITOR_BROWSE_TASK_INSTANCES_PATH, response_class=HTMLResponse)
 def get_browse_task_instances_page(language: str = Depends(get_language)):
     return HTMLResponse(
-        render_browse_page(
-            "browse/browse_task_instances.html",
-            title_key="webui.browse.task_instances.title",
-            subtitle_key="webui.browse.task_instances.subtitle",
+        render_browse_task_instances_page(
             active_path=MONITOR_BROWSE_TASK_INSTANCES_PATH,
             language=language,
         )
@@ -69,10 +63,7 @@ def get_browse_task_instances_page(language: str = Depends(get_language)):
 @router.get(MONITOR_BROWSE_DAG_RUNS_PATH, response_class=HTMLResponse)
 def get_browse_dag_runs_page(language: str = Depends(get_language)):
     return HTMLResponse(
-        render_browse_page(
-            "browse/browse_dag_runs.html",
-            title_key="webui.browse.dag_runs.title",
-            subtitle_key="webui.browse.dag_runs.subtitle",
+        render_browse_dag_runs_page(
             active_path=MONITOR_BROWSE_DAG_RUNS_PATH,
             language=language,
         )

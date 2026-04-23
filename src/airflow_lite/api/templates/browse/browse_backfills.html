@@ -1,30 +1,69 @@
 {% extends "base.html" %}
 {% block content %}
+
 <section class="panel">
   <div class="panel-head">
     <div>
-      <p class="eyebrow">{{ t('webui.browse.backfills.eyebrow') }}</p>
-      <h2>{{ t('webui.browse.backfills.table.title') }}</h2>
+      <p class="eyebrow">Backfills</p>
+      <h2>Backfills</h2>
     </div>
-    <span class="muted">{{ t('webui.browse.placeholder.hint') }}</span>
+    <div class="chip-list">
+      <span class="chip">{{ total_count|default(0) }} total</span>
+    </div>
   </div>
+
+  <form class="dag-filter-row" method="get" action="{{ MONITOR_BROWSE_BACKFILLS_PATH }}">
+    <div class="dag-search-box">
+      <span class="search-icon-inline">&#x290D;</span>
+      <input type="text" name="q" value="{{ search_query|default('') }}" placeholder="Search backfills..." class="dag-search-input">
+    </div>
+    <select name="status" class="dag-filter-select">
+      <option value="all">All Statuses</option>
+      <option value="success"{% if selected_status == 'success' %} selected{% endif %}>Success</option>
+      <option value="running"{% if selected_status == 'running' %} selected{% endif %}>Running</option>
+      <option value="failed"{% if selected_status == 'failed' %} selected{% endif %}>Failed</option>
+    </select>
+    <select name="dag_id" class="dag-filter-select">
+      <option value="">All DAGs</option>
+      {% for dag_id in dag_ids|default([]) %}
+      <option value="{{ dag_id }}"{% if dag_id == selected_dag %} selected{% endif %}>{{ dag_id }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-ghost btn-small">Apply</button>
+  </form>
+</section>
+
+<section class="panel">
   <div class="table-wrap">
     <table class="air-table">
       <thead>
         <tr>
-          <th>{{ t('webui.browse.backfills.table.column_1') }}</th>
-          <th>{{ t('webui.browse.backfills.table.column_2') }}</th>
-          <th>{{ t('webui.browse.backfills.table.column_3') }}</th>
+          <th>DAG ID</th>
+          <th>Run ID</th>
+          <th>Status</th>
+          <th>Start Date</th>
+          <th>End Date</th>
+          <th>Triggered At</th>
         </tr>
       </thead>
       <tbody>
+        {% for bf in backfills|default([]) %}
         <tr>
-          <td>{{ t('webui.browse.placeholder.empty') }}</td>
-          <td>-</td>
-          <td><span class="status pending">{{ t('webui.browse.placeholder.status') }}</span></td>
+          <td><a class="table-link" href="{{ lang_url(monitor_pipeline_detail_path(bf.dag_id)) }}">{{ bf.dag_id }}</a></td>
+          <td class="cell-code u-text-muted">{{ bf.run_id|default('-') }}</td>
+          <td><span class="status {{ tone_of(bf.status) }}">{{ bf.status|default('unknown') }}</span></td>
+          <td>{{ bf.start_date|default('-') }}</td>
+          <td>{{ bf.end_date|default('-') }}</td>
+          <td class="u-text-muted u-text-sm">{{ bf.triggered_at|default('-') }}</td>
         </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="empty">No backfills found</td>
+        </tr>
+        {% endfor %}
       </tbody>
     </table>
   </div>
 </section>
+
 {% endblock %}
