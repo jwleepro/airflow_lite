@@ -2,32 +2,32 @@
 {% import "_macros.html" as m %}
 {% block content %}
 
-<section class="hero-surface">
+<section class="hero-surface analytics-hero">
   <div class="hero-copy">
     <p class="eyebrow">{{ t('webui.analytics.metadata.eyebrow') }}</p>
     <h2>{{ dashboard.title }}</h2>
     <p class="muted">{{ analytics_refresh_notice }}</p>
   </div>
-  <div class="chip-list">
+  <div class="chip-list analytics-summary-chips">
     <span class="chip">{{ dataset }}</span>
     <span class="chip">{{ dashboard.contract_version }}</span>
     <span class="chip">{{ active_filter_count }} {{ t('webui.analytics.summary.active_filters.label') }}</span>
   </div>
 </section>
 
-<section class="summary-grid">
+<section class="summary-grid analytics-summary-grid">
   {{ m.summary_tile(t('webui.analytics.summary.dashboard.label'), dashboard.title, t('webui.analytics.summary.dashboard.detail')) }}
   {{ m.summary_tile(t('webui.analytics.summary.charts.label'), (dashboard.charts|length)|string, t('webui.analytics.summary.charts.detail')) }}
   {{ m.summary_tile(t('webui.analytics.summary.active_filters.label'), active_filter_count|string, t('webui.analytics.summary.active_filters.detail')) }}
   {{ m.summary_tile(t('webui.analytics.summary.recent_jobs.label'), (export_jobs|length)|string, t('webui.analytics.summary.recent_jobs.detail'), 'warn' if export_jobs else 'neutral') }}
 </section>
 
-<section class="panel">
+<section class="panel analytics-metadata-panel">
   <div class="panel-head">
     <div><p class="eyebrow">{{ t('webui.analytics.metadata.eyebrow') }}</p><h2>{{ dashboard.title }}</h2></div>
     <span class="muted refresh-notice">{{ analytics_refresh_notice }}</span>
   </div>
-  <dl class="meta-grid">
+  <dl class="meta-grid analytics-meta-grid">
     <div><dt>{{ t('webui.analytics.metadata.dashboard_id') }}</dt><dd>{{ dashboard_id }}</dd></div>
     <div><dt>{{ t('webui.analytics.metadata.dataset') }}</dt><dd>{{ dataset }}</dd></div>
     <div><dt>{{ t('webui.analytics.metadata.last_refreshed') }}</dt><dd>{{ fmt(dashboard.last_refreshed_at) }}</dd></div>
@@ -35,15 +35,15 @@
   </dl>
 </section>
 
-<section class="panel">
+<section class="panel analytics-filter-panel">
   <div class="panel-head">
     <div><p class="eyebrow">{{ t('webui.analytics.filter_bar.eyebrow') }}</p><h2>{{ t('webui.analytics.filter_bar.title') }}</h2></div>
     <span class="muted">{{ t('webui.analytics.filter_bar.readonly_hint') }}</span>
   </div>
-  <form class="filter-form" method="get" action="{{ lang_url(MONITOR_ANALYTICS_PATH) }}">
+  <form class="filter-form analytics-filter-form" method="get" action="{{ lang_url(MONITOR_ANALYTICS_PATH) }}">
     <input type="hidden" name="dataset" value="{{ dataset }}">
     <input type="hidden" name="dashboard_id" value="{{ dashboard_id }}">
-    <div class="filter-grid">
+    <div class="filter-grid analytics-filter-grid">
       {% if dashboard.filters %}
         {% for filter_def in dashboard.filters %}
         {% set selected_values = filters_applied.get(filter_def.key, []) %}
@@ -66,7 +66,7 @@
       <a class="btn btn-ghost" href="{{ lang_url(dashboard_api_href_raw) }}" target="_blank" rel="noreferrer">{{ t('webui.analytics.filter_bar.dashboard_api') }}</a>
     </div>
   </form>
-  <div class="chip-list panel-chip-list">
+  <div class="chip-list panel-chip-list analytics-active-filters">
     {% if filters_applied %}
       {% for key, values in filters_applied.items() %}
         {% for value in values %}
@@ -79,12 +79,12 @@
   </div>
 </section>
 
-<section class="panel">
+<section class="panel analytics-overview-panel">
   <div class="panel-head">
     <div><p class="eyebrow">{{ t('webui.analytics.dataset_overview.eyebrow') }}</p><h2>{{ t('webui.analytics.dataset_overview.title') }}</h2></div>
     <span class="muted">{{ t('webui.analytics.dataset_overview.hint') }}</span>
   </div>
-  <div class="summary-grid">
+  <div class="summary-grid analytics-cards-grid">
     {% if dashboard.cards %}
       {% for card in dashboard.cards %}
       {% set metric = metric_map.get(card.metric_key, {}) %}
@@ -103,20 +103,20 @@
   </div>
 </section>
 
-<section class="panel">
+<section class="panel analytics-charts-panel">
   <div class="panel-head"><div><p class="eyebrow">{{ t('webui.analytics.charts.eyebrow') }}</p><h2>{{ t('webui.analytics.charts.title') }}</h2></div></div>
-  <div class="grid-2">
+  <div class="grid-2 analytics-charts-grid">
     {% if dashboard.charts %}
       {% for chart_def in dashboard.charts %}
       {% set chart_response = charts.get(chart_def.chart_id) %}
       {% set points = (chart_response.series[0].points if chart_response and chart_response.series else []) %}
       {% set max_value = (points|map(attribute='value')|max) if points else 1 %}
-      <section class="subpanel">
+      <section class="subpanel analytics-chart-subpanel">
         <div class="panel-head">
           <div><p class="eyebrow">{{ t('webui.analytics.chart.eyebrow') }}</p><h2>{{ chart_def.title }}</h2></div>
           <a class="table-link" href="{{ lang_url(chart_def.query_endpoint) }}" target="_blank" rel="noreferrer">{{ t('webui.analytics.chart.query_api') }}</a>
         </div>
-        <div class="chart-list">
+        <div class="chart-list analytics-chart-bars">
           {% if points %}
             {% for p in points %}
             {% set width = ([6, (p.value / max_value * 100)|int]|max) if max_value else 0 %}
@@ -138,15 +138,15 @@
   </div>
 </section>
 
-<div class="grid-2">
-  <section class="panel">
+<div class="grid-2 analytics-bottom-grid">
+  <section class="panel analytics-drilldown-panel">
     <div class="panel-head">
       <div><p class="eyebrow">{{ t('webui.analytics.drilldown.eyebrow') }}</p><h2>{{ t('webui.analytics.drilldown.title') }}</h2></div>
       <span class="muted">{{ t('webui.analytics.drilldown.hint') }}</span>
     </div>
     {% if detail_preview %}
-      <div class="table-wrap">
-        <table class="air-table">
+      <div class="table-wrap analytics-drilldown-table-wrap">
+        <table class="air-table analytics-drilldown-table">
           <thead><tr>
             {% for col in detail_preview.columns %}<th>{{ col.label }}</th>{% endfor %}
           </tr></thead>
@@ -167,13 +167,13 @@
       <p class="empty">{{ t('webui.analytics.empty.no_drilldown_preview') }}</p>
     {% endif %}
   </section>
-  <section class="stack">
-    <section class="panel">
+  <section class="stack analytics-stack">
+    <section class="panel analytics-exports-panel">
       <div class="panel-head">
         <div><p class="eyebrow">{{ t('webui.analytics.exports.eyebrow') }}</p><h2>{{ t('webui.analytics.exports.title') }}</h2></div>
         <span class="muted">{{ t('webui.analytics.exports.hint') }}</span>
       </div>
-      <div class="actions">
+      <div class="actions analytics-export-actions">
         {% set available_actions = dashboard.export_actions|selectattr('status','equalto','available')|list %}
         {% if available_actions %}
           {% for action in available_actions %}
@@ -196,13 +196,13 @@
         {% endif %}
       </div>
     </section>
-    <section class="panel">
+    <section class="panel analytics-jobs-panel">
       <div class="panel-head">
         <div><p class="eyebrow">{{ t('webui.analytics.recent_jobs.eyebrow') }}</p><h2>{{ t('webui.analytics.recent_jobs.title') }}</h2></div>
         <a class="table-link" href="{{ lang_url(full_export_monitor_href_raw) }}">{{ t('webui.analytics.recent_jobs.full_monitor') }}</a>
       </div>
-      <div class="table-wrap">
-        <table class="air-table">
+      <div class="table-wrap analytics-jobs-table-wrap">
+        <table class="air-table analytics-jobs-table">
           <thead><tr><th>{{ t('webui.analytics.recent_jobs.table.job_id') }}</th><th>{{ t('webui.analytics.recent_jobs.table.status') }}</th><th>{{ t('webui.analytics.recent_jobs.table.format') }}</th><th>{{ t('webui.analytics.recent_jobs.table.updated') }}</th></tr></thead>
           <tbody>
             {% for job in export_jobs %}
