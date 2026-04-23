@@ -6,13 +6,13 @@
 <meta http-equiv="refresh" content="5">
 {% endif %}
 
-<section class="panel">
-  <div class="panel-head">
+<section class="panel run-detail-panel">
+  <div class="panel-head run-detail-header">
     <div>
       <p class="eyebrow">{{ t('webui.run_detail.eyebrow') }}</p>
       <h2>{{ pipeline_name }} &nbsp;&middot;&nbsp; {{ fmt(run.execution_date) }}</h2>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <div class="run-header-actions">
       {% if run_status == 'queued' %}
       <span class="status queued-badge">{{ t('webui.status.queued') }}</span>
       {% else %}
@@ -29,7 +29,7 @@
   </div>
   {% endif %}
 
-  <section class="summary-grid">
+  <section class="summary-grid run-summary-grid">
     <article class="summary-tile neutral">
       <p class="summary-label">{{ t('webui.run_detail.summary.run_id') }}</p>
       <p class="summary-value cell-code">{{ run.id[:8] }}</p>
@@ -58,9 +58,9 @@
   </section>
 </section>
 
-<div class="detail-layout">
-  <aside class="detail-sidebar">
-    <section class="panel sticky-panel">
+<div class="detail-layout run-detail-layout">
+  <aside class="detail-sidebar run-sidebar">
+    <section class="panel sticky-panel run-grid-panel">
       <div class="panel-head">
         <div>
           <p class="eyebrow">{{ t('webui.run_detail.sidebar.eyebrow') }}</p>
@@ -103,8 +103,8 @@
     </section>
   </aside>
 
-  <section class="detail-main panel">
-    <div class="tab-bar">
+  <section class="detail-main panel run-main-panel">
+    <div class="tab-bar run-tab-bar">
       <button class="tab-btn active" data-tab="task-instances">{{ t('webui.run_detail.tab.task_instances') }}</button>
       <button class="tab-btn" data-tab="events">{{ t('webui.run_detail.tab.events') }}</button>
       <button class="tab-btn" data-tab="code">{{ t('webui.run_detail.tab.code') }}</button>
@@ -112,15 +112,15 @@
       <button class="tab-btn" data-tab="graph">{{ t('webui.run_detail.tab.graph_view') }}</button>
     </div>
 
-    <div class="tab-pane active" id="tab-task-instances">
-      <div class="panel-head">
+    <div class="tab-pane run-gantt-pane active" id="tab-task-instances">
+      <div class="panel-head gantt-panel-head">
         <div>
           <p class="eyebrow">{{ t('webui.run_detail.task_instances.eyebrow') }}</p>
           <h2>{{ t('webui.run_detail.task_instances.title') }}</h2>
         </div>
       </div>
-      <div class="table-wrap">
-        <table class="gantt-table">
+      <div class="table-wrap gantt-table-wrap">
+        <table class="gantt-table gantt-timeline-table">
           <thead>
             <tr>
               <th style="min-width:180px;">{{ t('webui.run_detail.table.step') }}</th>
@@ -158,15 +158,15 @@
       </div>
     </div>
 
-    <div class="tab-pane" id="tab-events">
-      <div class="panel-head">
+    <div class="tab-pane run-events-pane" id="tab-events">
+      <div class="panel-head events-panel-head">
         <div>
           <p class="eyebrow">{{ t('webui.run_detail.events.eyebrow') }}</p>
           <h2>{{ t('webui.run_detail.events.title') }}</h2>
         </div>
       </div>
       {% if events %}
-      <div class="event-list">
+      <div class="event-list run-event-timeline">
         {% for event in events %}
         <article class="event-row {{ event.tone }}">
           <div class="event-meta">
@@ -182,25 +182,25 @@
       {% endif %}
     </div>
 
-    <div class="tab-pane" id="tab-code">
-      <div class="panel-head">
+    <div class="tab-pane run-code-pane" id="tab-code">
+      <div class="panel-head code-panel-head">
         <div>
           <p class="eyebrow">{{ t('webui.run_detail.code.eyebrow') }}</p>
           <h2>{{ t('webui.run_detail.code.title') }}</h2>
         </div>
         <span class="muted">{{ t('webui.run_detail.code.hint') }}</span>
       </div>
-      <pre class="code-block"><code>{{ code_snapshot }}</code></pre>
+      <pre class="code-block run-code-block"><code>{{ code_snapshot }}</code></pre>
     </div>
 
-    <div class="tab-pane" id="tab-details">
-      <div class="panel-head">
+    <div class="tab-pane run-details-pane" id="tab-details">
+      <div class="panel-head details-panel-head">
         <div>
           <p class="eyebrow">{{ t('webui.run_detail.details.eyebrow') }}</p>
           <h2>{{ t('webui.run_detail.details.title') }}</h2>
         </div>
       </div>
-      <dl class="meta-grid">
+      <dl class="meta-grid run-meta-grid">
         <div><dt>{{ t('webui.run_detail.meta.run_id') }}</dt><dd class="cell-code">{{ fmt(run.id) }}</dd></div>
         <div><dt>{{ t('webui.run_detail.meta.trigger') }}</dt><dd>{{ fmt(run.trigger_type) }}</dd></div>
         <div><dt>{{ t('webui.run_detail.meta.duration') }}</dt><dd>{{ fmt(run_duration) }}</dd></div>
@@ -215,8 +215,8 @@
       </dl>
     </div>
 
-    <div class="tab-pane" id="tab-graph">
-      <div class="panel-head">
+    <div class="tab-pane run-graph-pane" id="tab-graph">
+      <div class="panel-head graph-panel-head">
         <div>
           <p class="eyebrow">{{ t('webui.run_detail.graph.eyebrow') }}</p>
           <h2>{{ t('webui.run_detail.graph.title') }}</h2>
@@ -224,7 +224,7 @@
       </div>
       {% if step_rows %}
       <p class="eyebrow" style="margin-bottom:14px;">{{ t('webui.run_detail.graph.description') }}</p>
-      <div class="graph-flow">
+      <div class="graph-flow run-dag-flow">
         {% for step in step_rows %}
         <div class="graph-node {{ step.tone }}">
           <span class="graph-node-name">{{ fmt(step.name) }}</span>
