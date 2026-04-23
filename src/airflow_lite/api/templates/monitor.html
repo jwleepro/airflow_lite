@@ -19,14 +19,14 @@
   </div>
 </section>
 
-<section class="summary-grid">
+<section class="summary-grid monitor-stats-grid">
   {{ m.summary_tile(t('webui.monitor.summary.configured_pipelines.label'), total_pipelines|string, t('webui.monitor.summary.configured_pipelines.detail')) }}
   {{ m.summary_tile(t('webui.monitor.summary.healthy_last_run.label'), healthy_runs|string, t('webui.monitor.summary.healthy_last_run.detail'), 'ok') }}
   {{ m.summary_tile(t('webui.monitor.summary.active_runs.label'), active_runs|string, t('webui.monitor.summary.active_runs.detail'), 'warn' if active_runs else 'neutral') }}
   {{ m.summary_tile(t('webui.monitor.summary.failed_last_run.label'), failed_runs|string, t('webui.monitor.summary.failed_last_run.detail'), 'bad' if failed_runs else 'neutral') }}
 </section>
 
-<section class="panel">
+<section class="panel monitor-filter-panel">
   <div class="panel-head">
     <div>
       <p class="eyebrow">{{ t('webui.monitor.list.filter.eyebrow') }}</p>
@@ -56,7 +56,7 @@
   </form>
 </section>
 
-<section class="panel">
+<section class="panel monitor-inventory-panel">
   <div class="panel-head">
     <div>
       <p class="eyebrow">{{ t('webui.monitor.inventory.eyebrow') }}</p>
@@ -65,7 +65,7 @@
     <span class="muted refresh-notice">{{ monitor_notice }}</span>
   </div>
 
-  <div class="chip-list panel-chip-list">
+  <div class="chip-list panel-chip-list monitor-inventory-chips">
     <span class="chip">{{ total_pipelines }} {{ t('webui.layout.nav.pipelines') }}</span>
     <span class="chip {% if failed_runs %}chip-bad{% endif %}">{{ failed_runs }} {{ t('webui.monitor.summary.failed_last_run.label') }}</span>
     <span class="chip {% if active_runs %}chip-warn{% endif %}">{{ active_runs }} {{ t('webui.monitor.summary.active_runs.label') }}</span>

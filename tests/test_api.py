@@ -242,6 +242,9 @@ def test_monitor_pipeline_list_page_renders_html_with_pipeline_summary(client):
     assert "Force rerun" in body
     assert "Force rerun runs again for the latest run date." in body
     assert "/monitor/pipelines/test_pipeline/trigger" in body
+    assert 'class="summary-grid monitor-stats-grid"' in body
+    assert 'class="panel monitor-filter-panel"' in body
+    assert 'class="panel monitor-inventory-panel"' in body
 
 
 def test_monitor_pipeline_list_page_recent_runs_render_latest_to_oldest():
