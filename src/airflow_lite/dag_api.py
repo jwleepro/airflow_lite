@@ -20,6 +20,7 @@ class Pipeline:
     incremental_key: str | None = None
 
     def to_pipeline_config(self) -> PipelineConfig:
+        from airflow_lite.config.settings import PipelineConfig
         from airflow_lite.pipeline_config_validation import validate_data_interval_schedule
 
         normalized_schedule = validate_data_interval_schedule(self.schedule)
