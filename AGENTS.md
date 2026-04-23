@@ -95,10 +95,11 @@ Oracle 11g -> [ingest] -> Parquet raw -> [mart] -> DuckDB -> [serve] -> FastAPI 
 
 ### Agent 선택 기준
 
-이 저장소가 별도로 유지하는 repository-local custom agent는 아래 2개만 둔다.
+이 저장소가 별도로 유지하는 repository-local custom agent는 아래 3개를 둔다.
 
 - `codex-meta-agent`: `.codex/`와 `reference/codex/` 구조나 규칙 수정
 - `github-automation-agent`: GitHub Actions CI, PR gate, label, publish workflow 자동화
+- `github-issue-cycle-agent`: milestone 순서 이슈 처리, `In Progress` 상태 동기화, 이슈별 git worktree 분리 실행
 
 그 외 planning, indexing, mart, query API, export, ops, review, test, docs 성격의 작업은 Codex 기본 제공 agent를 그대로 사용한다. 같은 이름의 역할이 있더라도 이 저장소에서는 별도 로컬 정의를 추가로 유지하지 않는다.
 
