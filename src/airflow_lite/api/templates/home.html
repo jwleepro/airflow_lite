@@ -16,8 +16,8 @@
 </section>
 
 {% if health_checks %}
-<section class="panel" style="padding:16px 20px;">
-  <p class="eyebrow" style="margin-bottom:12px;">{{ t('webui.monitor.health.eyebrow') }}</p>
+<section class="panel home-health-panel">
+  <p class="eyebrow home-health-eyebrow">{{ t('webui.monitor.health.eyebrow') }}</p>
   <div class="summary-grid">
     {% for check in health_checks %}
     {% set htone = 'ok' if check.status == 'ok' else ('warn' if check.status == 'degraded' else 'bad') %}
@@ -27,14 +27,14 @@
 </section>
 {% endif %}
 
-<section class="summary-grid">
+<section class="summary-grid home-stats-grid">
   {{ m.summary_tile(t('webui.monitor.summary.configured_pipelines.label'), total_pipelines|string, t('webui.monitor.summary.configured_pipelines.detail')) }}
   {{ m.summary_tile(t('webui.monitor.summary.healthy_last_run.label'), healthy_runs|string, t('webui.monitor.summary.healthy_last_run.detail'), 'ok') }}
   {{ m.summary_tile(t('webui.monitor.summary.active_runs.label'), active_runs|string, t('webui.monitor.summary.active_runs.detail'), 'warn' if active_runs else 'neutral') }}
   {{ m.summary_tile(t('webui.monitor.summary.failed_last_run.label'), failed_runs|string, t('webui.monitor.summary.failed_last_run.detail'), 'bad' if failed_runs else 'neutral') }}
 </section>
 
-<section class="panel">
+<section class="panel home-quick-links">
   <div class="panel-head">
     <div>
       <p class="eyebrow">{{ t('webui.monitor.home.quick_links.eyebrow') }}</p>
@@ -47,12 +47,12 @@
     <a class="btn btn-ghost" href="{{ lang_url(item.href) }}">{{ item.label }} ({{ item.count }})</a>
     {% endfor %}
   </div>
-  <div class="chip-list panel-chip-list" style="margin-top:14px;">
+  <div class="chip-list panel-chip-list home-live-chip-list">
     <span class="chip live-chip">{{ monitor_notice }}</span>
   </div>
 </section>
 
-<section class="panel">
+<section class="panel home-recent-runs">
   <div class="panel-head">
     <div>
       <p class="eyebrow">{{ t('webui.monitor.home.recent_activity.eyebrow') }}</p>

@@ -218,6 +218,9 @@ def test_monitor_home_page_renders_html_with_system_summary(client):
     assert "/monitor/pipelines/test_pipeline/runs/run-001" in body
     assert "manual" in body
     assert "success" in body
+    assert 'class="panel home-health-panel"' in body
+    assert 'class="summary-grid home-stats-grid"' in body
+    assert 'class="panel home-recent-runs"' in body
 
 
 def test_monitor_pipeline_list_page_renders_html_with_pipeline_summary(client):
