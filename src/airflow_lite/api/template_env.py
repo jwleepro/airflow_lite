@@ -56,6 +56,19 @@ from airflow_lite.i18n import DEFAULT_LANGUAGE
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 
+def truncate_id(value: str | None, max_len: int = 12, fallback: str = "-") -> str:
+    """run_id 등 식별자를 안전하게 잘라 반환한다.
+
+    *value* 가 ``None`` 이거나 빈 문자열이면 *fallback* 을 돌려준다.
+    *max_len* 을 초과하면 끝에 ``…`` 를 붙여 잘라낸다.
+    """
+    if not value:
+        return fallback
+    if len(value) <= max_len:
+        return value
+    return value[:max_len] + "…"
+
+
 @dataclass(frozen=True)
 class PageChrome:
     """페이지 공통 "크롬"(레이아웃 바깥 틀) 파라미터.
@@ -85,6 +98,7 @@ def _make_env() -> Environment:
         fmt=fmt,
         fmt_duration=fmt_duration,
         tone_of=tone_of,
+        truncate_id=truncate_id,
         # Raw SVG icons — must be output with |safe
         ICON_HOME=Markup(ICON_HOME),
         ICON_PIPELINES=Markup(ICON_PIPELINES),
