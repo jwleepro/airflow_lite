@@ -303,22 +303,16 @@
   </div>
   <div class="dag-task-panel-tabs">
     <button type="button" class="active" data-panel-tab="details">Details</button>
-    <button type="button" data-panel-tab="logs">Logs</button>
-    <button type="button" data-panel-tab="xcom">XCom</button>
+    <button type="button" data-panel-tab="logs" disabled title="Log viewer not yet available">Logs</button>
+    <button type="button" data-panel-tab="xcom" disabled title="XCom viewer not yet available">XCom</button>
   </div>
   <div class="dag-task-panel-content" id="task-panel-content">
     <div class="dag-task-panel-details">
       <div class="detail-row"><span>Status</span><span id="task-panel-status"></span></div>
-      <div class="detail-row"><span>Operator</span><span>PythonOperator</span></div>
       <div class="detail-row"><span>Duration</span><span id="task-panel-duration">-</span></div>
-      <div class="detail-row"><span>Try Number</span><span>1</span></div>
-      <div class="detail-row"><span>Max Tries</span><span>3</span></div>
-      <div class="detail-row"><span>Pool</span><span>default_pool</span></div>
     </div>
     <div class="dag-task-panel-actions">
-      <a id="task-panel-logs-link" class="btn btn-ghost btn-small" href="#">View Full Logs</a>
-      <button type="button" class="btn btn-ghost btn-small">Mark Success</button>
-      <button type="button" class="btn btn-danger btn-small">Clear</button>
+      <a id="task-panel-run-link" class="btn btn-ghost btn-small" href="#">View Run Detail</a>
     </div>
   </div>
 </div>
@@ -393,8 +387,11 @@ function selectNode(el) {
 
 function showTaskPanel(cell) {
   var panel = document.getElementById('task-panel');
-  document.getElementById('task-panel-name').textContent = cell.dataset.task;
-  document.getElementById('task-panel-run').textContent = cell.dataset.run;
+  var taskName = cell.dataset.task || '';
+  var runId = cell.dataset.run || '';
+  var dagId = cell.dataset.dag || '';
+  document.getElementById('task-panel-name').textContent = taskName;
+  document.getElementById('task-panel-run').textContent = runId;
   var rawStatus = cell.dataset.status || 'queued';
   var duration = cell.dataset.duration || '-';
   var statusMap = { ok: 'success', warn: 'running', bad: 'failed', neutral: 'queued' };
@@ -402,13 +399,22 @@ function showTaskPanel(cell) {
   var tone = toneMap[rawStatus] || rawStatus;
   document.getElementById('task-panel-status').innerHTML = '<span class="status ' + tone + '">' + (statusMap[tone] || rawStatus) + '</span>';
   document.getElementById('task-panel-duration').textContent = duration;
+  // Point "View Run Detail" to the run detail page when run_id is available
+  var runLink = document.getElementById('task-panel-run-link');
+  if (runId && dagId) {
+    runLink.href = '/monitor/pipelines/' + encodeURIComponent(dagId) + '/runs/' + encodeURIComponent(runId);
+    runLink.removeAttribute('hidden');
+  } else {
+    runLink.setAttribute('hidden', '');
+  }
   panel.hidden = false;
 }
 
-// Task panel inner tabs
+// Task panel inner tabs — skip disabled tabs
 (function(){
   var tabs = document.querySelectorAll('[data-panel-tab]');
   tabs.forEach(function(btn){
+    if (btn.disabled) return;
     btn.addEventListener('click', function(){
       tabs.forEach(function(b){ b.classList.remove('active') });
       btn.classList.add('active');
