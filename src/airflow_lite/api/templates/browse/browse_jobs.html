@@ -1,30 +1,68 @@
 {% extends "base.html" %}
 {% block content %}
+
 <section class="panel">
   <div class="panel-head">
     <div>
-      <p class="eyebrow">{{ t('webui.browse.jobs.eyebrow') }}</p>
-      <h2>{{ t('webui.browse.jobs.table.title') }}</h2>
+      <p class="eyebrow">Jobs</p>
+      <h2>Jobs</h2>
     </div>
-    <span class="muted">{{ t('webui.browse.placeholder.hint') }}</span>
+    <div class="chip-list">
+      <span class="chip">{{ total_count|default(0) }} total</span>
+      <span class="chip chip-warn">{{ active_count|default(0) }} active</span>
+    </div>
   </div>
+
+  <form class="dag-filter-row" method="get" action="/monitor/browse/jobs">
+    <div class="dag-search-box">
+      <span class="search-icon-inline">&#x290D;</span>
+      <input type="text" name="q" value="{{ search_query|default('') }}" placeholder="Search jobs..." class="dag-search-input">
+    </div>
+    <select name="job_type" class="dag-filter-select">
+      <option value="all">All Types</option>
+      <option value="scheduler"{% if selected_type == 'scheduler' %} selected{% endif %}>Scheduler</option>
+      <option value="triggerer"{% if selected_type == 'triggerer' %} selected{% endif %}>Triggerer</option>
+      <option value="runner"{% if selected_type == 'runner' %} selected{% endif %}>Runner</option>
+    </select>
+    <button type="submit" class="btn btn-ghost btn-small">Apply</button>
+  </form>
+</section>
+
+<section class="panel">
   <div class="table-wrap">
     <table class="air-table">
       <thead>
         <tr>
-          <th>{{ t('webui.browse.jobs.table.column_1') }}</th>
-          <th>{{ t('webui.browse.jobs.table.column_2') }}</th>
-          <th>{{ t('webui.browse.jobs.table.column_3') }}</th>
+          <th>Job Type</th>
+          <th>Host</th>
+          <th>Start Date</th>
+          <th>End Date</th>
+          <th>Last Heartbeat</th>
+          <th>Duration</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
+        {% for job in jobs|default([]) %}
         <tr>
-          <td>{{ t('webui.browse.placeholder.empty') }}</td>
-          <td>-</td>
-          <td><span class="status pending">{{ t('webui.browse.placeholder.status') }}</span></td>
+          <td><span class="chip">{{ job.job_type|default('unknown') }}</span></td>
+          <td class="u-text-muted u-text-sm">{{ job.hostname|default('—') }}</td>
+          <td>{{ job.start_date|default('—') }}</td>
+          <td>{{ job.end_date|default('—') }}</td>
+          <td>{{ job.last_heartbeat_date|default('—') }}</td>
+          <td>{{ job.duration|default('—') }}</td>
+          <td class="cell-actions">
+            <span class="status {{ 'ok' if job.active|default(false) else 'neutral' }}">{{ 'Active' if job.active|default(false) else 'Inactive' }}</span>
+          </td>
         </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="empty">No jobs found</td>
+        </tr>
+        {% endfor %}
       </tbody>
     </table>
   </div>
 </section>
+
 {% endblock %}

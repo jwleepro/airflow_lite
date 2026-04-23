@@ -4,26 +4,45 @@
 <section class="panel">
   <div class="panel-head">
     <div>
-      <p class="eyebrow">{{ t('webui.assets.table.eyebrow') }}</p>
-      <h2>{{ t('webui.assets.table.title') }}</h2>
+      <p class="eyebrow">Assets</p>
+      <h2>Assets</h2>
     </div>
-    <span class="muted">{{ t('webui.assets.table.hint') }}</span>
+    <div class="chip-list">
+      <span class="chip">{{ total_count|default(0) }} assets</span>
+      <span class="chip ok-chip">{{ consumed_count|default(0) }} consumed</span>
+      <span class="chip">{{ produced_count|default(0) }} produced</span>
+    </div>
   </div>
+
   <div class="table-wrap">
     <table class="air-table">
       <thead>
         <tr>
-          <th>{{ t('webui.assets.table.name') }}</th>
-          <th>{{ t('webui.assets.table.type') }}</th>
-          <th>{{ t('webui.assets.table.status') }}</th>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Consumers</th>
+          <th>Last Updated</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
+        {% for asset in assets|default([]) %}
         <tr>
-          <td>{{ t('webui.assets.table.empty.name') }}</td>
-          <td>-</td>
-          <td><span class="status pending">{{ t('webui.assets.status.placeholder') }}</span></td>
+          <td class="cell-code">{{ asset.name }}</td>
+          <td><span class="chip">{{ asset.asset_type|default('uri') }}</span></td>
+          <td><span class="status {{ tone_of(asset.status|default('active')) }}">{{ asset.status|default('active') }}</span></td>
+          <td>{{ asset.consumer_count|default(0) }}</td>
+          <td class="u-text-muted u-text-sm">{{ asset.updated_at|default('—') }}</td>
+          <td class="cell-actions">
+            <span class="btn btn-ghost btn-small" disabled>View</span>
+          </td>
         </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="empty">No assets defined</td>
+        </tr>
+        {% endfor %}
       </tbody>
     </table>
   </div>

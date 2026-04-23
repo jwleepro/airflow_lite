@@ -2,19 +2,19 @@
 {% import "_macros.html" as m %}
 {% block content %}
 
-{# Header with filters #}
+{# DAG Header with count and import button #}
 <section class="panel dag-filter-panel">
   <div class="u-flex-between u-mb-md">
     <div>
       <h2 class="u-m-0">DAGs</h2>
-      <p class="u-text-sm u-text-muted u-mt-xs">{{ pipeline_rows|length }} of {{ total_pipelines }} DAGs shown</p>
+      <p class="u-text-sm u-text-muted u-mt-xs">{{ pipeline_rows|length }} of {{ total_pipelines }} DAGs</p>
     </div>
-    <button type="button" class="btn btn-primary">+ Import DAG</button>
+    <button type="button" class="btn btn-primary">Import DAG</button>
   </div>
 
   <form class="dag-filter-row" method="get" action="{{ lang_url(MONITOR_PIPELINES_PATH) }}">
     <div class="dag-search-box">
-      <span class="search-icon-inline">⌕</span>
+      <span class="search-icon-inline">&#x290D;</span>
       <input type="text" name="q" value="{{ search_query }}" placeholder="Filter DAGs..." class="dag-search-input">
     </div>
     <select name="state" class="dag-filter-select">
@@ -32,7 +32,7 @@
   </form>
 </section>
 
-{# DAG Table #}
+{# DAG Table with Airflow 3.X-style run chips #}
 <section class="panel">
   <div class="table-wrap">
     <table class="air-table dag-table">
@@ -42,7 +42,7 @@
           <th>Status</th>
           <th>Schedule</th>
           <th>Owner</th>
-          <th>Recent Runs (15)</th>
+          <th>Recent Runs</th>
           <th>Last Run</th>
           <th>Next Run</th>
           <th></th>
@@ -97,10 +97,10 @@
             <div class="cell-action-group">
               {% if actions.can_trigger %}
               <form method="post" action="{{ lang_url(monitor_pipeline_trigger_path(row.name)) }}" class="inline-form">
-                <button class="btn btn-ghost btn-small" type="submit" title="Trigger">▶</button>
+                <button class="btn btn-ghost btn-small" type="submit" title="Trigger">&#x25B6;</button>
               </form>
               {% endif %}
-              <button type="button" class="btn btn-ghost btn-small" title="More">⋯</button>
+              <button type="button" class="btn btn-ghost btn-small" title="More">&#x22EE;</button>
             </div>
           </td>
         </tr>

@@ -1,30 +1,61 @@
 {% extends "base.html" %}
 {% block content %}
+
 <section class="panel">
   <div class="panel-head">
     <div>
-      <p class="eyebrow">{{ t('webui.security.users.eyebrow') }}</p>
-      <h2>{{ t('webui.security.users.table.title') }}</h2>
+      <p class="eyebrow">Users</p>
+      <h2>Users</h2>
     </div>
-    <span class="muted">{{ t('webui.security.placeholder.hint') }}</span>
+    <div class="chip-list">
+      <span class="chip">{{ total_count|default(0) }} users</span>
+      <span class="chip">{{ active_count|default(0) }} active</span>
+    </div>
+    <button type="button" class="btn btn-primary">+ Add User</button>
   </div>
+
+  <form class="dag-filter-row" method="get" action="/monitor/security/users">
+    <div class="dag-search-box">
+      <span class="search-icon-inline">&#x290D;</span>
+      <input type="text" name="q" value="{{ search_query|default('') }}" placeholder="Search users..." class="dag-search-input">
+    </div>
+    <button type="submit" class="btn btn-ghost btn-small">Apply</button>
+  </form>
+</section>
+
+<section class="panel">
   <div class="table-wrap">
     <table class="air-table">
       <thead>
         <tr>
-          <th>{{ t('webui.security.users.table.column_1') }}</th>
-          <th>{{ t('webui.security.users.table.column_2') }}</th>
-          <th>{{ t('webui.security.users.table.column_3') }}</th>
+          <th>Username</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Last Login</th>
+          <th>Status</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
+        {% for user in users|default([]) %}
         <tr>
-          <td>{{ t('webui.security.placeholder.empty') }}</td>
-          <td>-</td>
-          <td><span class="status pending">{{ t('webui.security.placeholder.status') }}</span></td>
+          <td class="cell-code">{{ user.username|default('-') }}</td>
+          <td>{{ user.email|default('-') }}</td>
+          <td><span class="chip">{{ user.role|default('Viewer') }}</span></td>
+          <td class="u-text-muted u-text-sm">{{ user.last_login|default('—') }}</td>
+          <td><span class="status {{ 'ok' if user.is_active|default(true) else 'bad' }}">{{ 'Active' if user.is_active|default(true) else 'Inactive' }}</span></td>
+          <td class="cell-actions">
+            <button type="button" class="btn btn-ghost btn-small">Edit</button>
+          </td>
         </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="empty">No users found</td>
+        </tr>
+        {% endfor %}
       </tbody>
     </table>
   </div>
 </section>
+
 {% endblock %}

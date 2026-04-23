@@ -234,7 +234,7 @@ def test_monitor_pipeline_list_page_renders_html_with_pipeline_summary(client):
     assert "test_pipeline" in body
     assert '/monitor/pipelines/test_pipeline"' in body
     assert "run-grid" in body
-    assert "Recent Runs (15)" in body
+    assert "Recent Runs" in body
     assert "success" in body
     assert "/monitor/pipelines/test_pipeline/trigger" in body
     assert 'class="panel dag-filter-panel"' in body
