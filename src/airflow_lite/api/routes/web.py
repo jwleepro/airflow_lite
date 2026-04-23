@@ -9,6 +9,7 @@ from airflow_lite.api.routes.web_browse import router as browse_router
 from airflow_lite.api.routes.web_assets import router as assets_router
 from airflow_lite.api.routes.web_exports import router as exports_router
 from airflow_lite.api.routes.web_monitor import router as monitor_router
+from airflow_lite.api.routes.web_security import router as security_router
 
 router = APIRouter(include_in_schema=False)
 
@@ -28,3 +29,4 @@ router.include_router(analytics_router)
 router.include_router(browse_router)
 router.include_router(assets_router)
 router.include_router(exports_router)
+router.include_router(security_router)
