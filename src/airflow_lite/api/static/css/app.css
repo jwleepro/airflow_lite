@@ -668,6 +668,18 @@ pre,
   margin-bottom: 14px;
 }
 
+.home-health-panel {
+  padding: 16px 20px;
+}
+
+.home-health-eyebrow {
+  margin-bottom: 12px;
+}
+
+.home-live-chip-list {
+  margin-top: 14px;
+}
+
 /* ===== Chip ===== */
 .chip-list,
 .actions {
