@@ -1385,8 +1385,13 @@ dd {
 
 /* ===== Editor ===== */
 .editor-box {
+  display: none;
   margin-top: 16px;
   padding: 18px;
+}
+
+.editor-box.active {
+  display: block;
 }
 
 /* ===== Tabs ===== */
