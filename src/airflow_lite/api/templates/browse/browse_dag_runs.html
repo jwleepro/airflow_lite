@@ -54,13 +54,17 @@
         {% for run in dag_runs|default([]) %}
         <tr>
           <td><a class="table-link" href="{{ lang_url(monitor_pipeline_detail_path(run.dag_id)) }}">{{ run.dag_id }}</a></td>
-          <td class="cell-code u-text-muted">{{ run.run_id[:12] }}{% if run.run_id|length > 12 %}...{% endif %}</td>
+          <td class="cell-code u-text-muted">{{ truncate_id(run.run_id) }}</td>
           <td><span class="status {{ tone_of(run.status) }}">{{ run.status }}</span></td>
           <td>{{ run.start_time|default('-') }}</td>
           <td>{{ run.duration|default('-') }}</td>
           <td class="u-text-muted u-text-sm">{{ run.trigger_type|default('manual') }}</td>
           <td class="cell-actions">
+            {% if run.run_id %}
             <a class="btn btn-ghost btn-small" href="{{ lang_url(monitor_pipeline_run_detail_path(run.dag_id, run.run_id)) }}">View</a>
+            {% else %}
+            <span class="btn btn-ghost btn-small is-disabled" aria-disabled="true">View</span>
+            {% endif %}
           </td>
         </tr>
         {% else %}

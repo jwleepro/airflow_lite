@@ -56,7 +56,7 @@
         <tr>
           <td><a class="table-link" href="{{ lang_url(monitor_pipeline_detail_path(task.dag_id)) }}">{{ task.dag_id }}</a></td>
           <td class="cell-code">{{ task.task_id }}</td>
-          <td class="cell-code u-text-muted">{{ task.run_id[:12] }}</td>
+          <td class="cell-code u-text-muted">{{ truncate_id(task.run_id) }}</td>
           <td><span class="status {{ tone_of(task.status) }}">{{ task.status }}</span></td>
           <td class="u-text-center">{{ task.try_number|default(1) }}/{{ task.max_tries|default(3) }}</td>
           <td>{{ task.start_date|default('-') }}</td>
