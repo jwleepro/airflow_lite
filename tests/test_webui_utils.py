@@ -85,20 +85,64 @@ class TestCountByTone:
         assert result == {"ok": 2, "warn": 1, "bad": 1, "paused": 1}
 
 
-def test_app_css_does_not_include_legacy_btn_delete_alias():
-    css_path = (
-        Path(__file__).resolve().parents[1]
-        / "src"
-        / "airflow_lite"
-        / "api"
-        / "static"
-        / "css"
-        / "app.css"
-    )
+def _css_dir() -> Path:
+    return Path(__file__).resolve().parents[1] / "src" / "airflow_lite" / "api" / "static" / "css"
 
-    css = css_path.read_text(encoding="utf-8")
 
-    assert ".btn-delete" not in css
+def test_css_modules_exist():
+    """All expected CSS module files must be present on disk."""
+    css_dir = _css_dir()
+    for module in ("tokens.css", "sidebar.css", "layout.css", "components.css", "utilities.css", "pages.css"):
+        assert (css_dir / module).exists(), f"Missing CSS module: {module}"
+
+
+def test_app_css_is_import_only_entry_point():
+    """app.css must only contain @import statements (no inline rules)."""
+    css = (_css_dir() / "app.css").read_text(encoding="utf-8")
+    non_comment_lines = [
+        line for line in css.splitlines()
+        if line.strip() and not line.strip().startswith("/*") and not line.strip().startswith("*")
+    ]
+    import_lines = [l for l in non_comment_lines if l.strip().startswith("@import")]
+    non_import = [l for l in non_comment_lines if not l.strip().startswith("@import")]
+    assert len(import_lines) == 6, f"Expected 6 @import lines, got {len(import_lines)}"
+    assert non_import == [], f"app.css contains non-import rules: {non_import[:3]}"
+
+
+def test_tokens_css_contains_css_variables():
+    """tokens.css must declare the design-token CSS variables."""
+    css = (_css_dir() / "tokens.css").read_text(encoding="utf-8")
+    assert "--brand:" in css
+    assert "--bg:" in css
+    assert "--ok-bg:" in css
+
+
+def test_sidebar_css_contains_sidebar_rules():
+    """sidebar.css must contain sidebar-specific selectors."""
+    css = (_css_dir() / "sidebar.css").read_text(encoding="utf-8")
+    assert ".sidebar" in css
+    assert ".sidebar-nav" in css
+
+
+def test_components_css_contains_button_rules():
+    """components.css must contain .btn rules."""
+    css = (_css_dir() / "components.css").read_text(encoding="utf-8")
+    assert ".btn" in css
+    assert ".air-table" in css
+
+
+def test_utilities_css_contains_utility_classes():
+    """utilities.css must contain utility helper classes."""
+    css = (_css_dir() / "utilities.css").read_text(encoding="utf-8")
+    assert ".u-text-muted" in css or ".u-flex" in css
+
+
+def test_css_does_not_include_legacy_btn_delete_alias():
+    """No CSS module (including components.css) must define .btn-delete."""
+    css_dir = _css_dir()
+    for css_file in css_dir.glob("*.css"):
+        css = css_file.read_text(encoding="utf-8")
+        assert ".btn-delete" not in css, f"{css_file.name} contains deprecated .btn-delete"
 
 
 def test_template_env_does_not_register_unused_icon_globals():

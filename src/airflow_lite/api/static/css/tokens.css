@@ -1,0 +1,111 @@
+:root {
+  color-scheme: dark;
+  /* Airflow 3.x Dark Theme (default) */
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface-muted: #1c2333;
+  --surface-strong: #222d3f;
+  --brand: #009BD7;
+  --brand-strong: #00b3ff;
+  --brand-soft: rgba(0, 155, 215, 0.15);
+  --sidebar-bg: #0d1117;
+  --sidebar-bg-strong: #161b22;
+  --sidebar-border: #30363d;
+  --sidebar-ink: #e6edf3;
+  --sidebar-muted: #8b949e;
+  --sidebar-active: #1f6feb;
+  --sidebar-hover: #1c2333;
+  --line: #30363d;
+  --line-strong: #484f58;
+  --ink: #e6edf3;
+  --ink-soft: #c9d1d9;
+  --muted: #8b949e;
+  --shadow: 0 24px 48px rgba(0, 0, 0, 0.32);
+  /* Status colors */
+  --ok-bg: rgba(46, 160, 67, 0.15);
+  --ok-ink: #3fb950;
+  --warn-bg: rgba(210, 153, 34, 0.15);
+  --warn-ink: #d29922;
+  --bad-bg: rgba(248, 81, 73, 0.15);
+  --bad-ink: #f85149;
+  --neutral-bg: rgba(139, 148, 158, 0.15);
+  --neutral-ink: #8b949e;
+  --running-bg: rgba(0, 155, 215, 0.15);
+  --running-ink: #54aeff;
+  --operator-ink: #c084fc;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  /* Airflow 3.x Light Theme */
+  --bg: #f1f5f9;
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --surface-strong: #e2e8f0;
+  --brand: #009BD7;
+  --brand-strong: #0077b6;
+  --brand-soft: rgba(0, 155, 215, 0.1);
+  --sidebar-bg: #0f172a;
+  --sidebar-bg-strong: #1e293b;
+  --sidebar-border: #334155;
+  --sidebar-ink: #f1f5f9;
+  --sidebar-muted: #94a3b8;
+  --sidebar-active: #3b82f6;
+  --sidebar-hover: #1e293b;
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
+  --ink: #0f172a;
+  --ink-soft: #334155;
+  --muted: #64748b;
+  --shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+  /* Status colors */
+  --ok-bg: #dcfce7;
+  --ok-ink: #16a34a;
+  --warn-bg: #fef9c3;
+  --warn-ink: #ca8a04;
+  --bad-bg: #fee2e2;
+  --bad-ink: #dc2626;
+  --neutral-bg: #f1f5f9;
+  --neutral-ink: #64748b;
+  --running-bg: #e0f2fe;
+  --running-ink: #0284c7;
+  --operator-ink: #9333ea;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--brand-strong);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+code,
+pre,
+.cell-code {
+  font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
