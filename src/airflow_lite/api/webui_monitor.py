@@ -12,7 +12,7 @@ from airflow_lite.api.paths import (
 )
 from airflow_lite.api.template_env import PageChrome, render_page
 from airflow_lite.api.webui_helpers import build_url, cfg, fmt, t
-from airflow_lite.api.webui_status import count_by_tone, latest_run_status
+from airflow_lite.api.webui_status import STATUS_GROUPS, count_by_tone, latest_run_status
 from airflow_lite.i18n import DEFAULT_LANGUAGE
 
 
@@ -87,20 +87,9 @@ def _filter_pipeline_rows(
         return query in haystack
 
     def _matches_state(row: dict) -> bool:
-        if state not in {"ok", "warn", "bad"}:
+        if state not in STATUS_GROUPS:
             return True
-        return latest_run_status(row) in {
-            status
-            for status, tone in (
-                ("success", "ok"),
-                ("completed", "ok"),
-                ("running", "warn"),
-                ("pending", "warn"),
-                ("queued", "warn"),
-                ("failed", "bad"),
-            )
-            if tone == state
-        }
+        return latest_run_status(row) in STATUS_GROUPS[state]
 
     return [
         row for row in pipeline_rows
