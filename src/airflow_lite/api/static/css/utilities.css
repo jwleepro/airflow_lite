@@ -1,0 +1,76 @@
+/* ===== Utility Classes ===== */
+
+/* Flexbox */
+.u-flex { display: flex; }
+.u-flex-center { display: flex; align-items: center; }
+.u-flex-between { display: flex; align-items: center; justify-content: space-between; }
+.u-flex-wrap { flex-wrap: wrap; }
+.u-flex-col { flex-direction: column; }
+.u-items-start { align-items: flex-start; }
+.u-justify-end { justify-content: flex-end; }
+
+/* Grid */
+.u-grid { display: grid; }
+
+/* Gap */
+.u-gap-xs { gap: 4px; }
+.u-gap-sm { gap: 8px; }
+.u-gap-md { gap: 12px; }
+.u-gap-lg { gap: 16px; }
+.u-gap-xl { gap: 18px; }
+
+/* Margin */
+.u-mt-0 { margin-top: 0; }
+.u-mt-xs { margin-top: 4px; }
+.u-mt-sm { margin-top: 8px; }
+.u-mt-md { margin-top: 12px; }
+.u-mt-lg { margin-top: 16px; }
+.u-mt-xl { margin-top: 18px; }
+.u-mb-0 { margin-bottom: 0; }
+.u-mb-sm { margin-bottom: 8px; }
+.u-mb-md { margin-bottom: 12px; }
+.u-mb-lg { margin-bottom: 16px; }
+
+/* Padding */
+.u-p-sm { padding: 8px; }
+.u-p-md { padding: 12px; }
+.u-p-lg { padding: 16px; }
+.u-px-md { padding-left: 12px; padding-right: 12px; }
+.u-py-sm { padding-top: 8px; padding-bottom: 8px; }
+
+/* Text */
+.u-text-center { text-align: center; }
+.u-text-left { text-align: left; }
+.u-text-right { text-align: right; }
+.u-text-xs { font-size: 0.74rem; }
+.u-text-sm { font-size: 0.82rem; }
+.u-text-md { font-size: 0.88rem; }
+.u-font-bold { font-weight: 700; }
+.u-font-semibold { font-weight: 600; }
+.u-uppercase { text-transform: uppercase; letter-spacing: 0.06em; }
+.u-nowrap { white-space: nowrap; }
+.u-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Colors */
+.u-text-muted { color: var(--muted); }
+.u-text-ink { color: var(--ink); }
+.u-text-brand { color: var(--brand); }
+
+/* Sizing */
+.u-w-full { width: 100%; }
+.u-min-w-0 { min-width: 0; }
+
+/* Border */
+.u-rounded { border-radius: 8px; }
+.u-rounded-lg { border-radius: 12px; }
+.u-rounded-full { border-radius: 999px; }
+.u-border { border: 1px solid var(--line); }
+
+/* Display */
+.u-inline { display: inline; }
+.u-inline-block { display: inline-block; }
+.u-block { display: block; }
+
+/* Margin zero */
+.u-m-0 { margin: 0; }
+
