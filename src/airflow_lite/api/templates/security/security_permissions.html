@@ -1,30 +1,43 @@
 {% extends "base.html" %}
 {% block content %}
+
 <section class="panel">
   <div class="panel-head">
     <div>
-      <p class="eyebrow">{{ t('webui.security.permissions.eyebrow') }}</p>
-      <h2>{{ t('webui.security.permissions.table.title') }}</h2>
+      <p class="eyebrow">Permissions</p>
+      <h2>Permissions</h2>
     </div>
-    <span class="muted">{{ t('webui.security.placeholder.hint') }}</span>
+    <div class="chip-list">
+      <span class="chip">{{ total_count|default(0) }} permissions</span>
+    </div>
   </div>
+
   <div class="table-wrap">
     <table class="air-table">
       <thead>
         <tr>
-          <th>{{ t('webui.security.permissions.table.column_1') }}</th>
-          <th>{{ t('webui.security.permissions.table.column_2') }}</th>
-          <th>{{ t('webui.security.permissions.table.column_3') }}</th>
+          <th>Role</th>
+          <th>Resource</th>
+          <th>Action</th>
+          <th>Granted</th>
         </tr>
       </thead>
       <tbody>
+        {% for perm in permissions|default([]) %}
         <tr>
-          <td>{{ t('webui.security.placeholder.empty') }}</td>
-          <td>-</td>
-          <td><span class="status pending">{{ t('webui.security.placeholder.status') }}</span></td>
+          <td><span class="chip">{{ perm.role|default('-') }}</span></td>
+          <td class="cell-code">{{ perm.resource|default('-') }}</td>
+          <td>{{ perm.action|default('-') }}</td>
+          <td><span class="status ok">Granted</span></td>
         </tr>
+        {% else %}
+        <tr>
+          <td colspan="4" class="empty">No permissions found</td>
+        </tr>
+        {% endfor %}
       </tbody>
     </table>
   </div>
 </section>
+
 {% endblock %}

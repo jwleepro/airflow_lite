@@ -1,30 +1,68 @@
 {% extends "base.html" %}
 {% block content %}
+
 <section class="panel">
   <div class="panel-head">
     <div>
-      <p class="eyebrow">{{ t('webui.browse.audit_logs.eyebrow') }}</p>
-      <h2>{{ t('webui.browse.audit_logs.table.title') }}</h2>
+      <p class="eyebrow">Audit Logs</p>
+      <h2>Audit Logs</h2>
     </div>
-    <span class="muted">{{ t('webui.browse.placeholder.hint') }}</span>
+    <div class="chip-list">
+      <span class="chip">{{ total_count|default(0) }} events</span>
+    </div>
   </div>
+
+  <form class="dag-filter-row" method="get" action="/monitor/browse/audit-logs">
+    <div class="dag-search-box">
+      <span class="search-icon-inline">&#x290D;</span>
+      <input type="text" name="q" value="{{ search_query|default('') }}" placeholder="Search audit logs..." class="dag-search-input">
+    </div>
+    <select name="action" class="dag-filter-select">
+      <option value="all">All Actions</option>
+      <option value="create"{% if selected_action == 'create' %} selected{% endif %}>Create</option>
+      <option value="update"{% if selected_action == 'update' %} selected{% endif %}>Update</option>
+      <option value="delete"{% if selected_action == 'delete' %} selected{% endif %}>Delete</option>
+      <option value="trigger"{% if selected_action == 'trigger' %} selected{% endif %}>Trigger</option>
+    </select>
+    <select name="user" class="dag-filter-select">
+      <option value="">All Users</option>
+      {% for user in users|default([]) %}
+      <option value="{{ user }}"{% if user == selected_user %} selected{% endif %}>{{ user }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-ghost btn-small">Apply</button>
+  </form>
+</section>
+
+<section class="panel">
   <div class="table-wrap">
     <table class="air-table">
       <thead>
         <tr>
-          <th>{{ t('webui.browse.audit_logs.table.column_1') }}</th>
-          <th>{{ t('webui.browse.audit_logs.table.column_2') }}</th>
-          <th>{{ t('webui.browse.audit_logs.table.column_3') }}</th>
+          <th>Timestamp</th>
+          <th>User</th>
+          <th>Action</th>
+          <th>Resource</th>
+          <th>Details</th>
         </tr>
       </thead>
       <tbody>
+        {% for log in audit_logs|default([]) %}
         <tr>
-          <td>{{ t('webui.browse.placeholder.empty') }}</td>
-          <td>-</td>
-          <td><span class="status pending">{{ t('webui.browse.placeholder.status') }}</span></td>
+          <td>{{ log.timestamp|default('-') }}</td>
+          <td>{{ log.user|default('—') }}</td>
+          <td><span class="chip">{{ log.action|default('-') }}</span></td>
+          <td class="cell-code">{{ log.resource|default('—') }}</td>
+          <td class="u-text-muted u-text-sm">{{ log.details|default('—') }}</td>
         </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" class="empty">No audit logs found</td>
+        </tr>
+        {% endfor %}
       </tbody>
     </table>
   </div>
 </section>
+
 {% endblock %}

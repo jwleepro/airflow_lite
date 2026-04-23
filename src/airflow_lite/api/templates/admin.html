@@ -2,41 +2,58 @@
 {% block content %}
 
 {% if error %}
-<div class="notice notice-danger" role="alert" style="background:#fde8e8;border:1px solid #f1a7a7;color:#8a1f1f;padding:12px 16px;border-radius:6px;margin-bottom:16px;">
-  <strong>{{ t('webui.admin.error.title') }}:</strong> {{ error }}
+<div class="operation-notice bad">
+  <strong>Error:</strong> {{ error }}
 </div>
 {% endif %}
 
-<section class="hero-surface admin-hero">
-  <div class="hero-copy">
-    <p class="eyebrow">{{ t('webui.admin.eyebrow') }}</p>
-    <h2>{{ t('webui.admin.title') }}</h2>
-    <p class="muted">{{ t('webui.admin.subtitle') }}</p>
-  </div>
-  <div class="chip-list admin-summary-chips">
-    <span class="chip">{{ connections|length }} {{ t('webui.admin.chip.connections') }}</span>
-    <span class="chip">{{ variables|length }} {{ t('webui.admin.chip.variables') }}</span>
-    <span class="chip">{{ pools|length }} {{ t('webui.admin.chip.pools') }}</span>
+{# Admin Summary #}
+<section class="panel">
+  <div class="summary-grid">
+    <article class="summary-tile neutral">
+      <p class="summary-label">Connections</p>
+      <p class="summary-value">{{ connections|length }}</p>
+    </article>
+    <article class="summary-tile neutral">
+      <p class="summary-label">Variables</p>
+      <p class="summary-value">{{ variables|length }}</p>
+    </article>
+    <article class="summary-tile neutral">
+      <p class="summary-label">Pools</p>
+      <p class="summary-value">{{ pools|length }}</p>
+    </article>
   </div>
 </section>
 
-<div class="admin-stack admin-panels">
-  <section class="panel admin-connections-panel">
+{# Admin Tabs #}
+<div class="dag-tab-bar">
+  <button type="button" class="dag-tab-btn active" data-tab="connections">Connections</button>
+  <button type="button" class="dag-tab-btn" data-tab="variables">Variables</button>
+  <button type="button" class="dag-tab-btn" data-tab="pools">Pools</button>
+  <button type="button" class="dag-tab-btn" data-tab="providers">Providers</button>
+  <button type="button" class="dag-tab-btn" data-tab="plugins">Plugins</button>
+  <button type="button" class="dag-tab-btn" data-tab="config">Configuration</button>
+  <button type="button" class="dag-tab-btn" data-tab="xcoms">XComs</button>
+</div>
+
+{# Connections Tab #}
+<div class="dag-tab-pane active" id="tab-connections">
+  <section class="panel">
     <div class="panel-head">
       <div>
-        <p class="eyebrow">{{ t('webui.admin.connections.eyebrow') }}</p>
-        <h2>{{ t('webui.admin.connections.title') }}</h2>
+        <h2>Connections</h2>
       </div>
+      <button type="button" class="btn btn-ghost btn-small" onclick="document.getElementById('conn-add-form').classList.toggle('active')">+ Add Connection</button>
     </div>
     <div class="table-wrap">
-      <table class="air-table admin-connections-table">
+      <table class="air-table">
         <thead>
-          <tr><th>{{ t('webui.admin.col.conn_id') }}</th><th>{{ t('webui.admin.col.type') }}</th><th>{{ t('webui.admin.col.host') }}</th><th>{{ t('webui.admin.col.port') }}</th><th>{{ t('webui.admin.col.schema') }}</th><th>{{ t('webui.admin.col.login') }}</th><th>{{ t('webui.admin.col.password') }}</th><th>{{ t('webui.admin.col.description') }}</th><th></th></tr>
+          <tr><th>Conn ID</th><th>Type</th><th>Host</th><th>Port</th><th>Schema</th><th>Login</th><th>Password</th><th>Description</th><th></th></tr>
         </thead>
         <tbody>
           {% for c in connections %}
           <tr>
-            <td>{{ fmt(c.conn_id) }}</td>
+            <td class="cell-code">{{ fmt(c.conn_id) }}</td>
             <td>{{ fmt(c.conn_type) }}</td>
             <td>{{ fmt(c.host) }}</td>
             <td>{{ fmt(c.port) }}</td>
@@ -45,118 +62,282 @@
             <td>********</td>
             <td>{{ fmt(c.description) }}</td>
             <td class="cell-actions">
-              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/connections/delete" class="u-inline" onsubmit="return confirm('{{ t('webui.admin.connections.confirm_delete') }}');">
+              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/connections/delete" class="u-inline" onsubmit="return confirm('Delete this connection?');">
                 <input type="hidden" name="conn_id" value="{{ c.conn_id }}">
-                <button type="submit" class="btn btn-danger btn-small">{{ t('webui.admin.btn.delete') }}</button>
+                <button type="submit" class="btn btn-danger btn-small">Delete</button>
               </form>
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="9" class="empty">{{ t('webui.admin.connections.empty') }}</td></tr>
+          <tr><td colspan="9" class="empty">No connections defined</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-    <div class="editor-box admin-connections-editor">
-      <h3>{{ t('webui.admin.connections.add') }}</h3>
-      <form method="post" action="{{ MONITOR_ADMIN_PATH }}/connections" class="form-grid admin-connections-form">
-        <label class="filter-field"><span>{{ t('webui.admin.col.conn_id') }}</span><input type="text" name="conn_id" required></label>
-        <label class="filter-field"><span>{{ t('webui.admin.col.type') }}</span><input type="text" name="conn_type" value="oracle" required></label>
-        <label class="filter-field"><span>{{ t('webui.admin.col.host') }}</span><input type="text" name="host"></label>
-        <label class="filter-field"><span>{{ t('webui.admin.col.port') }}</span><input type="number" name="port"></label>
-        <label class="filter-field"><span>{{ t('webui.admin.col.schema') }}</span><input type="text" name="schema"></label>
-        <label class="filter-field"><span>{{ t('webui.admin.col.login') }}</span><input type="text" name="login"></label>
-        <label class="filter-field"><span>{{ t('webui.admin.col.password') }}</span><input type="password" name="password"></label>
-        <label class="filter-field field-span-2"><span>{{ t('webui.admin.col.description') }}</span><input type="text" name="description"></label>
-        <div class="form-actions"><button type="submit" class="btn btn-primary">{{ t('webui.admin.connections.add') }}</button></div>
+    <div id="conn-add-form" class="editor-box" hidden>
+      <h3>Add Connection</h3>
+      <form method="post" action="{{ MONITOR_ADMIN_PATH }}/connections" class="form-grid">
+        <label class="filter-field"><span>Conn ID</span><input type="text" name="conn_id" required></label>
+        <label class="filter-field"><span>Type</span><input type="text" name="conn_type" value="oracle" required></label>
+        <label class="filter-field"><span>Host</span><input type="text" name="host"></label>
+        <label class="filter-field"><span>Port</span><input type="number" name="port"></label>
+        <label class="filter-field"><span>Schema</span><input type="text" name="schema"></label>
+        <label class="filter-field"><span>Login</span><input type="text" name="login"></label>
+        <label class="filter-field"><span>Password</span><input type="password" name="password"></label>
+        <label class="filter-field field-span-2"><span>Description</span><input type="text" name="description"></label>
+        <div class="form-actions"><button type="submit" class="btn btn-primary">Add Connection</button></div>
       </form>
     </div>
   </section>
+</div>
 
-  <section class="panel admin-variables-panel">
+{# Variables Tab #}
+<div class="dag-tab-pane" id="tab-variables">
+  <section class="panel">
     <div class="panel-head">
       <div>
-        <p class="eyebrow">{{ t('webui.admin.variables.eyebrow') }}</p>
-        <h2>{{ t('webui.admin.variables.title') }}</h2>
+        <h2>Variables</h2>
       </div>
+      <button type="button" class="btn btn-ghost btn-small" onclick="document.getElementById('var-add-form').classList.toggle('active')">+ Add Variable</button>
     </div>
     <div class="table-wrap">
-      <table class="air-table admin-variables-table">
+      <table class="air-table">
         <thead>
-          <tr><th>{{ t('webui.admin.col.key') }}</th><th>{{ t('webui.admin.col.value') }}</th><th>{{ t('webui.admin.col.description') }}</th><th></th></tr>
+          <tr><th>Key</th><th>Value</th><th>Description</th><th></th></tr>
         </thead>
         <tbody>
           {% for v in variables %}
           <tr>
-            <td>{{ fmt(v.key) }}</td>
-            <td>{{ fmt(v.val) }}</td>
+            <td class="cell-code">{{ fmt(v.key) }}</td>
+            <td class="cell-code">{{ fmt(v.val) }}</td>
             <td>{{ fmt(v.description) }}</td>
             <td class="cell-actions">
-              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/variables/delete" class="u-inline" onsubmit="return confirm('{{ t('webui.admin.variables.confirm_delete') }}');">
+              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/variables/delete" class="u-inline" onsubmit="return confirm('Delete this variable?');">
                 <input type="hidden" name="key" value="{{ v.key }}">
-                <button type="submit" class="btn btn-danger btn-small">{{ t('webui.admin.btn.delete') }}</button>
+                <button type="submit" class="btn btn-danger btn-small">Delete</button>
               </form>
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="4" class="empty">{{ t('webui.admin.variables.empty') }}</td></tr>
+          <tr><td colspan="4" class="empty">No variables defined</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-    <div class="editor-box admin-variables-editor">
-      <h3>{{ t('webui.admin.variables.add') }}</h3>
-      <form method="post" action="{{ MONITOR_ADMIN_PATH }}/variables" class="form-grid form-grid-3 admin-variables-form">
-        <label class="filter-field"><span>{{ t('webui.admin.col.key') }}</span><input type="text" name="key" required></label>
-        <label class="filter-field"><span>{{ t('webui.admin.col.value') }}</span><input type="text" name="val" required></label>
-        <label class="filter-field"><span>{{ t('webui.admin.col.description') }}</span><input type="text" name="description"></label>
-        <div class="form-actions"><button type="submit" class="btn btn-primary">{{ t('webui.admin.variables.add') }}</button></div>
+    <div id="var-add-form" class="editor-box" hidden>
+      <h3>Add Variable</h3>
+      <form method="post" action="{{ MONITOR_ADMIN_PATH }}/variables" class="form-grid form-grid-3">
+        <label class="filter-field"><span>Key</span><input type="text" name="key" required></label>
+        <label class="filter-field"><span>Value</span><input type="text" name="val" required></label>
+        <label class="filter-field"><span>Description</span><input type="text" name="description"></label>
+        <div class="form-actions"><button type="submit" class="btn btn-primary">Add Variable</button></div>
       </form>
     </div>
   </section>
+</div>
 
-  <section class="panel admin-pools-panel">
+{# Pools Tab #}
+<div class="dag-tab-pane" id="tab-pools">
+  <section class="panel">
     <div class="panel-head">
       <div>
-        <p class="eyebrow">{{ t('webui.admin.pools.eyebrow') }}</p>
-        <h2>{{ t('webui.admin.pools.title') }}</h2>
+        <h2>Pools</h2>
       </div>
+      <button type="button" class="btn btn-ghost btn-small" onclick="document.getElementById('pool-add-form').classList.toggle('active')">+ Add Pool</button>
     </div>
     <div class="table-wrap">
-      <table class="air-table admin-pools-table">
+      <table class="air-table">
         <thead>
-          <tr><th>{{ t('webui.admin.col.pool_name') }}</th><th>{{ t('webui.admin.col.slots') }}</th><th>{{ t('webui.admin.col.description') }}</th><th></th></tr>
+          <tr><th>Pool Name</th><th>Slots</th><th>Description</th><th></th></tr>
         </thead>
         <tbody>
           {% for p in pools %}
           <tr>
-            <td>{{ fmt(p.pool_name) }}</td>
+            <td class="cell-code">{{ fmt(p.pool_name) }}</td>
             <td>{{ fmt(p.slots) }}</td>
             <td>{{ fmt(p.description) }}</td>
             <td class="cell-actions">
-              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/pools/delete" class="u-inline" onsubmit="return confirm('{{ t('webui.admin.pools.confirm_delete') }}');">
+              <form method="post" action="{{ MONITOR_ADMIN_PATH }}/pools/delete" class="u-inline" onsubmit="return confirm('Delete this pool?');">
                 <input type="hidden" name="pool_name" value="{{ p.pool_name }}">
-                <button type="submit" class="btn btn-danger btn-small">{{ t('webui.admin.btn.delete') }}</button>
+                <button type="submit" class="btn btn-danger btn-small">Delete</button>
               </form>
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="4" class="empty">{{ t('webui.admin.pools.empty') }}</td></tr>
+          <tr><td colspan="4" class="empty">No pools defined</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-    <div class="editor-box admin-pools-editor">
-      <h3>{{ t('webui.admin.pools.add') }}</h3>
-      <form method="post" action="{{ MONITOR_ADMIN_PATH }}/pools" class="form-grid form-grid-3 admin-pools-form">
-        <label class="filter-field"><span>{{ t('webui.admin.col.pool_name') }}</span><input type="text" name="pool_name" required></label>
-        <label class="filter-field"><span>{{ t('webui.admin.col.slots') }}</span><input type="number" name="slots" value="1" min="1" required></label>
-        <label class="filter-field"><span>{{ t('webui.admin.col.description') }}</span><input type="text" name="description"></label>
-        <div class="form-actions"><button type="submit" class="btn btn-primary">{{ t('webui.admin.pools.add') }}</button></div>
+    <div id="pool-add-form" class="editor-box" hidden>
+      <h3>Add Pool</h3>
+      <form method="post" action="{{ MONITOR_ADMIN_PATH }}/pools" class="form-grid form-grid-3">
+        <label class="filter-field"><span>Pool Name</span><input type="text" name="pool_name" required></label>
+        <label class="filter-field"><span>Slots</span><input type="number" name="slots" value="1" min="1" required></label>
+        <label class="filter-field"><span>Description</span><input type="text" name="description"></label>
+        <div class="form-actions"><button type="submit" class="btn btn-primary">Add Pool</button></div>
       </form>
     </div>
   </section>
-
 </div>
+
+{# Providers Tab #}
+<div class="dag-tab-pane" id="tab-providers">
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>Providers</h2>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="air-table">
+        <thead>
+          <tr><th>Package</th><th>Version</th><th>Provider ID</th><th>Hooks</th><th>Executors</th></tr>
+        </thead>
+        <tbody>
+          {% for p in providers|default([]) %}
+          <tr>
+            <td class="cell-code">{{ fmt(p.package) }}</td>
+            <td>{{ fmt(p.version) }}</td>
+            <td>{{ fmt(p.provider_id) }}</td>
+            <td>{{ p.hooks|default(0) }}</td>
+            <td>{{ p.executors|default(0) }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="empty">No provider data available</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+{# Plugins Tab #}
+<div class="dag-tab-pane" id="tab-plugins">
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>Plugins</h2>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="air-table">
+        <thead>
+          <tr><th>Name</th><th>Package</th><th>Fields</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {% for p in plugins|default([]) %}
+          <tr>
+            <td class="cell-code">{{ fmt(p.name) }}</td>
+            <td>{{ fmt(p.package) }}</td>
+            <td>{{ p.fields|default(0) }}</td>
+            <td><span class="status ok">Loaded</span></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="empty">No plugins loaded</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+{# Configuration Tab #}
+<div class="dag-tab-pane" id="tab-config">
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>Configuration</h2>
+      </div>
+      <button type="button" class="btn btn-ghost btn-small">Export</button>
+    </div>
+    <div class="table-wrap">
+      <table class="air-table">
+        <thead>
+          <tr><th>Section</th><th>Key</th><th>Value</th></tr>
+        </thead>
+        <tbody>
+          {% for sec in configs|default([]) %}
+          {% for key, val in sec.items() %}
+          <tr>
+            <td>{{ sec._section|default('core') }}</td>
+            <td class="cell-code">{{ key }}</td>
+            <td class="cell-code">{{ val }}</td>
+          </tr>
+          {% endfor %}
+          {% else %}
+          <tr><td colspan="3" class="empty">No configuration data available</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+{# XComs Tab #}
+<div class="dag-tab-pane" id="tab-xcoms">
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>XComs</h2>
+      </div>
+      <form class="filter-form" method="get" action="{{ MONITOR_ADMIN_PATH }}/xcoms">
+        <div class="filter-grid">
+          <div class="filter-field">
+            <span>DAG ID</span>
+            <select name="dag_id">
+              <option value="">All</option>
+              {% for dag_id in xcom_dag_ids|default([]) %}
+              <option value="{{ dag_id }}" {% if dag_id == selected_dag %}selected{% endif %}>{{ dag_id }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="filter-field">
+            <span>Key</span>
+            <input type="text" name="key" value="{{ xcom_key|default('') }}" placeholder="xcom key">
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-ghost btn-small">Filter</button>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="table-wrap">
+      <table class="air-table">
+        <thead>
+          <tr><th>DAG ID</th><th>Task ID</th><th>Key</th><th>Timestamp</th><th>Source</th></tr>
+        </thead>
+        <tbody>
+          {% for x in xcoms|default([]) %}
+          <tr>
+            <td class="cell-code">{{ fmt(x.dag_id) }}</td>
+            <td class="cell-code">{{ fmt(x.task_id) }}</td>
+            <td class="cell-code">{{ fmt(x.key) }}</td>
+            <td>{{ fmt(x.timestamp) }}</td>
+            <td>{{ fmt(x.source) }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="empty">No XCom data available</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+  var btns = document.querySelectorAll('.dag-tab-btn');
+  var panes = document.querySelectorAll('.dag-tab-pane');
+  btns.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      btns.forEach(function(b){ b.classList.remove('active') });
+      panes.forEach(function(p){ p.classList.remove('active') });
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+})();
+</script>
 
 {% endblock %}
