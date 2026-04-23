@@ -34,7 +34,7 @@
   <div class="actions exports-actions">
     <a class="btn btn-ghost" href="{{ lang_url(MONITOR_EXPORTS_PATH) }}">{{ t('webui.exports.actions.all_datasets') }}</a>
     <a class="btn btn-ghost" href="{{ lang_url(analytics_href_raw) }}">{{ t('webui.exports.actions.analytics') }}</a>
-    <form method="post" action="{{ lang_url(MONITOR_EXPORT_DELETE_COMPLETED_PATH) }}" class="exports-delete-form" class="u-inline">
+      <form method="post" action="{{ lang_url(MONITOR_EXPORT_DELETE_COMPLETED_PATH) }}" class="exports-delete-form u-inline">
       {% if dataset %}<input type="hidden" name="dataset" value="{{ dataset }}">{% endif %}
       <input type="hidden" name="lang" value="{{ language }}">
       <button type="submit" class="btn btn-danger" onclick="return confirm('{{ t('webui.exports.confirm.delete_all_completed') }}')">{{ t('webui.exports.actions.delete_all_completed') }}</button>
