@@ -393,8 +393,8 @@ def test_monitor_pipeline_detail_grid_view_uses_step_row_index_for_tones():
     assert body.index('class="dag-grid-run-header warn" title="2026-01-02"') < body.index(
         'class="dag-grid-run-header ok" title="2026-01-01"'
     )
-    extract_cells = re.findall(r'data-task="extract"\s+data-run="([^"]+)"\s+data-status="([^"]+)"', body)
-    load_cells = re.findall(r'data-task="load"\s+data-run="([^"]+)"\s+data-status="([^"]+)"', body)
+    extract_cells = re.findall(r'data-task="extract"\s+data-run="([^"]+)"(?:\s+data-run-id="[^"]*")?\s+data-status="([^"]+)"', body)
+    load_cells = re.findall(r'data-task="load"\s+data-run="([^"]+)"(?:\s+data-run-id="[^"]*")?\s+data-status="([^"]+)"', body)
     assert extract_cells == [("2026-01-02", "failed"), ("2026-01-01", "success")]
     assert load_cells == [("2026-01-02", "success"), ("2026-01-01", "failed")]
 

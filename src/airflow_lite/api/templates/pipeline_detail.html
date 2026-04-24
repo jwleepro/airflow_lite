@@ -147,6 +147,7 @@
         <div class="dag-grid-cell {{ gr.step_tones[step_idx] }}"
              data-task="{{ step_name }}"
              data-run="{{ gr.execution_date }}"
+             data-run-id="{{ gr.id }}"
              data-status="{{ gr.step_statuses[step_idx] }}"
              data-duration="{{ gr.step_durations[step_idx] }}"
              onclick="showTaskPanel(this)"></div>
@@ -228,8 +229,8 @@
       <div>Pool<br><span>default_pool</span></div>
     </div>
     <div class="dag-node-panel-actions">
-      <a id="panel-logs-link" class="btn btn-ghost btn-small" href="#">View Logs</a>
-      <button type="button" class="btn btn-ghost btn-small">Clear</button>
+      <a id="panel-logs-link" class="btn btn-ghost btn-small" href="#" hidden>View Logs</a>
+      <button type="button" class="btn btn-ghost btn-small is-disabled" aria-disabled="true" title="Not yet implemented" disabled>Clear</button>
     </div>
   </div>
 </div>
@@ -307,18 +308,28 @@
     <button type="button" data-panel-tab="xcom">XCom</button>
   </div>
   <div class="dag-task-panel-content" id="task-panel-content">
-    <div class="dag-task-panel-details">
-      <div class="detail-row"><span>Status</span><span id="task-panel-status"></span></div>
-      <div class="detail-row"><span>Operator</span><span>PythonOperator</span></div>
-      <div class="detail-row"><span>Duration</span><span id="task-panel-duration">-</span></div>
-      <div class="detail-row"><span>Try Number</span><span>1</span></div>
-      <div class="detail-row"><span>Max Tries</span><span>3</span></div>
-      <div class="detail-row"><span>Pool</span><span>default_pool</span></div>
+    {# Details tab pane #}
+    <div class="dag-task-panel-pane" id="task-pane-details">
+      <div class="dag-task-panel-details">
+        <div class="detail-row"><span>Status</span><span id="task-panel-status"></span></div>
+        <div class="detail-row"><span>Duration</span><span id="task-panel-duration">-</span></div>
+      </div>
+      <div class="dag-task-panel-actions">
+        <a id="task-panel-logs-link" class="btn btn-ghost btn-small" href="#" hidden>View Run Detail</a>
+        <button type="button" class="btn btn-ghost btn-small is-disabled" aria-disabled="true" title="Not yet implemented" disabled>Mark Success</button>
+        <button type="button" class="btn btn-danger btn-small is-disabled" aria-disabled="true" title="Not yet implemented" disabled>Clear</button>
+      </div>
     </div>
-    <div class="dag-task-panel-actions">
-      <a id="task-panel-logs-link" class="btn btn-ghost btn-small" href="#">View Full Logs</a>
-      <button type="button" class="btn btn-ghost btn-small">Mark Success</button>
-      <button type="button" class="btn btn-danger btn-small">Clear</button>
+    {# Logs tab pane #}
+    <div class="dag-task-panel-pane" id="task-pane-logs" hidden>
+      <p class="u-text-sm u-text-muted u-p-md">
+        Log streaming is not available in this view.
+        Use <a id="task-panel-logs-link-2" href="#" hidden>View Run Detail</a><span id="task-panel-logs-na">the Run Detail page</span> to inspect logs.
+      </p>
+    </div>
+    {# XCom tab pane #}
+    <div class="dag-task-panel-pane" id="task-pane-xcom" hidden>
+      <p class="u-text-sm u-text-muted u-p-md">XCom values are not available in this view.</p>
     </div>
   </div>
 </div>
@@ -393,16 +404,49 @@ function selectNode(el) {
 
 function showTaskPanel(cell) {
   var panel = document.getElementById('task-panel');
-  document.getElementById('task-panel-name').textContent = cell.dataset.task;
-  document.getElementById('task-panel-run').textContent = cell.dataset.run;
+  var dagId = {{ pipeline.name | tojson }};
+  var taskName = cell.dataset.task || '';
+  var runId = cell.dataset.runId || '';
   var rawStatus = cell.dataset.status || 'queued';
   var duration = cell.dataset.duration || '-';
   var statusMap = { ok: 'success', warn: 'running', bad: 'failed', neutral: 'queued' };
   var toneMap = { success: 'ok', completed: 'ok', running: 'warn', pending: 'warn', queued: 'neutral', failed: 'bad' };
   var tone = toneMap[rawStatus] || rawStatus;
+
+  document.getElementById('task-panel-name').textContent = taskName;
+  document.getElementById('task-panel-run').textContent = cell.dataset.run || '';
   document.getElementById('task-panel-status').innerHTML = '<span class="status ' + tone + '">' + (statusMap[tone] || rawStatus) + '</span>';
   document.getElementById('task-panel-duration').textContent = duration;
+
+  // Wire up View Run Detail links when run_id is known
+  var logsLink = document.getElementById('task-panel-logs-link');
+  var logsLink2 = document.getElementById('task-panel-logs-link-2');
+  var logsNa = document.getElementById('task-panel-logs-na');
+  if (runId) {
+    var href = '/monitor/pipelines/' + encodeURIComponent(dagId) + '/runs/' + encodeURIComponent(runId);
+    logsLink.href = href;
+    logsLink.hidden = false;
+    logsLink2.href = href;
+    logsLink2.hidden = false;
+    if (logsNa) logsNa.hidden = true;
+  } else {
+    logsLink.hidden = true;
+    logsLink2.hidden = true;
+    if (logsNa) logsNa.hidden = false;
+  }
+
+  // Reset to Details tab on each open
+  _switchPanelTab('details');
   panel.hidden = false;
+}
+
+function _switchPanelTab(tabName) {
+  var paneIds = ['task-pane-details', 'task-pane-logs', 'task-pane-xcom'];
+  var tabMap = { details: 'task-pane-details', logs: 'task-pane-logs', xcom: 'task-pane-xcom' };
+  paneIds.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.hidden = (id !== tabMap[tabName]);
+  });
 }
 
 // Task panel inner tabs
@@ -412,6 +456,7 @@ function showTaskPanel(cell) {
     btn.addEventListener('click', function(){
       tabs.forEach(function(b){ b.classList.remove('active') });
       btn.classList.add('active');
+      _switchPanelTab(btn.dataset.panelTab);
     });
   });
 })();
