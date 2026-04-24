@@ -95,10 +95,8 @@ Oracle 11g -> [ingest] -> Parquet raw -> [mart] -> DuckDB -> [serve] -> FastAPI 
 
 ### Skill 선택 기준
 
-- `project-bootstrap`: 새 Codex 스레드 시작, handoff 직후 현재 상태 요약
-- `progress-discipline`: `PLAN.md`와 `PROGRESS.md`를 시작, 변경, 완료, handoff에 맞게 유지
+- `project-bootstrap`: 새 Codex 스레드 시작, `AGENTS.md`와 현재 요청 기준으로 현재 상태 요약
 - `repo-indexing`: 익숙하지 않은 코드 영역의 구조와 영향 범위 파악
-- `task-slicing`: 일이 크거나 여러 agent로 쪼개야 할 때
 - `reference-reader`: `.codex/` 또는 `reference/codex/` 수정 전 관련 reference 선별
 - `github:yeet`: 로컬 변경을 의도적으로 커밋, 푸시하고 draft PR까지 열어야 할 때 사용
 - `duckdb-mart-design`, `api-contract-design`, `export-policy`, `windows-ops`, `oracle-batch-etl` 등 도메인 skill: 해당 영역 설계나 구현에 직접 들어갈 때
@@ -107,11 +105,10 @@ Oracle 11g -> [ingest] -> Parquet raw -> [mart] -> DuckDB -> [serve] -> FastAPI 
 
 1. 새 작업 시작: `project-bootstrap`
 2. 다음 작업 선택이 애매함: Codex 기본 `planner-agent`
-3. 수정 착수: `progress-discipline`
-4. `.codex/` 수정: `reference-reader` -> 필요 시 `codex-meta-agent`
-5. PR 자동화 설계/구현: `github-automation-agent`
-6. 구현 후 검증: Codex 기본 `review-agent`, `test-agent`
-7. 작업 종료: 관련 검증이 끝나면 `github:yeet` 또는 동등한 GitHub 흐름으로 draft PR 생성
+3. `.codex/` 수정: `reference-reader` -> 필요 시 `codex-meta-agent`
+4. PR 자동화 설계/구현: `github-automation-agent`
+5. 구현 후 검증: Codex 기본 `review-agent`, `test-agent`
+6. 작업 종료: 관련 검증이 끝나면 `github:yeet` 또는 동등한 GitHub 흐름으로 draft PR 생성
 
 ### 작업 종료 및 PR 생성
 
@@ -119,7 +116,7 @@ Oracle 11g -> [ingest] -> Parquet raw -> [mart] -> DuckDB -> [serve] -> FastAPI 
 - 선행 조건: 변경 범위 확인, 관련 테스트/검증 실행, 혼합 워크트리 여부 확인을 먼저 끝낸다.
 - 기본 수단: GitHub 플러그인의 `github:yeet` skill을 우선 사용해 브랜치, 커밋, 푸시, draft PR 생성까지 마무리한다.
 - 예외: GitHub 원격 저장소 접근 불가, 인증 누락, 사용자의 PR 보류 지시가 있으면 PR 생성 대신 blocker를 보고한다.
-- 기록: 최종 응답과 `PROGRESS.md`에는 검증 결과, 브랜치명, PR 상태 또는 생성 실패 사유를 남긴다.
+- 기록: 최종 응답에는 검증 결과, 브랜치명, PR 상태 또는 생성 실패 사유를 남긴다.
 
 ## 작업 전 체크리스트
 
@@ -128,11 +125,6 @@ Oracle 11g -> [ingest] -> Parquet raw -> [mart] -> DuckDB -> [serve] -> FastAPI 
 3. Windows Server 2019에서 운영 가능한가?
 4. 배치 ETL 범위를 넘지 않는가?
 5. 테스트나 로그로 검증 가능한가?
-
-## 협업 문서
-
-- `PLAN.md` - 작업 계획, 우선순위, 완료 조건
-- `PROGRESS.md` - 진행 상태, 블로커, handoff 메모
 
 ## 빌드 & 테스트 명령어
 

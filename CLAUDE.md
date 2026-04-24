@@ -86,12 +86,6 @@ Oracle 11g → [ingest] → Parquet raw → [mart] → DuckDB → [serve] → Fa
 4. 배치 ETL 범위를 넘지 않는가?
 5. 테스트나 로그로 검증 가능한가?
 
-## 협업 문서
-
-- `PLAN.md` — 작업 계획, 우선순위, 완료 조건
-- `PROGRESS.md` — 진행 상태, 블로커, handoff 메모
-- 작업 시작 전 PLAN.md → PROGRESS.md 순서로 읽고 시작
-
 ## 빌드 & 테스트 명령어
 
 ```bash

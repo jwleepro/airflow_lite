@@ -1,4 +1,0 @@
-interface:
-  display_name: "Task Slicing"
-  short_description: "Break work into owned, testable tasks"
-  default_prompt: "Use $task-slicing to turn this request into small tasks with owners, dependencies, write scopes, and done conditions."

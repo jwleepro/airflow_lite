@@ -7,9 +7,8 @@ This document defines how to use `reference/codex/` during Codex meta work.
 ## Workflow
 
 1. Read `AGENTS.md`.
-2. Read `PLAN.md`.
-3. Read `PROGRESS.md`.
-4. If the task touches `.codex/` or Codex workflow docs:
+2. Use the current user request, repository status, and nearby task-specific docs to determine the active scope.
+3. If the task touches `.codex/` or Codex workflow docs:
    - read `reference/codex/index.json`
    - select only the relevant documents
    - read the selected Markdown files
@@ -26,7 +25,7 @@ If a Codex-related decision or structure changes:
 
 1. update the relevant `.md` file
 2. keep the summary and keywords in `index.json` aligned
-3. mention the change in `PROGRESS.md` when it matters for follow-up work
+3. mention the change in the final response or handoff note when it matters for follow-up work
 
 ## Scope Boundary
 
