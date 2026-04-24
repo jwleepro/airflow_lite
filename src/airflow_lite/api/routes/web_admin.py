@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from airflow_lite.api.dependencies import get_language
@@ -78,6 +78,8 @@ def get_admin_xcoms_page(language: str = Depends(get_language)):
 
 async def _handle_admin_form(request: Request, handler, language: str, redirect_path: str) -> RedirectResponse:
     admin_repo = request.app.state.admin_repo
+    if admin_repo is None:
+        raise HTTPException(status_code=503, detail="Admin repository is not configured")
     form_data = await read_form_data(request)
     try:
         handler(admin_repo, form_data)

@@ -98,10 +98,10 @@
             <div class="cell-action-group">
               {% if actions.can_trigger %}
               <form method="post" action="{{ lang_url(monitor_pipeline_trigger_path(row.name)) }}" class="inline-form">
-                <button class="btn btn-ghost btn-small" type="submit" title="Trigger">▶</button>
+                <button class="btn btn-ghost btn-small" type="submit" title="Trigger" aria-label="Trigger {{ row.name }}">▶</button>
               </form>
               {% endif %}
-              <button type="button" class="btn btn-ghost btn-small" title="More">⋯</button>
+              <button type="button" class="btn btn-ghost btn-small" title="More" aria-label="More options for {{ row.name }}">⋯</button>
             </div>
           </td>
         </tr>

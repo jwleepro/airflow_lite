@@ -223,8 +223,18 @@
 }
 
 .dag-status-card {
+  display: block;
   border-left: 3px solid var(--neutral-ink);
   cursor: pointer;
+  color: inherit;
+  text-decoration: none;
+}
+
+.dag-status-card:hover,
+.dag-status-card:focus-visible {
+  background: var(--surface);
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
 }
 
 .dag-status-failed {

@@ -35,22 +35,22 @@
   <section class="panel">
     <p class="eyebrow u-mb-md">DAG Status Overview</p>
     <div class="dag-status-grid">
-      <div class="dag-status-card dag-status-failed" onclick="location.href='{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=bad'">
+      <a class="dag-status-card dag-status-failed" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=bad" aria-label="Failed DAGs: {{ failed_runs }}">
         <span class="dag-status-count">{{ failed_runs }}</span>
         <span class="dag-status-label">Failed DAGs</span>
-      </div>
-      <div class="dag-status-card dag-status-running" onclick="location.href='{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=warn'">
+      </a>
+      <a class="dag-status-card dag-status-running" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=warn" aria-label="Running DAGs: {{ active_runs }}">
         <span class="dag-status-count">{{ active_runs }}</span>
         <span class="dag-status-label">Running DAGs</span>
-      </div>
-      <div class="dag-status-card dag-status-active" onclick="location.href='{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=ok'">
+      </a>
+      <a class="dag-status-card dag-status-active" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=ok" aria-label="Active DAGs: {{ healthy_runs }}">
         <span class="dag-status-count">{{ healthy_runs }}</span>
         <span class="dag-status-label">Active DAGs</span>
-      </div>
-      <div class="dag-status-card" onclick="location.href='{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=paused'">
+      </a>
+      <a class="dag-status-card" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=paused" aria-label="Paused DAGs: {{ paused_pipelines|default(0) }}">
         <span class="dag-status-count">{{ paused_pipelines|default(0) }}</span>
         <span class="dag-status-label">Paused DAGs</span>
-      </div>
+      </a>
     </div>
   </section>
 

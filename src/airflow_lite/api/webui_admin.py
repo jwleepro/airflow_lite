@@ -108,8 +108,8 @@ def _pools(view_data: AdminPageViewData) -> list:
             {
                 "pool_name": pool.pool_name,
                 "slots": pool.slots,
-                "running": 0,
-                "queued": 0,
+                "running": None,
+                "queued": None,
                 "description": pool.description,
             }
         )
