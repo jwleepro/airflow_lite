@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block page_header %}{% endblock %}
 {% block content %}
 
 <section class="panel">
@@ -23,24 +24,29 @@
       </thead>
       <tbody>
         {% for p in pools %}
-        {% set occupied = p.running|default(0) %}
-        {% set queued = p.queued|default(0) %}
+        {% set has_usage = p.running is not none and p.queued is not none %}
+        {% set occupied = p.running if has_usage else 0 %}
+        {% set queued = p.queued if has_usage else 0 %}
         {% set slots = p.slots|default(1) %}
-        {% set open_slots = [slots - occupied, 0]|max %}
-        {% set pct = ((occupied / slots) * 100)|int if slots > 0 else 0 %}
+        {% set open_slots = [slots - occupied, 0]|max if has_usage else None %}
+        {% set pct = ((occupied / slots) * 100)|int if has_usage and slots > 0 else 0 %}
         <tr>
           <td><span class="cell-code" style="color: var(--running-ink);">{{ p.pool_name }}</span></td>
           <td><strong>{{ slots }}</strong></td>
-          <td style="color: var(--running-ink);">{{ occupied }}</td>
-          <td style="color: var(--warn-ink);">{{ queued }}</td>
-          <td style="color: var(--ok-ink);">{{ open_slots }}</td>
+          <td style="color: var(--running-ink);">{{ occupied if has_usage else '—' }}</td>
+          <td style="color: var(--warn-ink);">{{ queued if has_usage else '—' }}</td>
+          <td style="color: var(--ok-ink);">{{ open_slots if has_usage else '—' }}</td>
           <td>
+            {% if has_usage %}
             <div class="u-flex-center u-gap-sm">
               <div class="pool-bar">
                 <div class="pool-bar-fill {% if pct > 80 %}pool-bar-danger{% elif pct > 60 %}pool-bar-warn{% endif %}" style="width: {{ pct }}%;"></div>
               </div>
               <span class="u-text-sm u-text-muted">{{ pct }}%</span>
             </div>
+            {% else %}
+            <span class="u-text-sm u-text-muted">—</span>
+            {% endif %}
           </td>
           <td class="u-text-sm u-text-muted">{{ p.description or '—' }}</td>
           <td class="cell-actions">

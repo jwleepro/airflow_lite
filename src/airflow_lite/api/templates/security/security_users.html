@@ -1,5 +1,12 @@
 {% extends "base.html" %}
+{% block page_header %}{% endblock %}
 {% block content %}
+<section class="page-section-header">
+  <div>
+    <h1>{{ title }}</h1>
+    {% if subtitle %}<p>{{ subtitle }}</p>{% endif %}
+  </div>
+</section>
 
 <section class="panel">
   <div class="panel-head">

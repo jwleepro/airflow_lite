@@ -6,7 +6,7 @@
     {% if auto_refresh_seconds %}
     <meta http-equiv="refresh" content="{{ auto_refresh_seconds }}">
     {% endif %}
-    <title>{{ title }} - Airflow Lite</title>
+    <title>{{ title }} - Apache Airflow</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="/static/css/tokens.css">
     <link rel="stylesheet" href="/static/css/layout.css">
@@ -25,7 +25,7 @@
             return;
           }
         } catch (e) {}
-        document.documentElement.setAttribute("data-theme", "light");
+        document.documentElement.setAttribute("data-theme", "dark");
       })();
     </script>
   </head>
@@ -33,13 +33,17 @@
     <div class="app-shell">
       <aside class="sidebar" id="sidebar" data-collapsed="false">
         <div class="sidebar-brand-wrap">
-          <a class="sidebar-brand" href="{{ lang_url(MONITOR_PATH) }}" aria-label="Airflow Lite">
-            <svg class="brand-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM11 19.93C7.05 19.43 4 16.05 4 12C4 7.95 7.05 4.57 11 4.07V19.93ZM13 4.07C16.95 4.57 20 7.95 20 12C20 16.05 16.95 19.43 13 19.93V4.07Z" fill="currentColor"/>
+          <a class="sidebar-brand" href="{{ lang_url(MONITOR_PATH) }}" aria-label="Apache Airflow">
+            <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <circle cx="16" cy="16" r="14" fill="currentColor" opacity="0.14"/>
+              <path d="M16 4L28 22H4L16 4Z" fill="currentColor" opacity="0.82"/>
+              <circle cx="16" cy="10" r="3" fill="#00D4FF"/>
+              <circle cx="9" cy="22" r="2.5" fill="currentColor"/>
+              <circle cx="23" cy="22" r="2.5" fill="currentColor"/>
             </svg>
             <div class="brand-copy">
-              <span class="brand-text">Airflow Lite</span>
-              <span class="brand-subtitle">{{ t('webui.layout.brand_subtitle') }}</span>
+              <span class="brand-primary">Apache</span>
+              <span class="brand-secondary">Airflow</span>
             </div>
           </a>
           <button id="sidebar-toggle" class="sidebar-toggle" type="button" aria-label="Toggle sidebar" aria-expanded="true">
@@ -49,61 +53,41 @@
         </div>
 
         <nav class="sidebar-nav" aria-label="Primary">
-          {# Main navigation items #}
-          <a
-            class="sidebar-link{% if active_path == MONITOR_PATH %} active{% endif %}"
-            href="{{ lang_url(MONITOR_PATH) }}"
-            title="Home"
-          >
-            <span class="sidebar-icon" aria-hidden="true">{{ ICON_HOME }}</span>
+          <a class="sidebar-link{% if active_path == MONITOR_PATH %} active{% endif %}" href="{{ lang_url(MONITOR_PATH) }}" title="Home">
+            <span class="sidebar-icon" aria-hidden="true">⊞</span>
             <span class="sidebar-label">Home</span>
           </a>
-          <a
-            class="sidebar-link{% if active_path == MONITOR_PIPELINES_PATH %} active{% endif %}"
-            href="{{ lang_url(MONITOR_PIPELINES_PATH) }}"
-            title="DAGs"
-          >
-            <span class="sidebar-icon" aria-hidden="true">{{ ICON_PIPELINES }}</span>
+          <a class="sidebar-link{% if active_path == MONITOR_PIPELINES_PATH %} active{% endif %}" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}" title="DAGs">
+            <span class="sidebar-icon" aria-hidden="true">◈</span>
             <span class="sidebar-label">DAGs</span>
           </a>
-          <a
-            class="sidebar-link{% if active_path == MONITOR_ASSETS_PATH %} active{% endif %}"
-            href="{{ lang_url(MONITOR_ASSETS_PATH) }}"
-            title="Assets"
-          >
-            <span class="sidebar-icon" aria-hidden="true">{{ ICON_ASSETS }}</span>
+          <a class="sidebar-link{% if active_path == MONITOR_ASSETS_PATH %} active{% endif %}" href="{{ lang_url(MONITOR_ASSETS_PATH) }}" title="Assets">
+            <span class="sidebar-icon" aria-hidden="true">◇</span>
             <span class="sidebar-label">Assets</span>
           </a>
 
-          {# Browse submenu #}
           <div class="sidebar-submenu-group">
-            {% set backfills_path = MONITOR_BROWSE_BACKFILLS_PATH %}
-            {% set jobs_path = MONITOR_BROWSE_JOBS_PATH %}
-            {% set audit_logs_path = MONITOR_BROWSE_AUDIT_LOGS_PATH %}
-            {% set task_instances_path = MONITOR_BROWSE_TASK_INSTANCES_PATH %}
-            {% set dag_runs_path = MONITOR_DAG_RUNS_PATH %}
-            {% set browse_paths = [backfills_path, jobs_path, audit_logs_path, task_instances_path, dag_runs_path] %}
+            {% set browse_paths = [MONITOR_BROWSE_BACKFILLS_PATH, MONITOR_BROWSE_JOBS_PATH, MONITOR_BROWSE_AUDIT_LOGS_PATH, MONITOR_BROWSE_TASK_INSTANCES_PATH, MONITOR_DAG_RUNS_PATH] %}
             {% set browse_active = active_path in browse_paths %}
             <button class="submenu-toggle{% if browse_active %} active{% endif %}" type="button" data-submenu-toggle="browse" aria-expanded="{% if browse_active %}true{% else %}false{% endif %}">
-              <span class="sidebar-icon" aria-hidden="true">{{ ICON_BROWSE }}</span>
+              <span class="sidebar-icon" aria-hidden="true">≡</span>
               <span class="sidebar-label">Browse</span>
               <span class="submenu-caret" aria-hidden="true"></span>
             </button>
             <div class="submenu-list" data-submenu-panel="browse" {% if not browse_active %}hidden{% endif %}>
-              <a class="submenu-link{% if backfills_path == active_path %} active{% endif %}" href="{{ lang_url(backfills_path) }}">Backfills</a>
-              <a class="submenu-link{% if jobs_path == active_path %} active{% endif %}" href="{{ lang_url(jobs_path) }}">Jobs</a>
-              <a class="submenu-link{% if audit_logs_path == active_path %} active{% endif %}" href="{{ lang_url(audit_logs_path) }}">Audit Logs</a>
-              <a class="submenu-link{% if task_instances_path == active_path %} active{% endif %}" href="{{ lang_url(task_instances_path) }}">Task Instances</a>
-              <a class="submenu-link{% if dag_runs_path == active_path %} active{% endif %}" href="{{ lang_url(dag_runs_path) }}">DAG Runs</a>
+              <a class="submenu-link{% if MONITOR_BROWSE_BACKFILLS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_BROWSE_BACKFILLS_PATH) }}">Backfills</a>
+              <a class="submenu-link{% if MONITOR_BROWSE_JOBS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_BROWSE_JOBS_PATH) }}">Jobs</a>
+              <a class="submenu-link{% if MONITOR_BROWSE_AUDIT_LOGS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_BROWSE_AUDIT_LOGS_PATH) }}">Audit Logs</a>
+              <a class="submenu-link{% if MONITOR_BROWSE_TASK_INSTANCES_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_BROWSE_TASK_INSTANCES_PATH) }}">Task Instances</a>
+              <a class="submenu-link{% if MONITOR_DAG_RUNS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_DAG_RUNS_PATH) }}">DAG Runs</a>
             </div>
           </div>
 
-          {# Admin submenu #}
           <div class="sidebar-submenu-group">
             {% set admin_paths = [MONITOR_ADMIN_CONNECTIONS_PATH, MONITOR_ADMIN_VARIABLES_PATH, MONITOR_ADMIN_POOLS_PATH, MONITOR_ADMIN_PROVIDERS_PATH, MONITOR_ADMIN_PLUGINS_PATH, MONITOR_ADMIN_CONFIG_PATH, MONITOR_ADMIN_XCOMS_PATH] %}
             {% set admin_active = active_path in admin_paths or active_path == MONITOR_ADMIN_PATH %}
             <button class="submenu-toggle{% if admin_active %} active{% endif %}" type="button" data-submenu-toggle="admin" aria-expanded="{% if admin_active %}true{% else %}false{% endif %}">
-              <span class="sidebar-icon" aria-hidden="true">{{ ICON_ADMIN }}</span>
+              <span class="sidebar-icon" aria-hidden="true">⚙</span>
               <span class="sidebar-label">Admin</span>
               <span class="submenu-caret" aria-hidden="true"></span>
             </button>
@@ -118,12 +102,11 @@
             </div>
           </div>
 
-          {# Security submenu #}
           <div class="sidebar-submenu-group">
             {% set security_paths = [MONITOR_SECURITY_USERS_PATH, MONITOR_SECURITY_ROLES_PATH, MONITOR_SECURITY_PERMISSIONS_PATH] %}
             {% set security_active = active_path in security_paths %}
             <button class="submenu-toggle{% if security_active %} active{% endif %}" type="button" data-submenu-toggle="security" aria-expanded="{% if security_active %}true{% else %}false{% endif %}">
-              <span class="sidebar-icon" aria-hidden="true">{{ ICON_SECURITY }}</span>
+              <span class="sidebar-icon" aria-hidden="true">🔒</span>
               <span class="sidebar-label">Security</span>
               <span class="submenu-caret" aria-hidden="true"></span>
             </button>
@@ -137,107 +120,107 @@
 
         <div class="sidebar-footer">
           <div class="sidebar-profile">
-            <div class="sidebar-avatar" aria-hidden="true">AL</div>
+            <div class="sidebar-avatar" aria-hidden="true">A</div>
             <div class="sidebar-profile-copy">
-              <strong>Airflow Lite</strong>
-              <span>Local Operator</span>
+              <strong>admin</strong>
+              <span>Administrator</span>
             </div>
           </div>
-          <button id="theme-toggle" class="sidebar-utility theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme"></button>
+          <div class="theme-switch-row">
+            <button class="theme-chip" id="theme-light" type="button" data-theme-choice="light">☀ Light</button>
+            <button class="theme-chip" id="theme-dark" type="button" data-theme-choice="dark">◑ Dark</button>
+          </div>
         </div>
       </aside>
 
       <div class="shell-main">
-        <header class="topbar">
-          <div class="topbar-copy">
+        <header class="shell-topbar">
+          <div class="topbar-breadcrumbs">
             {% if breadcrumbs %}
-            <nav class="breadcrumb-row" aria-label="Breadcrumb">
               {% for label, href in breadcrumbs %}
+                {% if not loop.first %}<span class="breadcrumb-sep">/</span>{% endif %}
                 {% if href %}
                 <a class="breadcrumb-link" href="{{ lang_url(href) }}">{{ label }}</a>
                 {% else %}
                 <span class="breadcrumb-current">{{ label }}</span>
                 {% endif %}
-                {% if not loop.last %}<span class="breadcrumb-sep">/</span>{% endif %}
               {% endfor %}
-            </nav>
+            {% else %}
+            <span class="breadcrumb-current">{{ title }}</span>
             {% endif %}
-            {% if page_tag %}<p class="page-kicker">{{ page_tag }}</p>{% endif %}
-            <div class="title-row">
-              <h1 class="page-title">{{ title }}</h1>
-              {% if auto_refresh_seconds %}
-              <span class="chip live-chip">Auto {{ auto_refresh_seconds }}s</span>
-              {% endif %}
-            </div>
-            {% if subtitle %}<p class="page-subtitle">{{ subtitle }}</p>{% endif %}
           </div>
-          <div class="topbar-search">
-            <button id="global-search-btn" class="search-trigger" type="button" aria-label="Search">
-              <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                <path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5Zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14Z"/>
-              </svg>
-              <span class="search-placeholder">Search...</span>
-              <kbd class="search-kbd">⌘K</kbd>
-            </button>
-          </div>
-          {% if hero_actions or hero_links %}
-          <div class="topbar-actions">
-            {% for action in hero_actions %}
-            <form class="topbar-form" method="post" action="{{ lang_url(action.href) }}">
-              {% for field_name, field_value in (action.fields or {}).items() %}
-              <input type="hidden" name="{{ field_name }}" value="{{ field_value }}">
-              {% endfor %}
-              <button class="btn {{ action.class_name or 'btn-ghost' }}" type="submit">{{ action.label }}</button>
-            </form>
-            {% endfor %}
-            {% for label, href in hero_links %}
-            <a class="btn btn-ghost" href="{{ lang_url(href) }}" target="_blank" rel="noreferrer">{{ label }}</a>
-            {% endfor %}
-          </div>
-          {% endif %}
+          <button id="global-search-btn" class="search-trigger" type="button" aria-label="Search">
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <span class="search-placeholder">Search DAGs...</span>
+            <kbd class="search-kbd">⌘K</kbd>
+          </button>
         </header>
 
         <main class="main-stage">
           <div class="content-stack">
+            {% block page_header %}
+            <section class="page-header">
+              <div class="page-header-copy">
+                <h1 class="page-title">{{ title }}</h1>
+                {% if subtitle %}<p class="page-subtitle">{{ subtitle }}</p>{% endif %}
+              </div>
+              {% if hero_actions or hero_links %}
+              <div class="page-actions">
+                {% for action in hero_actions %}
+                <form class="topbar-form" method="post" action="{{ lang_url(action.href) }}">
+                  {% for field_name, field_value in (action.fields or {}).items() %}
+                  <input type="hidden" name="{{ field_name }}" value="{{ field_value }}">
+                  {% endfor %}
+                  <button class="btn {{ action.class_name or 'btn-ghost' }}" type="submit">{{ action.label }}</button>
+                </form>
+                {% endfor %}
+                {% for label, href in hero_links %}
+                <a class="btn btn-ghost" href="{{ lang_url(href) }}" target="_blank" rel="noreferrer">{{ label }}</a>
+                {% endfor %}
+              </div>
+              {% endif %}
+            </section>
+            {% endblock %}
             {% block content %}{% endblock %}
           </div>
         </main>
       </div>
     </div>
 
+    <div id="global-search-overlay" class="search-overlay" hidden>
+      <div class="search-modal" id="search-modal" role="dialog" aria-label="Search">
+        <div class="search-input-row">
+          <label for="search-input" class="visually-hidden">Search pages</label>
+          <span class="search-icon-inline" aria-hidden="true">⌕</span>
+          <input type="text" id="search-input" placeholder="Search pages..." autocomplete="off" aria-label="Search pages">
+          <kbd class="search-kbd-sm">ESC</kbd>
+        </div>
+        <div class="search-results" id="search-results">
+          <p class="search-placeholder-text">Search across DAGs, runs, tasks, admin, and security pages</p>
+        </div>
+      </div>
+    </div>
+
     <script>
       (function() {
-        var SUN = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 17.25a5.25 5.25 0 1 1 0-10.5 5.25 5.25 0 0 1 0 10.5Zm0-14.25a.9.9 0 0 1 .9.9v1.3a.9.9 0 1 1-1.8 0V3.9a.9.9 0 0 1 .9-.9Zm0 15.9a.9.9 0 0 1 .9.9v1.3a.9.9 0 1 1-1.8 0v-1.3a.9.9 0 0 1 .9-.9ZM3 12a.9.9 0 0 1 .9-.9h1.3a.9.9 0 1 1 0 1.8H3.9A.9.9 0 0 1 3 12Zm15.9 0a.9.9 0 0 1 .9-.9h1.3a.9.9 0 1 1 0 1.8h-1.3a.9.9 0 0 1-.9-.9ZM5.9 5.9a.9.9 0 0 1 1.27 0l.92.92A.9.9 0 0 1 6.82 8.1l-.92-.93a.9.9 0 0 1 0-1.27Zm10.99 10.99a.9.9 0 0 1 1.27 0l.92.92a.9.9 0 1 1-1.27 1.27l-.92-.92a.9.9 0 0 1 0-1.27ZM18.16 5.9a.9.9 0 0 1 0 1.27l-.92.92a.9.9 0 1 1-1.27-1.27l.92-.92a.9.9 0 0 1 1.27 0ZM8.1 17.18a.9.9 0 0 1 0 1.27l-.92.92a.9.9 0 0 1-1.27-1.27l.92-.92a.9.9 0 0 1 1.27 0Z"/></svg>';
-        var MOON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M20.17 14.36a7.64 7.64 0 0 1-9.6-9.6.75.75 0 0 0-.94-.94A9.14 9.14 0 1 0 21.1 15.3a.75.75 0 0 0-.93-.94Z"/></svg>';
-
         function currentTheme() {
-          return document.documentElement.getAttribute("data-theme") || "light";
+          return document.documentElement.getAttribute("data-theme") || "dark";
         }
 
         function setTheme(theme) {
           document.documentElement.setAttribute("data-theme", theme);
           try { localStorage.setItem("airflow_lite_theme", theme); } catch (e) {}
+          document.querySelectorAll("[data-theme-choice]").forEach(function(button) {
+            button.classList.toggle("active", button.getAttribute("data-theme-choice") === theme);
+          });
         }
 
-        function renderButton(btn) {
-          var theme = currentTheme();
-          btn.innerHTML = theme === "dark" ? SUN : MOON;
-          btn.title = theme === "dark" ? "Switch to light" : "Switch to dark";
-        }
-
-        var btn = document.getElementById("theme-toggle");
-        if (!btn) {
-          return;
-        }
-
-        function togglePanel(toggle, panel, expanded) {
-          toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
-          if (expanded) {
-            panel.removeAttribute("hidden");
-          } else {
-            panel.setAttribute("hidden", "");
-          }
-        }
+        document.querySelectorAll("[data-theme-choice]").forEach(function(button) {
+          button.addEventListener("click", function() {
+            setTheme(button.getAttribute("data-theme-choice"));
+          });
+        });
+        setTheme(currentTheme());
 
         var sidebar = document.getElementById("sidebar");
         var sidebarToggle = document.getElementById("sidebar-toggle");
@@ -254,15 +237,12 @@
           }
 
           setSidebarCollapsed(collapsed);
-
           sidebarToggle.addEventListener("click", function() {
-            var next = sidebar.getAttribute("data-collapsed") !== "true";
-            setSidebarCollapsed(next);
+            setSidebarCollapsed(sidebar.getAttribute("data-collapsed") !== "true");
           });
         }
 
-        var submenuToggles = document.querySelectorAll("[data-submenu-toggle]");
-        submenuToggles.forEach(function(toggle) {
+        document.querySelectorAll("[data-submenu-toggle]").forEach(function(toggle) {
           var name = toggle.getAttribute("data-submenu-toggle");
           var panel = document.querySelector("[data-submenu-panel='" + name + "']");
           if (!panel) {
@@ -270,138 +250,103 @@
           }
           toggle.addEventListener("click", function() {
             var expanded = toggle.getAttribute("aria-expanded") === "true";
-            togglePanel(toggle, panel, !expanded);
+            toggle.setAttribute("aria-expanded", expanded ? "false" : "true");
+            if (expanded) {
+              panel.setAttribute("hidden", "");
+            } else {
+              panel.removeAttribute("hidden");
+            }
           });
-        });
-
-        renderButton(btn);
-        btn.addEventListener("click", function() {
-          setTheme(currentTheme() === "dark" ? "light" : "dark");
-          renderButton(btn);
         });
       })();
     </script>
 
-    {# Global Search (Airflow 3.X style ⌘K) #}
-    <div id="global-search-overlay" class="search-overlay" hidden>
-      <div class="search-modal" id="search-modal" role="dialog" aria-label="Search">
-        <div class="search-input-row">
-          <svg class="search-icon-inline" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5Zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14Z"/></svg>
-          <input type="text" id="search-input" placeholder="Search pages..." autocomplete="off">
-          <kbd class="search-kbd-sm">ESC</kbd>
-        </div>
-        <div class="search-results" id="search-results">
-          <p class="search-placeholder-text">Search across DAGs, runs, and tasks</p>
-        </div>
-      </div>
-    </div>
-
     <script>
-    (function(){
-      var overlay = document.getElementById('global-search-overlay');
-      var input = document.getElementById('search-input');
-      var results = document.getElementById('search-results');
-      if (!overlay || !input || !results) return;
+      (function(){
+        var overlay = document.getElementById("global-search-overlay");
+        var input = document.getElementById("search-input");
+        var results = document.getElementById("search-results");
+        if (!overlay || !input || !results) return;
 
-      var routes = [
-        { label: 'Home', path: '{{ lang_url(MONITOR_PATH) }}', section: 'Main' },
-        { label: 'DAGs', path: '{{ lang_url(MONITOR_PIPELINES_PATH) }}', section: 'Main' },
-        { label: 'Assets', path: '{{ lang_url(MONITOR_ASSETS_PATH) }}', section: 'Main' },
-        { label: 'DAG Runs', path: '{{ lang_url(MONITOR_DAG_RUNS_PATH) }}', section: 'Browse' },
-        { label: 'Task Instances', path: '{{ lang_url(MONITOR_BROWSE_TASK_INSTANCES_PATH) }}', section: 'Browse' },
-        { label: 'Jobs', path: '{{ lang_url(MONITOR_BROWSE_JOBS_PATH) }}', section: 'Browse' },
-        { label: 'Backfills', path: '{{ lang_url(MONITOR_BROWSE_BACKFILLS_PATH) }}', section: 'Browse' },
-        { label: 'Audit Logs', path: '{{ lang_url(MONITOR_BROWSE_AUDIT_LOGS_PATH) }}', section: 'Browse' },
-        { label: 'Admin', path: '{{ lang_url(MONITOR_ADMIN_PATH) }}', section: 'Admin' },
-        { label: 'Connections', path: '{{ lang_url(MONITOR_ADMIN_CONNECTIONS_PATH) }}', section: 'Admin' },
-        { label: 'Variables', path: '{{ lang_url(MONITOR_ADMIN_VARIABLES_PATH) }}', section: 'Admin' },
-        { label: 'Pools', path: '{{ lang_url(MONITOR_ADMIN_POOLS_PATH) }}', section: 'Admin' },
-        { label: 'Security', path: '{{ lang_url(MONITOR_SECURITY_USERS_PATH) }}', section: 'Admin' },
-      ];
+        var routes = [
+          { label: "Home", path: "{{ lang_url(MONITOR_PATH) }}", section: "Main" },
+          { label: "DAGs", path: "{{ lang_url(MONITOR_PIPELINES_PATH) }}", section: "Main" },
+          { label: "Assets", path: "{{ lang_url(MONITOR_ASSETS_PATH) }}", section: "Main" },
+          { label: "Backfills", path: "{{ lang_url(MONITOR_BROWSE_BACKFILLS_PATH) }}", section: "Browse" },
+          { label: "Jobs", path: "{{ lang_url(MONITOR_BROWSE_JOBS_PATH) }}", section: "Browse" },
+          { label: "Audit Logs", path: "{{ lang_url(MONITOR_BROWSE_AUDIT_LOGS_PATH) }}", section: "Browse" },
+          { label: "Task Instances", path: "{{ lang_url(MONITOR_BROWSE_TASK_INSTANCES_PATH) }}", section: "Browse" },
+          { label: "DAG Runs", path: "{{ lang_url(MONITOR_DAG_RUNS_PATH) }}", section: "Browse" },
+          { label: "Connections", path: "{{ lang_url(MONITOR_ADMIN_CONNECTIONS_PATH) }}", section: "Admin" },
+          { label: "Variables", path: "{{ lang_url(MONITOR_ADMIN_VARIABLES_PATH) }}", section: "Admin" },
+          { label: "Pools", path: "{{ lang_url(MONITOR_ADMIN_POOLS_PATH) }}", section: "Admin" },
+          { label: "Providers", path: "{{ lang_url(MONITOR_ADMIN_PROVIDERS_PATH) }}", section: "Admin" },
+          { label: "Plugins", path: "{{ lang_url(MONITOR_ADMIN_PLUGINS_PATH) }}", section: "Admin" },
+          { label: "Configuration", path: "{{ lang_url(MONITOR_ADMIN_CONFIG_PATH) }}", section: "Admin" },
+          { label: "XComs", path: "{{ lang_url(MONITOR_ADMIN_XCOMS_PATH) }}", section: "Admin" },
+          { label: "Users", path: "{{ lang_url(MONITOR_SECURITY_USERS_PATH) }}", section: "Security" },
+          { label: "Roles", path: "{{ lang_url(MONITOR_SECURITY_ROLES_PATH) }}", section: "Security" },
+          { label: "Permissions", path: "{{ lang_url(MONITOR_SECURITY_PERMISSIONS_PATH) }}", section: "Security" }
+        ];
 
-      function openSearch() {
-        overlay.hidden = false;
-        input.value = '';
-        renderResults('');
-        input.focus();
-      }
-
-      function closeSearch() {
-        overlay.hidden = true;
-        input.value = '';
-      }
-
-      function renderResults(query) {
-        var q = query.toLowerCase().trim();
-        var filtered = routes;
-        if (q) {
-          filtered = routes.filter(function(r) {
-            return r.label.toLowerCase().includes(q) || r.section.toLowerCase().includes(q);
+        function renderResults(query) {
+          var q = query.toLowerCase().trim();
+          var filtered = routes.filter(function(route) {
+            return !q || route.label.toLowerCase().includes(q) || route.section.toLowerCase().includes(q);
           });
-        }
-        if (!filtered.length) {
-          results.innerHTML = '<p class="search-placeholder-text">No results found</p>';
-          return;
-        }
-        var html = '';
-        var lastSection = '';
-        filtered.forEach(function(r) {
-          if (r.section !== lastSection) {
-            html += '<div class="search-section-label">' + r.section + '</div>';
-            lastSection = r.section;
+          if (!filtered.length) {
+            results.innerHTML = '<p class="search-placeholder-text">No results found</p>';
+            return;
           }
-          html += '<a class="search-result-item" href="' + r.path + '">' + r.label + '</a>';
-        });
-        results.innerHTML = html;
-      }
 
-      // Keyboard shortcut: Ctrl+K / Cmd+K
-      document.addEventListener('keydown', function(e) {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-          e.preventDefault();
-          if (overlay.hidden) {
-            openSearch();
-          } else {
+          var html = "";
+          var lastSection = "";
+          filtered.forEach(function(route) {
+            if (route.section !== lastSection) {
+              html += '<div class="search-section-label">' + route.section + '</div>';
+              lastSection = route.section;
+            }
+            html += '<a class="search-result-item" href="' + route.path + '">' + route.label + '</a>';
+          });
+          results.innerHTML = html;
+        }
+
+        function openSearch() {
+          overlay.hidden = false;
+          input.value = "";
+          renderResults("");
+          input.focus();
+        }
+
+        function closeSearch() {
+          overlay.hidden = true;
+          input.value = "";
+        }
+
+        document.addEventListener("keydown", function(event) {
+          if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+            event.preventDefault();
+            if (overlay.hidden) {
+              openSearch();
+            } else {
+              closeSearch();
+            }
+          }
+          if (event.key === "Escape") {
             closeSearch();
           }
-        }
-        if (e.key === 'Escape') {
-          closeSearch();
-        }
-      });
+        });
 
-      // Click handlers
-      var searchBtn = document.getElementById('global-search-btn');
-      if (searchBtn) {
-        searchBtn.addEventListener('click', openSearch);
-      }
-      overlay.addEventListener('click', function(e) {
-        if (e.target === overlay) closeSearch();
-      });
-
-      input.addEventListener('input', function() {
-        renderResults(input.value);
-      });
-
-      // Arrow key navigation
-      input.addEventListener('keydown', function(e) {
-        var items = results.querySelectorAll('.search-result-item');
-        if (!items.length) return;
-        var focused = results.querySelector('.search-result-item.focused');
-        var idx = Array.prototype.indexOf.call(items, focused);
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          if (focused) focused.classList.remove('focused');
-          var next = items[(idx + 1) % items.length];
-          if (next) next.classList.add('focused');
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          if (focused) focused.classList.remove('focused');
-          var prev = items[(idx - 1 + items.length) % items.length];
-          if (prev) prev.classList.add('focused');
-        }
-      });
-    })();
+        document.getElementById("global-search-btn").addEventListener("click", openSearch);
+        overlay.addEventListener("click", function(event) {
+          if (event.target === overlay) {
+            closeSearch();
+          }
+        });
+        input.addEventListener("input", function() {
+          renderResults(input.value);
+        });
+      })();
     </script>
   </body>
 </html>

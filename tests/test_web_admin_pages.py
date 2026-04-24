@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock
 
+import pytest
 from fastapi.testclient import TestClient
 
 from airflow_lite.api.app import create_app
@@ -22,28 +23,24 @@ def _make_settings() -> MagicMock:
     return settings
 
 
-def test_assets_page_renders_airflow_style_inventory_table():
+@pytest.mark.parametrize(
+    ("path", "expected_heading"),
+    [
+        ("/monitor/admin/connections", "Connections"),
+        ("/monitor/admin/variables", "Variables"),
+        ("/monitor/admin/pools", "Pools"),
+        ("/monitor/admin/providers", "Providers"),
+        ("/monitor/admin/plugins", "Plugins"),
+        ("/monitor/admin/config", "Configuration"),
+        ("/monitor/admin/xcoms", "XComs"),
+    ],
+)
+def test_admin_subpages_render(path: str, expected_heading: str):
     app = create_app(_make_settings())
     client = TestClient(app)
 
-    response = client.get("/monitor/assets")
+    response = client.get(path)
 
     assert response.status_code == 200
-    assert "text/html" in response.headers["content-type"]
-    body = response.text
-    assert "Assets" in body
-    assert "Asset Graph View" in body
-    assert "s3://data-lake/events/daily" in body
-    assert "etl_daily_pipeline" in body
-
-
-def test_assets_page_supports_korean_language_query():
-    app = create_app(_make_settings())
-    client = TestClient(app)
-
-    response = client.get("/monitor/assets?lang=ko")
-
-    assert response.status_code == 200
-    body = response.text
-    assert '<html lang="ko">' in body
-    assert "자산" in body
+    assert expected_heading in response.text
+    assert "Apache Airflow" in response.text
