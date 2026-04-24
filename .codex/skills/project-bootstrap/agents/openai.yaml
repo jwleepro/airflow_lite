@@ -1,4 +1,4 @@
 interface:
   display_name: "Project Bootstrap"
-  short_description: "Start from AGENTS.md, PLAN.md, and PROGRESS.md"
-  default_prompt: "Use $project-bootstrap to summarize the current repo state and identify the safest next task before doing work."
+  short_description: "Start from AGENTS.md and current repo state"
+  default_prompt: "Use $project-bootstrap to summarize the current repo state from AGENTS.md, the active request, and nearby context before doing work."

@@ -42,10 +42,6 @@ path = "./skills/repo-indexing"
 enabled = true
 
 [[skills.config]]
-path = "./skills/task-slicing"
-enabled = true
-
-[[skills.config]]
 path = "./skills/oracle-batch-etl"
 enabled = true
 

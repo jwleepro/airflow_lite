@@ -1,30 +1,30 @@
-## 변경 사항
-<!-- 무엇을 왜 변경했는지 간단히 설명 -->
+## Changes
+<!-- Briefly describe what and why you changed -->
 
-## 관련 Issue
-<!-- Closes #123 형식으로 작성 -->
+## Related Issue
+<!-- Use Closes #123 format -->
 
-## 변경 유형
-- [ ] 버그 수정 (bug)
-- [ ] 새 기능 (feature)
-- [ ] 리팩토링 (refactor)
-- [ ] 문서 (docs)
-- [ ] 테스트 (test)
+## Change Type
+- [ ] Bug fix (bug)
+- [ ] New feature (feature)
+- [ ] Refactoring (refactor)
+- [ ] Documentation (docs)
+- [ ] Test (test)
 
-## 구현 체크리스트
-- [ ] 요구사항 전체 구현 완료
-- [ ] 하나의 함수가 200줄을 넘지 않음
-- [ ] 하나의 파일이 500줄을 넘지 않음
-- [ ] 새 의존성 추가 시 Windows Server 2019 호환 확인
-- [ ] 하드코딩된 비밀번호/경로 없음
+## Implementation Checklist
+- [ ] All requirements fully implemented
+- [ ] No single function exceeds 200 lines
+- [ ] No single file exceeds 500 lines
+- [ ] Windows Server 2019 compatibility verified for new dependencies
+- [ ] No hardcoded passwords/paths
 
-## 테스트 체크리스트
-- [ ] 단위 테스트 추가/수정
-- [ ] `pytest tests/` 로컬 통과
-- [ ] UI 변경 시 브라우저에서 직접 확인
+## Test Checklist
+- [ ] Unit tests added/modified
+- [ ] `pytest tests/` passes locally
+- [ ] UI changes verified in browser
 
-## 테스트 방법
-<!-- 리뷰어가 검증할 수 있는 구체적인 방법 -->
+## How to Test
+<!-- Provide specific steps for reviewers to verify -->
 
-## 스크린샷 (UI 변경 시)
-<!-- 변경 전/후 스크린샷 첨부 -->
+## Screenshots (for UI changes)
+<!-- Attach before/after screenshots -->

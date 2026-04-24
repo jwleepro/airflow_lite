@@ -2,4 +2,4 @@ personality = "pragmatic"
 model_reasoning_effort = "high"
 model_verbosity = "low"
 sandbox_mode = "workspace-write"
-project_doc_fallback_filenames = ["AGENTS.md", "PLAN.md", "PROGRESS.md"]
+project_doc_fallback_filenames = ["AGENTS.md"]

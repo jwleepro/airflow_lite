@@ -68,4 +68,16 @@ Run a repeatable issue-to-PR loop with milestone and issue-number priority.
 
 Do not use this skill for one-off hotfixes, release-only chores, or tasks not tracked in GitHub issues.
 
+## Templates
+
+PR과 Issue 작성 시 아래 프로젝트 템플릿을 반드시 따르세요.
+
+### PR Template
+!`.github/PULL_REQUEST_TEMPLATE/default.md`
+
+### Issue Templates
+- Bug: `.github/ISSUE_TEMPLATE/01-bug.yml`
+- Feature: `.github/ISSUE_TEMPLATE/02-feature.yml`
+- Task: `.github/ISSUE_TEMPLATE/03-task-request.yml`
+
 $ARGUMENTS
