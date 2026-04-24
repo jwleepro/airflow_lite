@@ -83,6 +83,23 @@ def truncate_id(value: object, length: int = 12, fallback: str = "-") -> str:
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 
+def truncate_id(value: object, length: int = 12, fallback: str = "-") -> str:
+    """Null-safe short-id formatter for tables.
+
+    Returns ``fallback`` when ``value`` is ``None`` or empty so templates can
+    render rows without crashing on missing identifiers. Long values are
+    truncated to ``length`` characters with a trailing ellipsis.
+    """
+    if value is None:
+        return fallback
+    text = str(value)
+    if not text:
+        return fallback
+    if len(text) > length:
+        return f"{text[:length]}..."
+    return text
+
+
 @dataclass(frozen=True)
 class PageChrome:
     """페이지 공통 "크롬"(레이아웃 바깥 틀) 파라미터.

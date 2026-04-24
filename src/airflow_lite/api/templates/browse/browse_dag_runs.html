@@ -63,7 +63,7 @@
             {% if run.run_id %}
             <a class="btn btn-ghost btn-small" href="{{ lang_url(monitor_pipeline_run_detail_path(run.dag_id, run.run_id)) }}">View</a>
             {% else %}
-            <span class="btn btn-ghost btn-small" aria-disabled="true" style="opacity:0.4;cursor:not-allowed;">View</span>
+            <span class="btn btn-ghost btn-small is-disabled" aria-disabled="true">View</span>
             {% endif %}
           </td>
         </tr>
