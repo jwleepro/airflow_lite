@@ -147,16 +147,23 @@ def test_rendered_page_contains_task_panel():
 
 
 def test_rendered_page_mark_success_disabled():
-    """Mark Success must appear disabled in the rendered output."""
+    """Mark Success button must carry disabled and aria-disabled in rendered output."""
     html = render_pipeline_detail_page(_make_page())
-    assert "Mark Success" in html
-    assert "disabled" in html
+    match = re.search(r'<button[^>]*>Mark Success</button>', html, re.DOTALL)
+    assert match, "Mark Success button not found in rendered output"
+    btn = match.group(0)
+    assert "disabled" in btn, "Mark Success button is not disabled"
+    assert 'aria-disabled="true"' in btn, "Mark Success button is missing aria-disabled"
 
 
 def test_rendered_page_clear_disabled():
-    """Clear must appear disabled in the rendered output."""
+    """All Clear buttons must carry disabled and aria-disabled in rendered output."""
     html = render_pipeline_detail_page(_make_page())
-    assert "Clear" in html
+    matches = re.findall(r'<button[^>]*>Clear</button>', html, re.DOTALL)
+    assert matches, "Clear button not found in rendered output"
+    for btn in matches:
+        assert "disabled" in btn, f"Clear button is not disabled: {btn}"
+        assert 'aria-disabled="true"' in btn, f"Clear button is missing aria-disabled: {btn}"
 
 
 def test_rendered_page_pipeline_name_in_js():
