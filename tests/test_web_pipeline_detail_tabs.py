@@ -2,15 +2,17 @@
 
 Verifies that:
 - Logs / XCom tab panes exist in the rendered HTML
-- Mark Success and Clear buttons are rendered as disabled
+- Mark Success and Clear buttons are rendered as disabled with aria-disabled
 - Grid cells carry data-run-id so the JS can wire the log link
 - View Run Detail link is present (conditionally shown via JS)
+- _switchPanelTab JS helper is defined
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
-import pytest
+from airflow_lite.api.webui_pipeline_detail import render_pipeline_detail_page
 
 
 # ---------------------------------------------------------------------------
@@ -24,6 +26,7 @@ _TEMPLATE = (
 
 
 def _html() -> str:
+    """Return the raw pipeline_detail template source."""
     return _TEMPLATE.read_text(encoding="utf-8")
 
 
@@ -44,27 +47,25 @@ def test_task_panel_has_separate_panes():
 
 
 def test_mark_success_button_is_disabled():
-    """Mark Success button must be rendered disabled (not yet implemented)."""
+    """Mark Success button must be rendered disabled and aria-disabled."""
     html = _html()
     assert "Mark Success" in html
-    # The button must carry both disabled attribute and aria-disabled
-    import re
     button_match = re.search(r'<button[^>]*>Mark Success</button>', html, re.DOTALL)
     assert button_match, "Mark Success button not found"
     btn_html = button_match.group(0)
     assert "disabled" in btn_html
+    assert 'aria-disabled="true"' in btn_html
 
 
 def test_clear_button_is_disabled():
-    """All Clear buttons must be rendered disabled (not yet implemented)."""
-    import re
+    """All Clear buttons must be rendered disabled and aria-disabled."""
     html = _html()
     assert "Clear" in html
-    # All occurrences of Clear buttons must carry the disabled attribute
     matches = re.findall(r'<button[^>]*>Clear</button>', html, re.DOTALL)
     assert matches, "Clear button not found"
     for btn_html in matches:
         assert "disabled" in btn_html, f"Clear button without disabled: {btn_html}"
+        assert 'aria-disabled="true"' in btn_html, f"Clear button without aria-disabled: {btn_html}"
 
 
 def test_grid_cells_carry_data_run_id():
@@ -97,16 +98,27 @@ def test_switch_panel_tab_function_defined():
     assert "_switchPanelTab" in html
 
 
+def test_switch_panel_tab_syncs_button_active_class():
+    """_switchPanelTab must toggle active class on tab buttons as well as panes."""
+    html = _html()
+    # The function must contain classList.toggle logic for buttons
+    assert "classList.toggle" in html
+
+
+def test_lang_param_preserved_in_run_detail_href():
+    """JS must read the current ?lang= param and append it to the run-detail href."""
+    html = _html()
+    assert "URLSearchParams" in html
+    assert "lang" in html
+
+
 # ---------------------------------------------------------------------------
 # Rendered HTML tests via webui renderer
 # ---------------------------------------------------------------------------
 
-from unittest.mock import MagicMock
-
-from airflow_lite.api.webui_pipeline_detail import render_pipeline_detail_page
-
 
 def _make_page(run_id: str = "run-001") -> dict:
+    """Return a minimal page dict for render_pipeline_detail_page."""
     return {
         "pipeline": {
             "name": "test_dag",

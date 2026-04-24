@@ -423,7 +423,9 @@ function showTaskPanel(cell) {
   var logsLink2 = document.getElementById('task-panel-logs-link-2');
   var logsNa = document.getElementById('task-panel-logs-na');
   if (runId) {
-    var href = '/monitor/pipelines/' + encodeURIComponent(dagId) + '/runs/' + encodeURIComponent(runId);
+    var basePath = '/monitor/pipelines/' + encodeURIComponent(dagId) + '/runs/' + encodeURIComponent(runId);
+    var langParam = new URLSearchParams(window.location.search).get('lang');
+    var href = langParam ? (basePath + '?lang=' + encodeURIComponent(langParam)) : basePath;
     logsLink.href = href;
     logsLink.hidden = false;
     logsLink2.href = href;
@@ -447,6 +449,10 @@ function _switchPanelTab(tabName) {
     var el = document.getElementById(id);
     if (el) el.hidden = (id !== tabMap[tabName]);
   });
+  // Sync tab button active class
+  document.querySelectorAll('[data-panel-tab]').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.panelTab === tabName);
+  });
 }
 
 // Task panel inner tabs
@@ -454,8 +460,6 @@ function _switchPanelTab(tabName) {
   var tabs = document.querySelectorAll('[data-panel-tab]');
   tabs.forEach(function(btn){
     btn.addEventListener('click', function(){
-      tabs.forEach(function(b){ b.classList.remove('active') });
-      btn.classList.add('active');
       _switchPanelTab(btn.dataset.panelTab);
     });
   });
