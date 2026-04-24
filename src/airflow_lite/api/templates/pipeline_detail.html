@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block page_header %}{% endblock %}
 {% block content %}
 
 {% set has_active_run = latest_run and latest_run.status in ['queued', 'running', 'pending'] %}

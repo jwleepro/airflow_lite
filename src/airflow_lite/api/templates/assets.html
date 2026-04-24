@@ -1,51 +1,56 @@
 {% extends "base.html" %}
+
+{% block page_header %}{% endblock %}
+
 {% block content %}
+<section class="page-section-header">
+  <div>
+    <h1>{{ t('webui.assets.title') }}</h1>
+    {% if subtitle %}<p>{{ subtitle }}</p>{% endif %}
+  </div>
+  <div class="page-inline-actions">
+    <button type="button" class="btn btn-ghost">Asset Graph View ↗</button>
+  </div>
+</section>
 
 <section class="panel">
-  <div class="panel-head">
-    <div>
-      <p class="eyebrow">Assets</p>
-      <h2>Assets</h2>
-    </div>
-    <div class="chip-list">
-      <span class="chip">{{ total_count|default(0) }} assets</span>
-      <span class="chip ok-chip">{{ consumed_count|default(0) }} consumed</span>
-      <span class="chip">{{ produced_count|default(0) }} produced</span>
-    </div>
-  </div>
-
   <div class="table-wrap">
     <table class="air-table">
       <thead>
         <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Status</th>
+          <th>Asset URI</th>
+          <th>Producers</th>
           <th>Consumers</th>
           <th>Last Updated</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
-        {% for asset in assets|default([]) %}
+        {% for asset in assets %}
         <tr>
-          <td class="cell-code">{{ asset.name }}</td>
-          <td><span class="chip">{{ asset.asset_type|default('uri') }}</span></td>
-          <td><span class="status {{ tone_of(asset.status|default('active')) }}">{{ asset.status|default('active') }}</span></td>
-          <td>{{ asset.consumer_count|default(0) }}</td>
-          <td class="u-text-muted u-text-sm">{{ asset.updated_at|default('—') }}</td>
+          <td><span class="cell-code" style="color: var(--warn-ink);">{{ asset.name }}</span></td>
+          <td>
+            {% for producer in asset.producers %}
+            <span class="chip ok-chip">{{ producer }}</span>
+            {% endfor %}
+          </td>
+          <td>
+            {% for consumer in asset.consumers %}
+            <span class="chip chip-warn">{{ consumer }}</span>
+            {% endfor %}
+          </td>
+          <td class="u-text-sm u-text-muted">{{ asset.last_updated }}</td>
           <td class="cell-actions">
-            <span class="btn btn-ghost btn-small" disabled>View</span>
+            <button type="button" class="btn btn-ghost btn-small">Graph →</button>
           </td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="6" class="empty">No assets defined</td>
+          <td colspan="5" class="empty">No assets configured</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </section>
-
 {% endblock %}

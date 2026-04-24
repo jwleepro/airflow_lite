@@ -1,4 +1,24 @@
-/* ===== DAG List Page ===== */
+.page-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.page-section-header h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.page-section-header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .dag-filter-panel {
   margin-bottom: 18px;
 }
@@ -16,48 +36,45 @@
   gap: 8px;
   flex: 1;
   max-width: 320px;
-  padding: 8px 12px;
+  padding: 6px 10px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: var(--surface-muted);
+  background: var(--surface);
 }
 
 .search-icon-inline {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .dag-search-input {
   flex: 1;
-  border: none;
-  background: none;
   padding: 0;
-  font-size: 13px;
+  border: 0;
+  background: none;
+  box-shadow: none;
 }
 
 .dag-search-input:focus {
-  outline: none;
   box-shadow: none;
 }
 
 .dag-filter-select {
   width: auto;
-  padding: 8px 12px;
-  font-size: 12px;
+  min-width: 120px;
 }
 
 .dag-filter-checkbox {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
   color: var(--muted);
+  font-size: 12px;
   cursor: pointer;
 }
 
 .dag-filter-checkbox input {
   width: auto;
-  accent-color: var(--brand);
 }
 
 .dag-name-cell {
@@ -68,25 +85,21 @@
 
 .dag-toggle {
   position: relative;
-  display: inline-block;
   width: 28px;
   height: 16px;
   flex-shrink: 0;
 }
 
 .dag-toggle input {
+  position: absolute;
   opacity: 0;
-  width: 0;
-  height: 0;
 }
 
 .dag-toggle-track {
   position: absolute;
-  cursor: pointer;
   inset: 0;
+  border-radius: 999px;
   background: var(--surface-strong);
-  border-radius: 8px;
-  transition: background 0.2s;
 }
 
 .dag-toggle-track::before {
@@ -96,9 +109,9 @@
   left: 2px;
   width: 12px;
   height: 12px;
-  background: #fff;
   border-radius: 50%;
-  transition: transform 0.2s;
+  background: #fff;
+  transition: transform 0.2s ease;
 }
 
 .dag-toggle input:checked + .dag-toggle-track {
@@ -111,70 +124,37 @@
 
 .dag-tags {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   margin-top: 4px;
-  flex-wrap: wrap;
 }
 
 .dag-tag {
-  padding: 1px 6px;
-  border-radius: 4px;
+  padding: 1px 5px;
+  border-radius: 3px;
   background: var(--surface-strong);
   color: var(--muted);
   font-size: 10px;
 }
 
-.dag-table th,
-.dag-table td {
-  vertical-align: middle;
-}
-
-/* ===== Pool Bar ===== */
-.pool-bar {
-  flex: 1;
-  height: 6px;
-  min-width: 80px;
-  background: var(--surface-strong);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.pool-bar-fill {
-  height: 100%;
-  background: var(--ok-ink);
-  border-radius: 3px;
-  transition: width 0.3s ease;
-}
-
-.pool-bar-warn {
-  background: var(--warn-ink);
-}
-
-.pool-bar-danger {
-  background: var(--bad-ink);
-}
-
-/* ===== Home Page - Health Cards ===== */
 .health-grid {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 12px;
-  flex-wrap: wrap;
 }
 
 .health-card {
-  flex: 1;
-  min-width: 180px;
-  padding: 12px 16px;
+  background: var(--bg);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-muted);
+  border-radius: 6px;
+  padding: 10px 14px;
 }
 
 .health-card-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .health-dot {
@@ -200,13 +180,16 @@
 }
 
 .health-name {
-  font-size: 0.88rem;
-  font-weight: 500;
   color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .health-status {
-  font-size: 0.76rem;
+  font-size: 11px;
+}
+
+.health-ok .health-status {
   color: var(--ok-ink);
 }
 
@@ -219,31 +202,29 @@
 }
 
 .health-detail {
-  margin-top: 4px;
-  font-size: 0.7rem;
+  margin-top: 2px;
   color: var(--muted);
+  font-size: 10px;
 }
 
-/* ===== Home Page - DAG Status Cards ===== */
-.dag-status-grid {
+.dag-status-grid,
+.stats-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dag-status-card,
+.stat-card {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px 14px;
 }
 
 .dag-status-card {
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  border-left: 4px solid var(--neutral-ink);
-  background: var(--surface-muted);
+  border-left: 3px solid var(--neutral-ink);
   cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
-}
-
-.dag-status-card:hover {
-  background: var(--surface-strong);
-  transform: translateY(-1px);
 }
 
 .dag-status-failed {
@@ -251,23 +232,26 @@
 }
 
 .dag-status-running {
-  border-left-color: var(--running-ink);
+  border-left-color: var(--warn-ink);
 }
 
 .dag-status-active {
   border-left-color: var(--ok-ink);
 }
 
-.dag-status-paused {
-  border-left-color: var(--neutral-ink);
-}
-
 .dag-status-count {
   display: block;
-  font-size: 1.8rem;
+  font-size: 28px;
   font-weight: 700;
-  line-height: 1;
-  color: var(--ink);
+  line-height: 1.1;
+}
+
+.dag-status-label,
+.stat-label {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted);
 }
 
 .dag-status-failed .dag-status-count {
@@ -275,53 +259,62 @@
 }
 
 .dag-status-running .dag-status-count {
-  color: var(--running-ink);
+  color: var(--warn-ink);
 }
 
 .dag-status-active .dag-status-count {
   color: var(--ok-ink);
 }
 
-.dag-status-label {
-  display: block;
-  margin-top: 6px;
-  font-size: 0.78rem;
-  color: var(--muted);
-}
-
-/* ===== Home Page - Stats Cards ===== */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
-.stat-card {
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-muted);
-}
-
 .stat-value {
   display: block;
-  font-size: 1.4rem;
+  font-size: 22px;
   font-weight: 700;
-  line-height: 1;
   color: var(--ink);
-}
-
-.stat-label {
-  display: block;
-  margin-top: 4px;
-  font-size: 0.76rem;
-  color: var(--ink-soft);
 }
 
 .stat-detail {
   display: block;
-  margin-top: 4px;
-  font-size: 0.7rem;
+  margin-top: 2px;
   color: var(--muted);
+  font-size: 10px;
 }
 
+.pool-bar {
+  flex: 1;
+  min-width: 80px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  overflow: hidden;
+}
+
+.pool-bar-fill {
+  height: 100%;
+  background: var(--ok-ink);
+}
+
+.pool-bar-warn {
+  background: #f59e0b;
+}
+
+.pool-bar-danger {
+  background: var(--bad-ink);
+}
+
+@media (max-width: 720px) {
+  .page-section-header,
+  .dag-filter-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dag-search-box {
+    max-width: none;
+  }
+
+  .dag-status-grid,
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}

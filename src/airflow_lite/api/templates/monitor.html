@@ -1,20 +1,23 @@
 {% extends "base.html" %}
 {% import "_macros.html" as m %}
+
+{% block page_header %}{% endblock %}
+
 {% block content %}
-
-{# DAG Header with count and import button #}
-<section class="panel dag-filter-panel">
-  <div class="u-flex-between u-mb-md">
-    <div>
-      <h2 class="u-m-0">DAGs</h2>
-      <p class="u-text-sm u-text-muted u-mt-xs">{{ pipeline_rows|length }} of {{ total_pipelines }} DAGs</p>
-    </div>
-    <button type="button" class="btn btn-primary">Import DAG</button>
+<section class="page-section-header">
+  <div>
+    <h1>DAGs</h1>
+    <p>{{ pipeline_rows|length }} of {{ total_pipelines }} DAGs shown</p>
   </div>
+  <div class="page-inline-actions">
+    <button type="button" class="btn btn-primary">＋ Import DAG</button>
+  </div>
+</section>
 
+<section class="panel dag-filter-panel">
   <form class="dag-filter-row" method="get" action="{{ lang_url(MONITOR_PIPELINES_PATH) }}">
     <div class="dag-search-box">
-      <span class="search-icon-inline">&#x290D;</span>
+      <span class="search-icon-inline">⌕</span>
       <input type="text" name="q" value="{{ search_query }}" placeholder="Filter DAGs..." class="dag-search-input">
     </div>
     <select name="state" class="dag-filter-select">
@@ -32,7 +35,6 @@
   </form>
 </section>
 
-{# DAG Table with Airflow 3.X-style run chips #}
 <section class="panel">
   <div class="table-wrap">
     <table class="air-table dag-table">
@@ -42,7 +44,7 @@
           <th>Status</th>
           <th>Schedule</th>
           <th>Owner</th>
-          <th>Recent Runs</th>
+          <th>Recent Runs (15)</th>
           <th>Last Run</th>
           <th>Next Run</th>
           <th></th>
@@ -53,7 +55,6 @@
         {% set latest = row.latest_run or {} %}
         {% set latest_status = latest.status or 'never-run' %}
         {% set latest_tone = tone_of(latest_status) %}
-        {% set run_id = latest.id or '' %}
         {% set actions = pipeline_actions.get(row.name, {}) %}
         {% set is_active = row.is_active|default(true) %}
         <tr>
@@ -77,7 +78,7 @@
           </td>
           <td>{{ m.status_badge(latest_status, latest_tone) }}</td>
           <td><code class="u-text-sm u-text-muted">{{ fmt(row.schedule) }}</code></td>
-          <td class="u-text-sm u-text-muted">{{ row.owner|default('—') }}</td>
+          <td class="u-text-sm u-text-muted">{{ row.owner|default('data-team') }}</td>
           <td>
             {% if row.recent_runs %}
             <div class="run-grid">
@@ -97,19 +98,18 @@
             <div class="cell-action-group">
               {% if actions.can_trigger %}
               <form method="post" action="{{ lang_url(monitor_pipeline_trigger_path(row.name)) }}" class="inline-form">
-                <button class="btn btn-ghost btn-small" type="submit" title="Trigger">&#x25B6;</button>
+                <button class="btn btn-ghost btn-small" type="submit" title="Trigger">▶</button>
               </form>
               {% endif %}
-              <button type="button" class="btn btn-ghost btn-small" title="More">&#x22EE;</button>
+              <button type="button" class="btn btn-ghost btn-small" title="More">⋯</button>
             </div>
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="8" class="empty">{{ t('webui.monitor.empty.no_pipelines') }}</td></tr>
+        <tr><td colspan="8" class="empty">No DAGs found</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </section>
-
 {% endblock %}
