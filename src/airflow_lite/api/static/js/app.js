@@ -54,4 +54,26 @@
       }
     });
   });
+
+  document.addEventListener("click", function(e) {
+    var toggle = e.target.closest("[data-dropdown-toggle]");
+    if (toggle) {
+      e.preventDefault();
+      e.stopPropagation();
+      var dropdown = toggle.closest(".dropdown");
+      var wasOpen = dropdown.classList.contains("open");
+      document.querySelectorAll(".dropdown.open").forEach(function(d) { d.classList.remove("open"); });
+      if (!wasOpen) dropdown.classList.add("open");
+      return;
+    }
+    if (!e.target.closest(".dropdown-menu")) {
+      document.querySelectorAll(".dropdown.open").forEach(function(d) { d.classList.remove("open"); });
+    }
+  });
+
+  document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape") {
+      document.querySelectorAll(".dropdown.open").forEach(function(d) { d.classList.remove("open"); });
+    }
+  });
 })();

@@ -68,3 +68,10 @@ def get_admin_repo(request: Request):
     if repo is None:
         raise HTTPException(status_code=503, detail="AdminRepository is not configured.")
     return repo
+
+
+def get_dag_state_service(request: Request):
+    svc = getattr(request.app.state, "dag_state_service", None)
+    if svc is None:
+        raise HTTPException(status_code=503, detail="dag_state_service is not configured.")
+    return svc

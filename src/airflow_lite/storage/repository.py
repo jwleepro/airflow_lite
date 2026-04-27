@@ -218,6 +218,22 @@ class PipelineRunRepository:
             ).fetchone()
         return _row_to_pipeline_run(row) if row else None
 
+    @log_db_operation("pipeline_runs")
+    def delete_by_pipeline(self, pipeline_name: str) -> int:
+        """Delete all runs for a pipeline. Returns deleted count."""
+        with self.database.connection() as conn:
+            cursor = conn.execute(
+                "DELETE FROM step_runs WHERE pipeline_run_id IN (SELECT id FROM pipeline_runs WHERE pipeline_name = ?)",
+                (pipeline_name,),
+            )
+            cursor = conn.execute(
+                "DELETE FROM pipeline_runs WHERE pipeline_name = ?",
+                (pipeline_name,),
+            )
+            deleted = cursor.rowcount
+            conn.commit()
+        return deleted
+
 
 class StepRunRepository:
     """step_runs 테이블 CRUD. pipeline_run_id 기반 조회 지원."""

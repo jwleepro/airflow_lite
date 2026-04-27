@@ -69,6 +69,9 @@ def create_app(
     app.state.admin_repo = admin_repo
     app.state.dispatch_service = dispatch_service
 
+    from airflow_lite.service.dag_state_service import DagStateService
+    app.state.dag_state_service = DagStateService(Path(settings.storage.var_path) / "dag_states.json")
+
     # Request Context 미들웨어 (request_id 주입, 요청/응답 로깅)
     app.add_middleware(RequestContextMiddleware)
 

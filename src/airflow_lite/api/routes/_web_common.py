@@ -101,6 +101,24 @@ def operation_notice(
             "title": t(language, "webui.actions.notice.backfill.title"),
             "detail": t(language, "webui.actions.notice.backfill.detail", count=count or 0),
         }
+    if action == "paused":
+        return {
+            "tone": "warn",
+            "title": t(language, "webui.actions.notice.paused.title"),
+            "detail": t(language, "webui.actions.notice.paused.detail"),
+        }
+    if action == "unpaused":
+        return {
+            "tone": "ok",
+            "title": t(language, "webui.actions.notice.unpaused.title"),
+            "detail": t(language, "webui.actions.notice.unpaused.detail"),
+        }
+    if action == "deleted":
+        return {
+            "tone": "warn",
+            "title": t(language, "webui.actions.notice.deleted.title"),
+            "detail": t(language, "webui.actions.notice.deleted.detail", count=count or 0),
+        }
     return None
 
 
