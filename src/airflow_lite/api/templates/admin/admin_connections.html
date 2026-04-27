@@ -77,24 +77,11 @@
   </form>
 </section>
 
-<script>
-function filterTable() {
-  var input = document.getElementById('conn-search');
-  var filter = input.value.toLowerCase();
-  var table = document.getElementById('conn-table');
-  var tr = table.getElementsByTagName('tr');
-  for (var i = 1; i < tr.length; i++) {
-    var tds = tr[i].getElementsByTagName('td');
-    var matched = false;
-    for (var j = 0; j < tds.length && !matched; j++) {
-      var txtValue = tds[j].textContent || tds[j].innerText;
-      if (txtValue.toLowerCase().indexOf(filter) > -1) {
-        matched = true;
-      }
-    }
-    tr[i].style.display = matched ? '' : 'none';
-  }
-}
-</script>
+{% endblock %}
 
+{% block page_scripts %}
+<script src="/static/js/admin.js"></script>
+<script>
+function filterTable() { AdminPage.filterTable('conn-search', 'conn-table'); }
+</script>
 {% endblock %}

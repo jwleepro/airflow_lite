@@ -32,16 +32,6 @@
   {% endfor %}
 </section>
 
-<script>
-function toggleSection(btn) {
-  var body = btn.nextElementSibling;
-  body.classList.toggle('collapsed');
-  btn.querySelector('span').textContent = body.classList.contains('collapsed')
-    ? btn.querySelector('span').textContent.replace('▾', '▸')
-    : btn.querySelector('span').textContent.replace('▸', '▾');
-}
-</script>
-
 <style>
 .config-section {
   background: var(--surface);
@@ -85,4 +75,8 @@ function toggleSection(btn) {
 }
 </style>
 
+{% endblock %}
+
+{% block page_scripts %}
+<script src="/static/js/admin.js"></script>
 {% endblock %}

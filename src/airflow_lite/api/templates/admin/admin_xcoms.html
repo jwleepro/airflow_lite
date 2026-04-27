@@ -60,20 +60,8 @@
   </div>
 </section>
 
-<script>
-function onEditXcom(btn) {
-  var dagId = btn.dataset.dagId || '-';
-  var taskId = btn.dataset.taskId || '-';
-  var key = btn.dataset.key || '-';
-  window.alert('Edit XCom is not implemented yet. (' + dagId + ' / ' + taskId + ' / ' + key + ')');
-}
+{% endblock %}
 
-function onDeleteXcom(btn) {
-  var dagId = btn.dataset.dagId || '-';
-  var taskId = btn.dataset.taskId || '-';
-  var key = btn.dataset.key || '-';
-  window.alert('Delete XCom is not implemented yet. (' + dagId + ' / ' + taskId + ' / ' + key + ')');
-}
-</script>
-
+{% block page_scripts %}
+<script src="/static/js/admin.js"></script>
 {% endblock %}

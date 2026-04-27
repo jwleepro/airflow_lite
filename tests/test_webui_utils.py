@@ -197,6 +197,22 @@ def test_base_template_contains_sidebar_redesign_structure():
     assert 'class="sidebar-profile"' in html
 
 
+def test_admin_config_toggle_sets_distinct_caret_states():
+    js_path = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "airflow_lite"
+        / "api"
+        / "static"
+        / "js"
+        / "admin.js"
+    )
+    js = js_path.read_text(encoding="utf-8")
+
+    assert ".replace(/\\s*[\\u25b8\\u25be]\\s*$/, '')" in js
+    assert "body.classList.contains('collapsed') ? ' \\u25b8' : ' \\u25be'" in js
+
+
 # ---------------------------------------------------------------------------
 # Accessible-name tests (issue #99)
 # ---------------------------------------------------------------------------

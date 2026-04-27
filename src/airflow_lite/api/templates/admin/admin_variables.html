@@ -68,20 +68,11 @@
   </form>
 </section>
 
-<script>
-function filterTable() {
-  var input = document.getElementById('var-search');
-  var filter = input.value.toLowerCase();
-  var table = document.getElementById('var-table');
-  var tr = table.getElementsByTagName('tr');
-  for (var i = 1; i < tr.length; i++) {
-    var td = tr[i].getElementsByTagName('td')[0];
-    if (td) {
-      var txtValue = td.textContent || td.innerText;
-      tr[i].style.display = txtValue.toLowerCase().indexOf(filter) > -1 ? '' : 'none';
-    }
-  }
-}
-</script>
+{% endblock %}
 
+{% block page_scripts %}
+<script src="/static/js/admin.js"></script>
+<script>
+function filterTable() { AdminPage.filterTable('var-search', 'var-table'); }
+</script>
 {% endblock %}
