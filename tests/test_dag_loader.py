@@ -1,3 +1,4 @@
+from pathlib import Path
 
 from airflow_lite.config.dag_loader import load_dag_pipelines, resolve_dags_dir
 
@@ -31,6 +32,19 @@ pipelines = [
     assert pipelines[0].table == "ORDERS"
     assert pipelines[0].chunk_size == 2000
     assert pipelines[0].columns == ["ID", "COL"]
+
+
+def test_crasivttst_dag_uses_date_based_interval_window():
+    dags_dir = Path(__file__).resolve().parents[1] / "dags"
+
+    pipeline = next(
+        p for p in load_dag_pipelines(dags_dir)
+        if p.name == "CRAIVTTST"
+    )
+
+    assert pipeline.schedule == "56 0 * * *"
+    assert "TRAN_TIME >= :data_interval_start" in pipeline.source_where_template
+    assert "TRAN_TIME < :data_interval_end" in pipeline.source_where_template
 
 
 def test_load_dag_pipelines_skips_private_python_files(tmp_path):

@@ -54,4 +54,14 @@
       }
     });
   });
+
+  document.addEventListener("click", function(e) {
+    var btn = e.target.closest("[data-dag-action]");
+    if (!btn) return;
+    var action = btn.getAttribute("data-dag-action");
+
+    if (action === "refresh") {
+      location.reload();
+    }
+  });
 })();

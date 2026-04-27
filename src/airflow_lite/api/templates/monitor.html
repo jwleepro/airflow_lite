@@ -98,10 +98,10 @@
             <div class="cell-action-group">
               {% if actions.can_trigger %}
               <form method="post" action="{{ lang_url(monitor_pipeline_trigger_path(row.name)) }}" class="inline-form">
-                <button class="btn btn-ghost btn-small" type="submit" title="Trigger" aria-label="Trigger {{ row.name }}">▶</button>
+                <button class="btn btn-icon btn-ghost btn-small" type="submit" title="Trigger DAG" aria-label="Trigger {{ row.name }}">▶</button>
               </form>
               {% endif %}
-              <button type="button" class="btn btn-ghost btn-small" title="More" aria-label="More options for {{ row.name }}">⋯</button>
+              <button type="button" class="btn btn-icon btn-ghost btn-small" data-dag-action="refresh" title="Refresh" aria-label="Refresh DAG list">↻</button>
             </div>
           </td>
         </tr>

@@ -3,6 +3,7 @@ import pytest
 import re
 import time
 from datetime import date, datetime
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
@@ -239,6 +240,27 @@ def test_monitor_pipeline_list_page_renders_html_with_pipeline_summary(client):
     assert "/monitor/pipelines/test_pipeline/trigger" in body
     assert 'class="panel dag-filter-panel"' in body
     assert 'class="air-table dag-table"' in body
+
+
+def test_monitor_pipeline_list_actions_do_not_call_unregistered_pipeline_routes(client):
+    response = client.get("/monitor/pipelines")
+
+    assert response.status_code == 200
+    body = response.text
+    assert 'data-dag-action="refresh"' in body
+    assert 'data-dag-action="delete"' not in body
+
+    app_js = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "airflow_lite"
+        / "api"
+        / "static"
+        / "js"
+        / "app.js"
+    ).read_text(encoding="utf-8")
+    assert "/api/pipelines/" not in app_js
+    assert "/api/v1/pipelines/" not in app_js
 
 
 def test_monitor_pipeline_list_page_recent_runs_render_latest_to_oldest():

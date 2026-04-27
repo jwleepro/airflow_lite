@@ -391,7 +391,19 @@ table tbody tr:hover {
 
 .cell-action-group {
   display: inline-flex;
-  gap: 4px;
+  gap: 2px;
+}
+
+.btn-icon {
+  width: 28px;
+  padding: 0;
+  font-size: 14px;
+}
+
+.btn-danger-hover:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--bad-ink);
 }
 
 .inline-form {
