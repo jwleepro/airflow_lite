@@ -35,19 +35,19 @@
   <section class="panel">
     <p class="eyebrow u-mb-md">{{ t('webui.monitor.home.dag_status.eyebrow') }}</p>
     <div class="dag-status-grid">
-      <a class="dag-status-card dag-status-failed" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=bad" aria-label="{{ t('webui.monitor.home.dag_status.failed_dags') }}: {{ failed_runs }}">
+      <a class="dag-status-card dag-status-failed" href="{{ lang_url(MONITOR_PIPELINES_PATH ~ '?state=bad') }}" aria-label="{{ t('webui.monitor.home.dag_status.failed_dags') }}: {{ failed_runs }}">
         <span class="dag-status-count">{{ failed_runs }}</span>
         <span class="dag-status-label">{{ t('webui.monitor.home.dag_status.failed_dags') }}</span>
       </a>
-      <a class="dag-status-card dag-status-running" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=warn" aria-label="{{ t('webui.monitor.home.dag_status.running_dags') }}: {{ active_runs }}">
+      <a class="dag-status-card dag-status-running" href="{{ lang_url(MONITOR_PIPELINES_PATH ~ '?state=warn') }}" aria-label="{{ t('webui.monitor.home.dag_status.running_dags') }}: {{ active_runs }}">
         <span class="dag-status-count">{{ active_runs }}</span>
         <span class="dag-status-label">{{ t('webui.monitor.home.dag_status.running_dags') }}</span>
       </a>
-      <a class="dag-status-card dag-status-active" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=ok" aria-label="{{ t('webui.monitor.home.dag_status.active_dags') }}: {{ healthy_runs }}">
+      <a class="dag-status-card dag-status-active" href="{{ lang_url(MONITOR_PIPELINES_PATH ~ '?state=ok') }}" aria-label="{{ t('webui.monitor.home.dag_status.active_dags') }}: {{ healthy_runs }}">
         <span class="dag-status-count">{{ healthy_runs }}</span>
         <span class="dag-status-label">{{ t('webui.monitor.home.dag_status.active_dags') }}</span>
       </a>
-      <a class="dag-status-card" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=paused" aria-label="{{ t('webui.monitor.home.dag_status.paused_dags') }}: {{ paused_pipelines|default(0) }}">
+      <a class="dag-status-card" href="{{ lang_url(MONITOR_PIPELINES_PATH ~ '?state=paused') }}" aria-label="{{ t('webui.monitor.home.dag_status.paused_dags') }}: {{ paused_pipelines|default(0) }}">
         <span class="dag-status-count">{{ paused_pipelines|default(0) }}</span>
         <span class="dag-status-label">{{ t('webui.monitor.home.dag_status.paused_dags') }}</span>
       </a>
