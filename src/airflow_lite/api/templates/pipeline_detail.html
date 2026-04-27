@@ -125,8 +125,9 @@
   </div>
 
   {% if grid.runs %}
-  <div class="dag-grid-container">
+  <div class="dag-grid-container" aria-label="{{ t('webui.pipeline_detail.grid.aria_label') }}">
     <div class="dag-grid-labels">
+      <div class="dag-grid-axis-header">{{ t('webui.pipeline_detail.grid.task_header') }}</div>
       {% for step_name in grid.step_names %}
       <div class="dag-grid-label">{{ step_name }}</div>
       {% endfor %}

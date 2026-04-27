@@ -23,11 +23,20 @@ _TEMPLATE = (
     Path(__file__).resolve().parents[1]
     / "src" / "airflow_lite" / "api" / "templates" / "pipeline_detail.html"
 )
+_SCRIPT = (
+    Path(__file__).resolve().parents[1]
+    / "src" / "airflow_lite" / "api" / "static" / "js" / "pipeline-detail.js"
+)
 
 
 def _html() -> str:
     """Return the raw pipeline_detail template source."""
     return _TEMPLATE.read_text(encoding="utf-8")
+
+
+def _js() -> str:
+    """Return the raw pipeline_detail script source."""
+    return _SCRIPT.read_text(encoding="utf-8")
 
 
 def test_task_panel_has_three_tabs():
@@ -74,6 +83,13 @@ def test_grid_cells_carry_data_run_id():
     assert 'data-run-id=' in html
 
 
+def test_grid_has_airflow_task_axis_header():
+    """Grid left axis must label rows as Airflow tasks."""
+    html = _html()
+    assert 'class="dag-grid-axis-header"' in html
+    assert "webui.pipeline_detail.grid.task_header" in html
+
+
 def test_task_panel_logs_link_present():
     """A View Run Detail link element must exist (JS toggles its visibility)."""
     html = _html()
@@ -93,23 +109,23 @@ def test_xcom_pane_explains_limitation():
 
 
 def test_switch_panel_tab_function_defined():
-    """_switchPanelTab JS helper must be defined in the template."""
-    html = _html()
-    assert "_switchPanelTab" in html
+    """switchPanelTab JS helper must be defined for task panel tabs."""
+    js = _js()
+    assert "function switchPanelTab" in js
 
 
 def test_switch_panel_tab_syncs_button_active_class():
     """_switchPanelTab must toggle active class on tab buttons as well as panes."""
-    html = _html()
+    js = _js()
     # The function must contain classList.toggle logic for buttons
-    assert "classList.toggle" in html
+    assert "classList.toggle" in js
 
 
 def test_lang_param_preserved_in_run_detail_href():
     """JS must read the current ?lang= param and append it to the run-detail href."""
-    html = _html()
-    assert "URLSearchParams" in html
-    assert "lang" in html
+    js = _js()
+    assert "URLSearchParams" in js
+    assert "lang" in js
 
 
 # ---------------------------------------------------------------------------

@@ -240,6 +240,8 @@ KO: dict[str, str] = {
 "webui.pipeline_detail.overview.failures.eyebrow": "실패 진단",
 "webui.pipeline_detail.overview.failures.title": "최근 실패",
 "webui.pipeline_detail.grid.description": "그리드 열 순서: 최신 실행 → 오래된 실행",
+"webui.pipeline_detail.grid.aria_label": "DAG 실행 및 태스크 상태 그리드",
+"webui.pipeline_detail.grid.task_header": "태스크",
 "webui.pipeline_detail.graph.hint": "가장 최근에 기록된 실행 기준 태스크 순서",
 "webui.pipeline_detail.actions.eyebrow": "운영 액션",
 "webui.pipeline_detail.actions.title": "백필 제어",

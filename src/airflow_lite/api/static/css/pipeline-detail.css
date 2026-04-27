@@ -15,8 +15,9 @@
 
 .dag-grid-toolbar, .dag-graph-toolbar, .dag-code-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
 .dag-grid-container { display: flex; overflow-x: auto; }
-.dag-grid-labels { padding-top: 36px; flex-shrink: 0; }
-.dag-grid-label { height: 28px; padding-right: 12px; font-size: 11px; color: var(--muted); font-family: monospace; display: flex; align-items: center; }
+.dag-grid-labels { flex-shrink: 0; }
+.dag-grid-axis-header { height: 36px; padding-right: 12px; font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; display: flex; align-items: center; justify-content: flex-end; }
+.dag-grid-label { min-height: 36px; padding-right: 12px; font-size: 11px; color: var(--muted); font-family: monospace; display: flex; align-items: center; justify-content: flex-end; }
 .dag-grid-matrix { display: flex; flex-direction: column; overflow-x: auto; }
 .dag-grid-header-row, .dag-grid-task-row { display: flex; }
 .dag-grid-run-header { width: 28px; height: 28px; margin: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
