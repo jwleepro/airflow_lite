@@ -52,14 +52,14 @@
 
 .brand-primary {
   color: var(--brand-strong);
-  font-size: 15px;
+  font-size: var(--font-lg);
   font-weight: 700;
   letter-spacing: 0.02em;
 }
 
 .brand-secondary {
   color: var(--sidebar-ink);
-  font-size: 15px;
+  font-size: var(--font-lg);
   font-weight: 300;
 }
 
@@ -100,7 +100,7 @@
   padding: 8px 12px;
   border-radius: 6px;
   color: var(--sidebar-muted);
-  font-size: 13px;
+  font-size: var(--font-md);
   font-weight: 500;
 }
 
@@ -121,7 +121,7 @@
 .sidebar-icon {
   width: 20px;
   text-align: center;
-  font-size: 16px;
+  font-size: var(--font-xl);
   flex-shrink: 0;
 }
 
@@ -168,7 +168,7 @@
 .submenu-link {
   min-height: 28px;
   padding: 6px 12px;
-  font-size: 12px;
+  font-size: var(--font-sm);
 }
 
 .sidebar-footer {
@@ -194,7 +194,7 @@
   place-items: center;
   background: linear-gradient(135deg, var(--brand), var(--brand-strong));
   color: #fff;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -207,13 +207,13 @@
 
 .sidebar-profile-copy strong {
   color: var(--sidebar-ink);
-  font-size: 12px;
+  font-size: var(--font-sm);
   font-weight: 500;
 }
 
 .sidebar-profile-copy span {
   color: var(--sidebar-muted);
-  font-size: 10px;
+  font-size: var(--font-2xs);
 }
 
 .theme-switch-row {
@@ -229,7 +229,7 @@
   border-radius: 5px;
   background: transparent;
   color: var(--sidebar-muted);
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 500;
 }
 
@@ -301,7 +301,7 @@
 .breadcrumb-link,
 .breadcrumb-current,
 .breadcrumb-sep {
-  font-size: 13px;
+  font-size: var(--font-md);
 }
 
 .breadcrumb-link {
@@ -332,7 +332,7 @@
   border-radius: 6px;
   background: var(--surface);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--font-sm);
   cursor: pointer;
 }
 
@@ -350,7 +350,7 @@
   border: 1px solid var(--line);
   border-radius: 4px;
   background: var(--surface-strong);
-  font-size: 10px;
+  font-size: var(--font-2xs);
   color: var(--muted);
 }
 
@@ -376,7 +376,7 @@
 
 .page-title {
   margin: 0;
-  font-size: 22px;
+  font-size: var(--font-3xl);
   font-weight: 600;
   color: var(--ink);
 }
@@ -384,7 +384,7 @@
 .page-subtitle {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--font-md);
 }
 
 .page-actions {
@@ -459,3 +459,9 @@
     flex-direction: column;
   }
 }
+
+.detail-sidebar { flex-shrink: 0; }
+.detail-main { flex: 1; min-width: 0; }
+.event-list { display: grid; gap: 0; }
+.run-header-actions { display: flex; align-items: center; gap: 8px; }
+.grid-col-header { text-align: center; padding: 4px; }

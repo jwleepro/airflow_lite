@@ -27,7 +27,7 @@
 .subpanel h2,
 .section-title {
   margin: 0;
-  font-size: 20px;
+  font-size: var(--font-2xl);
   font-weight: 600;
   color: var(--ink);
 }
@@ -73,7 +73,7 @@
 .eyebrow {
   margin: 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -81,7 +81,7 @@
 
 .summary-value {
   margin-top: 8px;
-  font-size: 28px;
+  font-size: var(--font-4xl);
   font-weight: 700;
   line-height: 1.1;
   color: var(--ink);
@@ -90,7 +90,7 @@
 .summary-detail {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-xs);
 }
 
 .panel-head {
@@ -117,7 +117,7 @@
   border-radius: 999px;
   background: var(--neutral-bg);
   color: var(--neutral-ink);
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 500;
 }
 
@@ -148,7 +148,7 @@ button,
   border-radius: 6px;
   background: transparent;
   color: var(--ink-soft);
-  font-size: 12px;
+  font-size: var(--font-sm);
   font-weight: 500;
   text-decoration: none;
   cursor: pointer;
@@ -188,7 +188,7 @@ button:hover,
 .btn-small {
   min-height: 28px;
   padding: 0 10px;
-  font-size: 11px;
+  font-size: var(--font-xs);
 }
 
 input,
@@ -200,7 +200,7 @@ select {
   border-radius: 6px;
   background: var(--surface);
   color: var(--ink-soft);
-  font-size: 12px;
+  font-size: var(--font-sm);
 }
 
 input:focus,
@@ -229,7 +229,7 @@ select:focus {
 
 .filter-field > span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 500;
 }
 
@@ -270,7 +270,7 @@ table td {
 .air-table th,
 table th {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -295,7 +295,7 @@ table tbody tr:hover {
   border-radius: 4px;
   background: var(--neutral-bg);
   color: var(--neutral-ink);
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -408,7 +408,7 @@ table tbody tr:hover {
 dt {
   margin-bottom: 4px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--font-2xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -456,7 +456,7 @@ dd {
   border-radius: 6px;
   background: rgba(245, 158, 11, 0.08);
   color: #f59e0b;
-  font-size: 12px;
+  font-size: var(--font-sm);
 }
 
 .code-block {
@@ -467,7 +467,7 @@ dd {
   border-radius: 8px;
   background: var(--code-bg);
   color: var(--ink-soft);
-  font-size: 12px;
+  font-size: var(--font-sm);
   line-height: 1.6;
 }
 
@@ -477,3 +477,15 @@ dd {
     grid-template-columns: 1fr;
   }
 }
+
+.chart-list { display: grid; gap: 8px; }
+.chart-row { display: flex; align-items: center; gap: 12px; }
+.chart-row strong { min-width: 100px; font-size: var(--font-sm); color: var(--ink-soft); }
+.chart-row span { min-width: 50px; text-align: right; font-size: var(--font-sm); color: var(--muted); }
+.chart-bar { flex: 1; height: 20px; background: var(--surface-strong); border-radius: 4px; overflow: hidden; }
+.chart-bar span { display: block; height: 100%; background: var(--brand); border-radius: 4px; }
+
+.panel-chip-list { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+
+.filter-form { display: grid; gap: 16px; }
+.filter-form .actions { margin-top: 8px; }

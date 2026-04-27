@@ -8,7 +8,7 @@
 
 .page-section-header h1 {
   margin: 0;
-  font-size: 22px;
+  font-size: var(--font-3xl);
   font-weight: 600;
   color: var(--ink);
 }
@@ -16,7 +16,7 @@
 .page-section-header p {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--font-md);
 }
 
 .dag-filter-panel {
@@ -44,7 +44,7 @@
 
 .search-icon-inline {
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--font-md);
 }
 
 .dag-search-input {
@@ -69,7 +69,7 @@
   align-items: center;
   gap: 6px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--font-sm);
   cursor: pointer;
 }
 
@@ -134,7 +134,7 @@
   border-radius: 3px;
   background: var(--surface-strong);
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--font-2xs);
 }
 
 .health-grid {
@@ -181,12 +181,12 @@
 
 .health-name {
   color: var(--ink);
-  font-size: 13px;
+  font-size: var(--font-md);
   font-weight: 500;
 }
 
 .health-status {
-  font-size: 11px;
+  font-size: var(--font-xs);
 }
 
 .health-ok .health-status {
@@ -204,7 +204,7 @@
 .health-detail {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--font-2xs);
 }
 
 .dag-status-grid,
@@ -251,7 +251,7 @@
 
 .dag-status-count {
   display: block;
-  font-size: 28px;
+  font-size: var(--font-4xl);
   font-weight: 700;
   line-height: 1.1;
 }
@@ -260,7 +260,7 @@
 .stat-label {
   display: block;
   margin-top: 2px;
-  font-size: 11px;
+  font-size: var(--font-xs);
   color: var(--muted);
 }
 
@@ -278,7 +278,7 @@
 
 .stat-value {
   display: block;
-  font-size: 22px;
+  font-size: var(--font-3xl);
   font-weight: 700;
   color: var(--ink);
 }
@@ -287,7 +287,7 @@
   display: block;
   margin-top: 2px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--font-2xs);
 }
 
 .pool-bar {
