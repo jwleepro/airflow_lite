@@ -258,6 +258,8 @@ EN: dict[str, str] = {
 "webui.pipeline_detail.overview.failures.eyebrow": "Failure Diagnostics",
 "webui.pipeline_detail.overview.failures.title": "Recent failures",
 "webui.pipeline_detail.grid.description": "Grid columns are ordered latest run → oldest run",
+"webui.pipeline_detail.grid.aria_label": "DAG run and task state grid",
+"webui.pipeline_detail.grid.task_header": "Task",
 "webui.pipeline_detail.graph.hint": "Task order based on the latest recorded run",
 "webui.pipeline_detail.actions.eyebrow": "Operator Actions",
 "webui.pipeline_detail.actions.title": "Backfill control",
