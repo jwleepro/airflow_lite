@@ -241,19 +241,9 @@
   </section>
 </div>
 
-<script>
-(function(){
-  var btns=document.querySelectorAll('.tab-btn');
-  var panes=document.querySelectorAll('.tab-pane');
-  btns.forEach(function(btn){
-    btn.addEventListener('click',function(){
-      btns.forEach(function(b){b.classList.remove('active')});
-      panes.forEach(function(p){p.classList.remove('active')});
-      btn.classList.add('active');
-      document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
-    });
-  });
-})();
-</script>
+{% endblock %}
 
+{% block page_scripts %}
+<script src="/static/js/tabs.js"></script>
+<script>AirflowTabs.initRunDetail();</script>
 {% endblock %}

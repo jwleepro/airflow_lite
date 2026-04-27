@@ -16,18 +16,7 @@
     <link rel="stylesheet" href="/static/css/pipeline-detail.css">
     <link rel="stylesheet" href="/static/css/task-logs.css">
     <link rel="stylesheet" href="/static/css/search.css">
-    <script>
-      (function() {
-        try {
-          var saved = localStorage.getItem("airflow_lite_theme");
-          if (saved === "dark" || saved === "light") {
-            document.documentElement.setAttribute("data-theme", saved);
-            return;
-          }
-        } catch (e) {}
-        document.documentElement.setAttribute("data-theme", "dark");
-      })();
-    </script>
+    <script src="/static/js/theme-init.js"></script>
   </head>
   <body>
     <div class="app-shell">
@@ -53,17 +42,17 @@
         </div>
 
         <nav class="sidebar-nav" aria-label="Primary">
-          <a class="sidebar-link{% if active_path == MONITOR_PATH %} active{% endif %}" href="{{ lang_url(MONITOR_PATH) }}" title="Home">
+          <a class="sidebar-link{% if active_path == MONITOR_PATH %} active{% endif %}" href="{{ lang_url(MONITOR_PATH) }}" title="{{ t('nav.home') }}">
             <span class="sidebar-icon" aria-hidden="true">⊞</span>
-            <span class="sidebar-label">Home</span>
+            <span class="sidebar-label">{{ t('nav.home') }}</span>
           </a>
-          <a class="sidebar-link{% if active_path == MONITOR_PIPELINES_PATH %} active{% endif %}" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}" title="DAGs">
+          <a class="sidebar-link{% if active_path == MONITOR_PIPELINES_PATH %} active{% endif %}" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}" title="{{ t('nav.dags') }}">
             <span class="sidebar-icon" aria-hidden="true">◈</span>
-            <span class="sidebar-label">DAGs</span>
+            <span class="sidebar-label">{{ t('nav.dags') }}</span>
           </a>
-          <a class="sidebar-link{% if active_path == MONITOR_ASSETS_PATH %} active{% endif %}" href="{{ lang_url(MONITOR_ASSETS_PATH) }}" title="Assets">
+          <a class="sidebar-link{% if active_path == MONITOR_ASSETS_PATH %} active{% endif %}" href="{{ lang_url(MONITOR_ASSETS_PATH) }}" title="{{ t('nav.assets') }}">
             <span class="sidebar-icon" aria-hidden="true">◇</span>
-            <span class="sidebar-label">Assets</span>
+            <span class="sidebar-label">{{ t('nav.assets') }}</span>
           </a>
 
           <div class="sidebar-submenu-group">
@@ -71,15 +60,15 @@
             {% set browse_active = active_path in browse_paths %}
             <button class="submenu-toggle{% if browse_active %} active{% endif %}" type="button" data-submenu-toggle="browse" aria-expanded="{% if browse_active %}true{% else %}false{% endif %}">
               <span class="sidebar-icon" aria-hidden="true">≡</span>
-              <span class="sidebar-label">Browse</span>
+              <span class="sidebar-label">{{ t('nav.browse') }}</span>
               <span class="submenu-caret" aria-hidden="true"></span>
             </button>
             <div class="submenu-list" data-submenu-panel="browse" {% if not browse_active %}hidden{% endif %}>
-              <a class="submenu-link{% if MONITOR_BROWSE_BACKFILLS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_BROWSE_BACKFILLS_PATH) }}">Backfills</a>
-              <a class="submenu-link{% if MONITOR_BROWSE_JOBS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_BROWSE_JOBS_PATH) }}">Jobs</a>
-              <a class="submenu-link{% if MONITOR_BROWSE_AUDIT_LOGS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_BROWSE_AUDIT_LOGS_PATH) }}">Audit Logs</a>
-              <a class="submenu-link{% if MONITOR_BROWSE_TASK_INSTANCES_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_BROWSE_TASK_INSTANCES_PATH) }}">Task Instances</a>
-              <a class="submenu-link{% if MONITOR_DAG_RUNS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_DAG_RUNS_PATH) }}">DAG Runs</a>
+              <a class="submenu-link{% if MONITOR_BROWSE_BACKFILLS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_BROWSE_BACKFILLS_PATH) }}">{{ t('nav.browse.backfills') }}</a>
+              <a class="submenu-link{% if MONITOR_BROWSE_JOBS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_BROWSE_JOBS_PATH) }}">{{ t('nav.browse.jobs') }}</a>
+              <a class="submenu-link{% if MONITOR_BROWSE_AUDIT_LOGS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_BROWSE_AUDIT_LOGS_PATH) }}">{{ t('nav.browse.audit_logs') }}</a>
+              <a class="submenu-link{% if MONITOR_BROWSE_TASK_INSTANCES_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_BROWSE_TASK_INSTANCES_PATH) }}">{{ t('nav.browse.task_instances') }}</a>
+              <a class="submenu-link{% if MONITOR_DAG_RUNS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_DAG_RUNS_PATH) }}">{{ t('nav.browse.dag_runs') }}</a>
             </div>
           </div>
 
@@ -88,17 +77,17 @@
             {% set admin_active = active_path in admin_paths or active_path == MONITOR_ADMIN_PATH %}
             <button class="submenu-toggle{% if admin_active %} active{% endif %}" type="button" data-submenu-toggle="admin" aria-expanded="{% if admin_active %}true{% else %}false{% endif %}">
               <span class="sidebar-icon" aria-hidden="true">⚙</span>
-              <span class="sidebar-label">Admin</span>
+              <span class="sidebar-label">{{ t('nav.admin') }}</span>
               <span class="submenu-caret" aria-hidden="true"></span>
             </button>
             <div class="submenu-list" data-submenu-panel="admin" {% if not admin_active %}hidden{% endif %}>
-              <a class="submenu-link{% if MONITOR_ADMIN_CONNECTIONS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_CONNECTIONS_PATH) }}">Connections</a>
-              <a class="submenu-link{% if MONITOR_ADMIN_VARIABLES_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_VARIABLES_PATH) }}">Variables</a>
-              <a class="submenu-link{% if MONITOR_ADMIN_POOLS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_POOLS_PATH) }}">Pools</a>
-              <a class="submenu-link{% if MONITOR_ADMIN_PROVIDERS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_PROVIDERS_PATH) }}">Providers</a>
-              <a class="submenu-link{% if MONITOR_ADMIN_PLUGINS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_PLUGINS_PATH) }}">Plugins</a>
-              <a class="submenu-link{% if MONITOR_ADMIN_CONFIG_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_CONFIG_PATH) }}">Configuration</a>
-              <a class="submenu-link{% if MONITOR_ADMIN_XCOMS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_XCOMS_PATH) }}">XComs</a>
+              <a class="submenu-link{% if MONITOR_ADMIN_CONNECTIONS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_CONNECTIONS_PATH) }}">{{ t('nav.admin.connections') }}</a>
+              <a class="submenu-link{% if MONITOR_ADMIN_VARIABLES_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_VARIABLES_PATH) }}">{{ t('nav.admin.variables') }}</a>
+              <a class="submenu-link{% if MONITOR_ADMIN_POOLS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_POOLS_PATH) }}">{{ t('nav.admin.pools') }}</a>
+              <a class="submenu-link{% if MONITOR_ADMIN_PROVIDERS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_PROVIDERS_PATH) }}">{{ t('nav.admin.providers') }}</a>
+              <a class="submenu-link{% if MONITOR_ADMIN_PLUGINS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_PLUGINS_PATH) }}">{{ t('nav.admin.plugins') }}</a>
+              <a class="submenu-link{% if MONITOR_ADMIN_CONFIG_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_CONFIG_PATH) }}">{{ t('nav.admin.configuration') }}</a>
+              <a class="submenu-link{% if MONITOR_ADMIN_XCOMS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_ADMIN_XCOMS_PATH) }}">{{ t('nav.admin.xcoms') }}</a>
             </div>
           </div>
 
@@ -107,13 +96,13 @@
             {% set security_active = active_path in security_paths %}
             <button class="submenu-toggle{% if security_active %} active{% endif %}" type="button" data-submenu-toggle="security" aria-expanded="{% if security_active %}true{% else %}false{% endif %}">
               <span class="sidebar-icon" aria-hidden="true">🔒</span>
-              <span class="sidebar-label">Security</span>
+              <span class="sidebar-label">{{ t('nav.security') }}</span>
               <span class="submenu-caret" aria-hidden="true"></span>
             </button>
             <div class="submenu-list" data-submenu-panel="security" {% if not security_active %}hidden{% endif %}>
-              <a class="submenu-link{% if MONITOR_SECURITY_USERS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_SECURITY_USERS_PATH) }}">Users</a>
-              <a class="submenu-link{% if MONITOR_SECURITY_ROLES_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_SECURITY_ROLES_PATH) }}">Roles</a>
-              <a class="submenu-link{% if MONITOR_SECURITY_PERMISSIONS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_SECURITY_PERMISSIONS_PATH) }}">Permissions</a>
+              <a class="submenu-link{% if MONITOR_SECURITY_USERS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_SECURITY_USERS_PATH) }}">{{ t('nav.security.users') }}</a>
+              <a class="submenu-link{% if MONITOR_SECURITY_ROLES_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_SECURITY_ROLES_PATH) }}">{{ t('nav.security.roles') }}</a>
+              <a class="submenu-link{% if MONITOR_SECURITY_PERMISSIONS_PATH == active_path %} active{% endif %}" href="{{ lang_url(MONITOR_SECURITY_PERMISSIONS_PATH) }}">{{ t('nav.security.permissions') }}</a>
             </div>
           </div>
         </nav>
@@ -123,12 +112,12 @@
             <div class="sidebar-avatar" aria-hidden="true">A</div>
             <div class="sidebar-profile-copy">
               <strong>admin</strong>
-              <span>Administrator</span>
+              <span>{{ t('nav.role.administrator') }}</span>
             </div>
           </div>
           <div class="theme-switch-row">
-            <button class="theme-chip" id="theme-light" type="button" data-theme-choice="light">☀ Light</button>
-            <button class="theme-chip" id="theme-dark" type="button" data-theme-choice="dark">◑ Dark</button>
+            <button class="theme-chip" id="theme-light" type="button" data-theme-choice="light">☀ {{ t('theme.light') }}</button>
+            <button class="theme-chip" id="theme-dark" type="button" data-theme-choice="dark">◑ {{ t('theme.dark') }}</button>
           </div>
         </div>
       </aside>
@@ -201,152 +190,30 @@
       </div>
     </div>
 
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/search.js"></script>
     <script>
-      (function() {
-        function currentTheme() {
-          return document.documentElement.getAttribute("data-theme") || "dark";
-        }
-
-        function setTheme(theme) {
-          document.documentElement.setAttribute("data-theme", theme);
-          try { localStorage.setItem("airflow_lite_theme", theme); } catch (e) {}
-          document.querySelectorAll("[data-theme-choice]").forEach(function(button) {
-            button.classList.toggle("active", button.getAttribute("data-theme-choice") === theme);
-          });
-        }
-
-        document.querySelectorAll("[data-theme-choice]").forEach(function(button) {
-          button.addEventListener("click", function() {
-            setTheme(button.getAttribute("data-theme-choice"));
-          });
-        });
-        setTheme(currentTheme());
-
-        var sidebar = document.getElementById("sidebar");
-        var sidebarToggle = document.getElementById("sidebar-toggle");
-        if (sidebar && sidebarToggle) {
-          var collapsed = false;
-          try {
-            collapsed = localStorage.getItem("airflow_lite_sidebar_collapsed") === "1";
-          } catch (e) {}
-
-          function setSidebarCollapsed(value) {
-            sidebar.setAttribute("data-collapsed", value ? "true" : "false");
-            sidebarToggle.setAttribute("aria-expanded", value ? "false" : "true");
-            try { localStorage.setItem("airflow_lite_sidebar_collapsed", value ? "1" : "0"); } catch (e) {}
-          }
-
-          setSidebarCollapsed(collapsed);
-          sidebarToggle.addEventListener("click", function() {
-            setSidebarCollapsed(sidebar.getAttribute("data-collapsed") !== "true");
-          });
-        }
-
-        document.querySelectorAll("[data-submenu-toggle]").forEach(function(toggle) {
-          var name = toggle.getAttribute("data-submenu-toggle");
-          var panel = document.querySelector("[data-submenu-panel='" + name + "']");
-          if (!panel) {
-            return;
-          }
-          toggle.addEventListener("click", function() {
-            var expanded = toggle.getAttribute("aria-expanded") === "true";
-            toggle.setAttribute("aria-expanded", expanded ? "false" : "true");
-            if (expanded) {
-              panel.setAttribute("hidden", "");
-            } else {
-              panel.removeAttribute("hidden");
-            }
-          });
-        });
-      })();
+      AirflowSearch.init([
+        { label: "Home", path: "{{ lang_url(MONITOR_PATH) }}", section: "Main" },
+        { label: "DAGs", path: "{{ lang_url(MONITOR_PIPELINES_PATH) }}", section: "Main" },
+        { label: "Assets", path: "{{ lang_url(MONITOR_ASSETS_PATH) }}", section: "Main" },
+        { label: "Backfills", path: "{{ lang_url(MONITOR_BROWSE_BACKFILLS_PATH) }}", section: "Browse" },
+        { label: "Jobs", path: "{{ lang_url(MONITOR_BROWSE_JOBS_PATH) }}", section: "Browse" },
+        { label: "Audit Logs", path: "{{ lang_url(MONITOR_BROWSE_AUDIT_LOGS_PATH) }}", section: "Browse" },
+        { label: "Task Instances", path: "{{ lang_url(MONITOR_BROWSE_TASK_INSTANCES_PATH) }}", section: "Browse" },
+        { label: "DAG Runs", path: "{{ lang_url(MONITOR_DAG_RUNS_PATH) }}", section: "Browse" },
+        { label: "Connections", path: "{{ lang_url(MONITOR_ADMIN_CONNECTIONS_PATH) }}", section: "Admin" },
+        { label: "Variables", path: "{{ lang_url(MONITOR_ADMIN_VARIABLES_PATH) }}", section: "Admin" },
+        { label: "Pools", path: "{{ lang_url(MONITOR_ADMIN_POOLS_PATH) }}", section: "Admin" },
+        { label: "Providers", path: "{{ lang_url(MONITOR_ADMIN_PROVIDERS_PATH) }}", section: "Admin" },
+        { label: "Plugins", path: "{{ lang_url(MONITOR_ADMIN_PLUGINS_PATH) }}", section: "Admin" },
+        { label: "Configuration", path: "{{ lang_url(MONITOR_ADMIN_CONFIG_PATH) }}", section: "Admin" },
+        { label: "XComs", path: "{{ lang_url(MONITOR_ADMIN_XCOMS_PATH) }}", section: "Admin" },
+        { label: "Users", path: "{{ lang_url(MONITOR_SECURITY_USERS_PATH) }}", section: "Security" },
+        { label: "Roles", path: "{{ lang_url(MONITOR_SECURITY_ROLES_PATH) }}", section: "Security" },
+        { label: "Permissions", path: "{{ lang_url(MONITOR_SECURITY_PERMISSIONS_PATH) }}", section: "Security" }
+      ]);
     </script>
-
-    <script>
-      (function(){
-        var overlay = document.getElementById("global-search-overlay");
-        var input = document.getElementById("search-input");
-        var results = document.getElementById("search-results");
-        if (!overlay || !input || !results) return;
-
-        var routes = [
-          { label: "Home", path: "{{ lang_url(MONITOR_PATH) }}", section: "Main" },
-          { label: "DAGs", path: "{{ lang_url(MONITOR_PIPELINES_PATH) }}", section: "Main" },
-          { label: "Assets", path: "{{ lang_url(MONITOR_ASSETS_PATH) }}", section: "Main" },
-          { label: "Backfills", path: "{{ lang_url(MONITOR_BROWSE_BACKFILLS_PATH) }}", section: "Browse" },
-          { label: "Jobs", path: "{{ lang_url(MONITOR_BROWSE_JOBS_PATH) }}", section: "Browse" },
-          { label: "Audit Logs", path: "{{ lang_url(MONITOR_BROWSE_AUDIT_LOGS_PATH) }}", section: "Browse" },
-          { label: "Task Instances", path: "{{ lang_url(MONITOR_BROWSE_TASK_INSTANCES_PATH) }}", section: "Browse" },
-          { label: "DAG Runs", path: "{{ lang_url(MONITOR_DAG_RUNS_PATH) }}", section: "Browse" },
-          { label: "Connections", path: "{{ lang_url(MONITOR_ADMIN_CONNECTIONS_PATH) }}", section: "Admin" },
-          { label: "Variables", path: "{{ lang_url(MONITOR_ADMIN_VARIABLES_PATH) }}", section: "Admin" },
-          { label: "Pools", path: "{{ lang_url(MONITOR_ADMIN_POOLS_PATH) }}", section: "Admin" },
-          { label: "Providers", path: "{{ lang_url(MONITOR_ADMIN_PROVIDERS_PATH) }}", section: "Admin" },
-          { label: "Plugins", path: "{{ lang_url(MONITOR_ADMIN_PLUGINS_PATH) }}", section: "Admin" },
-          { label: "Configuration", path: "{{ lang_url(MONITOR_ADMIN_CONFIG_PATH) }}", section: "Admin" },
-          { label: "XComs", path: "{{ lang_url(MONITOR_ADMIN_XCOMS_PATH) }}", section: "Admin" },
-          { label: "Users", path: "{{ lang_url(MONITOR_SECURITY_USERS_PATH) }}", section: "Security" },
-          { label: "Roles", path: "{{ lang_url(MONITOR_SECURITY_ROLES_PATH) }}", section: "Security" },
-          { label: "Permissions", path: "{{ lang_url(MONITOR_SECURITY_PERMISSIONS_PATH) }}", section: "Security" }
-        ];
-
-        function renderResults(query) {
-          var q = query.toLowerCase().trim();
-          var filtered = routes.filter(function(route) {
-            return !q || route.label.toLowerCase().includes(q) || route.section.toLowerCase().includes(q);
-          });
-          if (!filtered.length) {
-            results.innerHTML = '<p class="search-placeholder-text">No results found</p>';
-            return;
-          }
-
-          var html = "";
-          var lastSection = "";
-          filtered.forEach(function(route) {
-            if (route.section !== lastSection) {
-              html += '<div class="search-section-label">' + route.section + '</div>';
-              lastSection = route.section;
-            }
-            html += '<a class="search-result-item" href="' + route.path + '">' + route.label + '</a>';
-          });
-          results.innerHTML = html;
-        }
-
-        function openSearch() {
-          overlay.hidden = false;
-          input.value = "";
-          renderResults("");
-          input.focus();
-        }
-
-        function closeSearch() {
-          overlay.hidden = true;
-          input.value = "";
-        }
-
-        document.addEventListener("keydown", function(event) {
-          if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
-            event.preventDefault();
-            if (overlay.hidden) {
-              openSearch();
-            } else {
-              closeSearch();
-            }
-          }
-          if (event.key === "Escape") {
-            closeSearch();
-          }
-        });
-
-        document.getElementById("global-search-btn").addEventListener("click", openSearch);
-        overlay.addEventListener("click", function(event) {
-          if (event.target === overlay) {
-            closeSearch();
-          }
-        });
-        input.addEventListener("input", function() {
-          renderResults(input.value);
-        });
-      })();
-    </script>
+    {% block page_scripts %}{% endblock %}
   </body>
 </html>

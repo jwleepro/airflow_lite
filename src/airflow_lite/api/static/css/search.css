@@ -5,6 +5,9 @@
   display: flex; align-items: flex-start; justify-content: center;
   padding-top: 15vh;
 }
+.search-overlay[hidden] {
+  display: none;
+}
 
 .search-modal {
   width: 560px; max-width: 90vw;

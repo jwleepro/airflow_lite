@@ -6,17 +6,17 @@
 {% block content %}
 <section class="page-section-header">
   <div>
-    <h1>Home</h1>
-    <p>Apache Airflow — Production Environment</p>
+    <h1>{{ t('webui.monitor.home.title') }}</h1>
+    <p>{{ t('webui.monitor.home.env_subtitle') }}</p>
   </div>
   <div class="page-inline-actions">
-    <a class="btn btn-ghost" href="{{ lang_url(MONITOR_PATH) }}">↻ Refresh</a>
-    <a class="btn btn-primary" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}">View All DAGs →</a>
+    <a class="btn btn-ghost" href="{{ lang_url(MONITOR_PATH) }}">↻ {{ t('webui.common.refresh') }}</a>
+    <a class="btn btn-primary" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}">{{ t('webui.monitor.home.view_all_dags') }} →</a>
   </div>
 </section>
 
 <section class="panel home-health-panel">
-  <p class="eyebrow u-mb-md">System Health</p>
+  <p class="eyebrow u-mb-md">{{ t('webui.monitor.health.eyebrow') }}</p>
   <div class="health-grid">
     {% for check in health_checks %}
     <div class="health-card {{ 'health-ok' if check.status == 'ok' else ('health-warn' if check.status == 'degraded' else 'health-bad') }}">
@@ -33,49 +33,49 @@
 
 <div class="grid-2">
   <section class="panel">
-    <p class="eyebrow u-mb-md">DAG Status Overview</p>
+    <p class="eyebrow u-mb-md">{{ t('webui.monitor.home.dag_status.eyebrow') }}</p>
     <div class="dag-status-grid">
-      <a class="dag-status-card dag-status-failed" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=bad" aria-label="Failed DAGs: {{ failed_runs }}">
+      <a class="dag-status-card dag-status-failed" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=bad" aria-label="{{ t('webui.monitor.home.dag_status.failed_dags') }}: {{ failed_runs }}">
         <span class="dag-status-count">{{ failed_runs }}</span>
-        <span class="dag-status-label">Failed DAGs</span>
+        <span class="dag-status-label">{{ t('webui.monitor.home.dag_status.failed_dags') }}</span>
       </a>
-      <a class="dag-status-card dag-status-running" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=warn" aria-label="Running DAGs: {{ active_runs }}">
+      <a class="dag-status-card dag-status-running" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=warn" aria-label="{{ t('webui.monitor.home.dag_status.running_dags') }}: {{ active_runs }}">
         <span class="dag-status-count">{{ active_runs }}</span>
-        <span class="dag-status-label">Running DAGs</span>
+        <span class="dag-status-label">{{ t('webui.monitor.home.dag_status.running_dags') }}</span>
       </a>
-      <a class="dag-status-card dag-status-active" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=ok" aria-label="Active DAGs: {{ healthy_runs }}">
+      <a class="dag-status-card dag-status-active" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=ok" aria-label="{{ t('webui.monitor.home.dag_status.active_dags') }}: {{ healthy_runs }}">
         <span class="dag-status-count">{{ healthy_runs }}</span>
-        <span class="dag-status-label">Active DAGs</span>
+        <span class="dag-status-label">{{ t('webui.monitor.home.dag_status.active_dags') }}</span>
       </a>
-      <a class="dag-status-card" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=paused" aria-label="Paused DAGs: {{ paused_pipelines|default(0) }}">
+      <a class="dag-status-card" href="{{ lang_url(MONITOR_PIPELINES_PATH) }}?state=paused" aria-label="{{ t('webui.monitor.home.dag_status.paused_dags') }}: {{ paused_pipelines|default(0) }}">
         <span class="dag-status-count">{{ paused_pipelines|default(0) }}</span>
-        <span class="dag-status-label">Paused DAGs</span>
+        <span class="dag-status-label">{{ t('webui.monitor.home.dag_status.paused_dags') }}</span>
       </a>
     </div>
   </section>
 
   <section class="panel">
-    <p class="eyebrow u-mb-md">Last 24h Statistics</p>
+    <p class="eyebrow u-mb-md">{{ t('webui.monitor.home.last24h.eyebrow') }}</p>
     <div class="stats-grid">
       <div class="stat-card">
         <span class="stat-value">{{ total_runs_24h|default(0) }}</span>
-        <span class="stat-label">Total DAG Runs (24h)</span>
-        <span class="stat-detail">{{ runs_change|default('+0%') }} vs yesterday</span>
+        <span class="stat-label">{{ t('webui.monitor.home.last24h.total_runs') }} (24h)</span>
+        <span class="stat-detail">{{ runs_change|default('+0%') }} {{ t('webui.monitor.home.last24h.vs_yesterday') }}</span>
       </div>
       <div class="stat-card">
         <span class="stat-value">{{ success_rate|default('0%') }}</span>
-        <span class="stat-label">Success Rate</span>
+        <span class="stat-label">{{ t('webui.monitor.home.last24h.success_rate') }}</span>
         <span class="stat-detail">{{ healthy_runs }} / {{ total_runs_24h|default(0) }}</span>
       </div>
       <div class="stat-card">
         <span class="stat-value">{{ failed_tasks|default(0) }}</span>
-        <span class="stat-label">Failed Tasks</span>
-        <span class="stat-detail">across {{ failed_dags|default(0) }} DAGs</span>
+        <span class="stat-label">{{ t('webui.monitor.home.last24h.failed_tasks') }}</span>
+        <span class="stat-detail">{{ t('webui.monitor.home.last24h.across_dags', count=failed_dags|default(0)) }}</span>
       </div>
       <div class="stat-card">
         <span class="stat-value">{{ avg_duration|default('-') }}</span>
-        <span class="stat-label">Avg Duration</span>
-        <span class="stat-detail">all DAGs</span>
+        <span class="stat-label">{{ t('webui.monitor.home.last24h.avg_duration') }}</span>
+        <span class="stat-detail">{{ t('webui.monitor.home.last24h.all_dags') }}</span>
       </div>
     </div>
   </section>
@@ -84,19 +84,19 @@
 <section class="panel home-recent-runs">
   <div class="panel-head">
     <div>
-      <p class="eyebrow">Recent DAG Runs</p>
+      <p class="eyebrow">{{ t('webui.monitor.home.recent_runs.eyebrow') }}</p>
     </div>
-    <a class="btn btn-ghost btn-small" href="{{ lang_url(MONITOR_DAG_RUNS_PATH) }}">View All</a>
+    <a class="btn btn-ghost btn-small" href="{{ lang_url(MONITOR_DAG_RUNS_PATH) }}">{{ t('webui.common.view_all') }}</a>
   </div>
   <div class="table-wrap">
     <table class="air-table">
       <thead>
         <tr>
-          <th>DAG ID</th>
-          <th>Run ID</th>
-          <th>Status</th>
-          <th>Duration</th>
-          <th>Start Time</th>
+          <th>{{ t('webui.common.table.dag_id') }}</th>
+          <th>{{ t('webui.common.table.run_id') }}</th>
+          <th>{{ t('webui.common.table.status') }}</th>
+          <th>{{ t('webui.common.table.duration') }}</th>
+          <th>{{ t('webui.common.table.start_time') }}</th>
           <th></th>
         </tr>
       </thead>
@@ -110,12 +110,12 @@
           <td>{{ fmt(row.started_at or row.execution_date) }}</td>
           <td class="cell-actions">
             {% if row.run_id %}
-            <a class="btn btn-ghost btn-small" href="{{ lang_url(monitor_pipeline_run_detail_path(row.pipeline_name, row.run_id)) }}">Logs</a>
+            <a class="btn btn-ghost btn-small" href="{{ lang_url(monitor_pipeline_run_detail_path(row.pipeline_name, row.run_id)) }}">{{ t('webui.common.logs') }}</a>
             {% endif %}
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="6" class="empty">No DAG runs found</td></tr>
+        <tr><td colspan="6" class="empty">{{ t('webui.monitor.home.empty.no_dag_runs') }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
