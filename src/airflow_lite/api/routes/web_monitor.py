@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse
 
 from airflow_lite.api.dependencies import (
     get_backfill_map,
+    get_dag_state_service,
     get_dispatch_service,
     get_language,
     get_run_repo,
@@ -78,8 +79,9 @@ def get_monitor_home_page(request: Request, language: str = Depends(get_language
     settings = request.app.state.settings
     run_repo = get_run_repo(request)
     step_repo = get_step_repo(request)
+    dag_state_service = getattr(request.app.state, "dag_state_service", None)
 
-    pipeline_rows = build_pipeline_rows(settings, run_repo, step_repo)
+    pipeline_rows = build_pipeline_rows(settings, run_repo, step_repo, dag_state_service)
     health_checks = [
         _check_scheduler(request),
         _check_mart_db(request),
@@ -109,7 +111,8 @@ def get_monitor_pipeline_list_page(
     settings = request.app.state.settings
     run_repo = get_run_repo(request)
     step_repo = get_step_repo(request)
-    pipeline_rows = build_pipeline_rows(settings, run_repo, step_repo)
+    dag_state_service = getattr(request.app.state, "dag_state_service", None)
+    pipeline_rows = build_pipeline_rows(settings, run_repo, step_repo, dag_state_service)
 
     return HTMLResponse(
         render_pipeline_list_page(
@@ -302,3 +305,63 @@ def get_run_detail_page(
             operation_notice=operation_notice(language, action=action),
         )
     )
+
+
+@router.post(f"{MONITOR_PIPELINES_PATH}/{{name}}/pause")
+async def pause_pipeline(
+    name: str,
+    request: Request,
+    request_language: str = Depends(get_language),
+):
+    form_data = await read_form_data(request)
+    language = resolve_request_language(
+        request,
+        _first_value(form_data, "lang") or request.query_params.get("lang"),
+    )
+    settings = get_settings(request)
+    if not any(p.name == name for p in settings.pipelines):
+        return not_configured("Pipeline", active_path=MONITOR_PIPELINES_PATH, language=language or request_language)
+
+    dag_state_service = get_dag_state_service(request)
+    dag_state_service.set_paused(name, True)
+    return redirect(MONITOR_PIPELINES_PATH, language=language or request_language, action="paused")
+
+
+@router.post(f"{MONITOR_PIPELINES_PATH}/{{name}}/unpause")
+async def unpause_pipeline(
+    name: str,
+    request: Request,
+    request_language: str = Depends(get_language),
+):
+    form_data = await read_form_data(request)
+    language = resolve_request_language(
+        request,
+        _first_value(form_data, "lang") or request.query_params.get("lang"),
+    )
+    settings = get_settings(request)
+    if not any(p.name == name for p in settings.pipelines):
+        return not_configured("Pipeline", active_path=MONITOR_PIPELINES_PATH, language=language or request_language)
+
+    dag_state_service = get_dag_state_service(request)
+    dag_state_service.set_paused(name, False)
+    return redirect(MONITOR_PIPELINES_PATH, language=language or request_language, action="unpaused")
+
+
+@router.post(f"{MONITOR_PIPELINES_PATH}/{{name}}/delete")
+async def delete_pipeline_runs(
+    name: str,
+    request: Request,
+    request_language: str = Depends(get_language),
+):
+    form_data = await read_form_data(request)
+    language = resolve_request_language(
+        request,
+        _first_value(form_data, "lang") or request.query_params.get("lang"),
+    )
+    settings = get_settings(request)
+    if not any(p.name == name for p in settings.pipelines):
+        return not_configured("Pipeline", active_path=MONITOR_PIPELINES_PATH, language=language or request_language)
+
+    run_repo = get_run_repo(request)
+    deleted_count = run_repo.delete_by_pipeline(name)
+    return redirect(MONITOR_PIPELINES_PATH, language=language or request_language, action="deleted", count=deleted_count)

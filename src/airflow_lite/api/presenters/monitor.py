@@ -27,14 +27,18 @@ def calc_next_run(schedule_cron: str) -> str | None:
     return None
 
 
-def build_pipeline_rows(settings, run_repo, step_repo) -> list[dict]:
+def build_pipeline_rows(settings, run_repo, step_repo, dag_state_service=None) -> list[dict]:
     """Build the list-of-dicts consumed by `render_monitor_page`."""
     webui = settings.webui
     pipeline_rows: list[dict] = []
     for pipeline in settings.pipelines:
         recent_runs: list[dict] = []
         latest_run = None
-        is_paused = bool(getattr(pipeline, "paused", getattr(pipeline, "is_paused", False)))
+        config_paused = bool(getattr(pipeline, "paused", getattr(pipeline, "is_paused", False)))
+        if dag_state_service is not None:
+            is_paused = dag_state_service.get_effective_paused(pipeline.name, config_paused)
+        else:
+            is_paused = config_paused
         if run_repo is not None:
             runs = run_repo.find_by_pipeline(pipeline.name, limit=webui.recent_runs_limit)
             recent_runs = [

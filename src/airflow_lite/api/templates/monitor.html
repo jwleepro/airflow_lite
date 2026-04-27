@@ -101,7 +101,25 @@
                 <button class="btn btn-ghost btn-small" type="submit" title="Trigger" aria-label="Trigger {{ row.name }}">▶</button>
               </form>
               {% endif %}
-              <button type="button" class="btn btn-ghost btn-small" title="More" aria-label="More options for {{ row.name }}">⋯</button>
+              <div class="dropdown">
+                <button type="button" class="btn btn-ghost btn-small dropdown-toggle" data-dropdown-toggle title="More" aria-label="More options for {{ row.name }}">⋯</button>
+                <div class="dropdown-menu">
+                  {% if is_active %}
+                  <form method="post" action="{{ lang_url(MONITOR_PIPELINES_PATH ~ '/' ~ row.name ~ '/pause') }}" class="inline-form">
+                    <button type="submit" class="dropdown-item">⏸ Pause DAG</button>
+                  </form>
+                  {% else %}
+                  <form method="post" action="{{ lang_url(MONITOR_PIPELINES_PATH ~ '/' ~ row.name ~ '/unpause') }}" class="inline-form">
+                    <button type="submit" class="dropdown-item">▶ Unpause DAG</button>
+                  </form>
+                  {% endif %}
+                  <a href="{{ lang_url(monitor_pipeline_detail_path(row.name)) }}" class="dropdown-item">📄 View Details</a>
+                  <div class="dropdown-divider"></div>
+                  <form method="post" action="{{ lang_url(MONITOR_PIPELINES_PATH ~ '/' ~ row.name ~ '/delete') }}" class="inline-form" onsubmit="return confirm('Delete all runs for {{ row.name }}?');">
+                    <button type="submit" class="dropdown-item danger">🗑 Delete Runs</button>
+                  </form>
+                </div>
+              </div>
             </div>
           </td>
         </tr>

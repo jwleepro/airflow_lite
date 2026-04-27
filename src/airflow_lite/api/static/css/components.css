@@ -489,3 +489,13 @@ dd {
 
 .filter-form { display: grid; gap: 16px; }
 .filter-form .actions { margin-top: 8px; }
+
+.dropdown { position: relative; display: inline-block; }
+.dropdown-toggle { cursor: pointer; }
+.dropdown-menu { display: none; position: absolute; top: 100%; right: 0; z-index: 50; min-width: 160px; margin-top: 4px; padding: 4px 0; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; box-shadow: var(--shadow); }
+.dropdown.open .dropdown-menu { display: block; }
+.dropdown-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; border: none; background: none; color: var(--ink-soft); font-size: var(--font-sm); text-align: left; cursor: pointer; }
+.dropdown-item:hover { background: var(--surface-strong); }
+.dropdown-item.danger { color: var(--bad-ink); }
+.dropdown-item.danger:hover { background: var(--bad-bg); }
+.dropdown-divider { height: 1px; margin: 4px 0; background: var(--line); }
