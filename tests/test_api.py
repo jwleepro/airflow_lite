@@ -248,6 +248,9 @@ def test_monitor_pipeline_list_actions_do_not_call_unregistered_pipeline_routes(
     assert response.status_code == 200
     body = response.text
     assert 'data-dag-action="refresh"' in body
+    assert 'title="Delete DAG is not available in this runtime"' in body
+    assert 'aria-label="Delete test_pipeline"' in body
+    assert 'aria-disabled="true"' in body
     assert 'data-dag-action="delete"' not in body
 
     app_js = (
@@ -261,6 +264,8 @@ def test_monitor_pipeline_list_actions_do_not_call_unregistered_pipeline_routes(
     ).read_text(encoding="utf-8")
     assert "/api/pipelines/" not in app_js
     assert "/api/v1/pipelines/" not in app_js
+    assert '/refresh"' not in app_js
+    assert 'method: "DELETE"' not in app_js
 
 
 def test_monitor_pipeline_list_page_recent_runs_render_latest_to_oldest():

@@ -162,6 +162,20 @@ button:hover,
   border-color: var(--line-strong);
 }
 
+.btn:disabled,
+button:disabled,
+.button-link[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.btn:disabled:hover,
+button:disabled:hover,
+.button-link[aria-disabled="true"]:hover {
+  background: transparent;
+  border-color: var(--line);
+}
+
 .btn-primary,
 .btn.primary {
   background: var(--brand);

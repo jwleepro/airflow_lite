@@ -10,7 +10,7 @@
     <p>{{ pipeline_rows|length }} of {{ total_pipelines }} DAGs shown</p>
   </div>
   <div class="page-inline-actions">
-    <button type="button" class="btn btn-primary">＋ Import DAG</button>
+    <button type="button" class="btn btn-primary" disabled aria-disabled="true" title="Import DAG is not available in this runtime">＋ Import DAG</button>
   </div>
 </section>
 
@@ -102,6 +102,7 @@
               </form>
               {% endif %}
               <button type="button" class="btn btn-icon btn-ghost btn-small" data-dag-action="refresh" title="Refresh" aria-label="Refresh DAG list">↻</button>
+              <button type="button" class="btn btn-icon btn-ghost btn-small btn-danger" disabled aria-disabled="true" title="Delete DAG is not available in this runtime" aria-label="Delete {{ row.name }}">×</button>
             </div>
           </td>
         </tr>
