@@ -32,6 +32,18 @@
   --neutral-ink: #94a3b8;
   --operator-ink: #c084fc;
   --shadow: 0 24px 48px rgba(0, 0, 0, 0.28);
+
+  --font-2xs: 10px;
+  --font-xs: 11px;
+  --font-sm: 12px;
+  --font-md: 13px;
+  --font-base: 14px;
+  --font-lg: 15px;
+  --font-xl: 16px;
+  --font-2xl: 20px;
+  --font-3xl: 22px;
+  --font-4xl: 28px;
+  --font-mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
 :root[data-theme="light"] {
@@ -68,6 +80,18 @@
   --neutral-ink: #475569;
   --operator-ink: #9333ea;
   --shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+
+  --font-2xs: 10px;
+  --font-xs: 11px;
+  --font-sm: 12px;
+  --font-md: 13px;
+  --font-base: 14px;
+  --font-lg: 15px;
+  --font-xl: 16px;
+  --font-2xl: 20px;
+  --font-3xl: 22px;
+  --font-4xl: 28px;
+  --font-mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
 *,
@@ -86,7 +110,7 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
-  font-size: 14px;
+  font-size: var(--font-base);
   line-height: 1.5;
 }
 
@@ -109,7 +133,7 @@ textarea {
 code,
 pre,
 .cell-code {
-  font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: var(--font-mono);
 }
 
 ::-webkit-scrollbar {
